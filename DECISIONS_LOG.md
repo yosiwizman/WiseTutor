@@ -5,6 +5,20 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-12 — Baseline pushed to `bootstrap/wisetutor-baseline`, not `main`
+**Decision.** The first push lands on a `bootstrap/wisetutor-baseline`
+branch, not directly on `main`. Upstream `.github/workflows/*.yml` files
+were removed from the baseline to let the push through the current OAuth
+token (which lacks the `workflow` scope).
+**Reason.** Local `branch-guard` hook refuses pushes to protected `main`;
+GitHub refused the workflow files because the token isn't scoped to
+update Actions. Bootstrapping on a branch is the honest path.
+**Consequence.** The founder must either (a) merge
+`bootstrap/wisetutor-baseline` into `main` via the GitHub UI / PR, or
+(b) refresh the local `gh` token with `workflow` scope and push `main`
+directly. Product CI is Phase 6 anyway, so the dropped workflows are not
+load-bearing today.
+
 ## 2026-04-12 — WiseTutor formalized as the product repo
 **Decision.** The owner-controlled product repo is WiseTutor at
 `https://github.com/yosiwizman/WiseTutor`. Local working tree is

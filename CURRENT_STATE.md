@@ -27,6 +27,14 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
 - Playwright evidence folders live under `artifacts/fix_evidence/<ts>/` and
   `artifacts/popup_fix/<ts>/` (excluded from import; regenerate locally).
 
+## Remote state
+
+- Remotes configured: `origin` = `yosiwizman/WiseTutor`, `upstream` = `HKUDS/DeepTutor`.
+- Branch on `origin`: `bootstrap/wisetutor-baseline` (pushed 2026-04-12).
+- `main` on `origin` does NOT yet exist. Founder promotes the bootstrap
+  branch to `main` via GitHub (merge / PR or rename), or refreshes the
+  local `gh` token with `workflow` scope to push `main` directly.
+
 ## Designed but not executed (Tier 3)
 
 - WiseTutor rebrand (module names, UI strings, desktop launcher labels).
