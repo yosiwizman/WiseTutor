@@ -16,8 +16,9 @@ type PublicUser = {
 type UserList = { active_user_id: string; users: PublicUser[] };
 
 const API_BASE =
-  (typeof process !== "undefined" && (process.env.NEXT_PUBLIC_API_BASE as string)) ||
-  "http://localhost:8001";
+  typeof window !== "undefined"
+    ? window.location.origin
+    : (typeof process !== "undefined" && (process.env.NEXT_PUBLIC_API_BASE as string)) || "http://localhost:8001";
 
 const POPUP_WIDTH = 300;
 const MARGIN = 10;
@@ -55,7 +56,7 @@ export function UserSwitcher() {
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch(`${API_BASE}/api/v1/users`);
+      const r = await fetch(`${API_BASE}/api/v1/users`, { credentials: "include" });
       const j = (await r.json()) as UserList;
       setData(j);
     } catch {}
@@ -121,6 +122,7 @@ export function UserSwitcher() {
     setErr(null);
     try {
       const r = await fetch(`${API_BASE}/api/v1/users/switch`, {
+        credentials: "include",
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: target, pin }),

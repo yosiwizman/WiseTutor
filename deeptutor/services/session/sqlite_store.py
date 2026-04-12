@@ -732,38 +732,37 @@ class SQLiteSessionStore:
         return session
 
 
-_instance: SQLiteSessionStore | None = None
-_instance_user_id: str | None = None
+# Per-user session-store cache. No shared "active user" state — lookup is
+# by explicit user_id. Cross-user leakage is structurally impossible.
+_STORES: dict[str, SQLiteSessionStore] = {}
 
 
-def get_sqlite_session_store() -> SQLiteSessionStore:
-    """Per-user session DB. Cached by active user id so cross-user session lists cannot leak."""
-    global _instance, _instance_user_id
-    try:
-        from deeptutor.services.users import get_user_service
+def get_sqlite_session_store(user_id: str | None = None) -> SQLiteSessionStore:
+    """Return the session store for a specific user.
 
-        svc = get_user_service()
-        uid = svc.active_user_id()
-        db_path = svc.session_db(uid)
-        if _instance is None or _instance_user_id != uid:
-            db_path.parent.mkdir(parents=True, exist_ok=True)
-            _instance = SQLiteSessionStore(db_path=db_path)
-            _instance_user_id = uid
-        return _instance
-    except Exception:
-        # Extremely defensive: if the user service fails to import (e.g. during
-        # early bootstrap), fall back to the legacy global path. This keeps the
-        # app runnable even if users.json is missing.
-        if _instance is None:
-            _instance = SQLiteSessionStore()
-            _instance_user_id = None
-        return _instance
+    If user_id is None we fall back to UserService's active id for legacy
+    call sites that haven't been threaded yet. Live chat paths MUST pass it
+    explicitly.
+    """
+    from deeptutor.services.users import get_user_service
+
+    svc = get_user_service()
+    uid = user_id or svc.active_user_id()
+    inst = _STORES.get(uid)
+    if inst is not None:
+        return inst
+    db_path = svc.session_db(uid)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    inst = SQLiteSessionStore(db_path=db_path)
+    _STORES[uid] = inst
+    return inst
 
 
-def reset_sqlite_session_store() -> None:
-    global _instance, _instance_user_id
-    _instance = None
-    _instance_user_id = None
+def reset_sqlite_session_store(user_id: str | None = None) -> None:
+    if user_id is None:
+        _STORES.clear()
+    else:
+        _STORES.pop(user_id, None)
 
 
 __all__ = ["SQLiteSessionStore", "get_sqlite_session_store", "reset_sqlite_session_store"]

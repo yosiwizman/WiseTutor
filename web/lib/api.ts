@@ -2,20 +2,14 @@
 
 // Get API base URL from environment variable.
 // The launcher injects NEXT_PUBLIC_API_BASE from the canonical project-root `.env`.
+// WiseTutor uses a same-origin proxy in Next.js (`/api/:path*` → backend) so
+// that the signed `wt_uid` cookie flows across fetch AND WebSocket. In the
+// browser we always use the current origin. On the server we honor
+// NEXT_PUBLIC_API_BASE (for SSR/RSC fetches), defaulting to localhost:8001.
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE ||
-  (() => {
-    if (typeof window !== "undefined") {
-      console.error("NEXT_PUBLIC_API_BASE is not set.");
-      console.error(
-        "Please configure NEXT_PUBLIC_API_BASE in your environment and restart the application.",
-      );
-      console.error("Run python scripts/start_tour.py to rebuild your local setup if needed.");
-    }
-    throw new Error(
-      "NEXT_PUBLIC_API_BASE is not configured. Please set it in your environment and restart.",
-    );
-  })();
+  typeof window !== "undefined"
+    ? window.location.origin
+    : process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8001";
 
 /**
  * Construct a full API URL from a path

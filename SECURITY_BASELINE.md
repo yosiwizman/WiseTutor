@@ -2,6 +2,21 @@
 
 Local-only product today. This file captures the baseline rules.
 
+## Session identity (Phase 2 slice 2)
+
+- Identity is carried by a signed cookie `wt_uid = <user_id>.<HMAC-SHA256>`
+  with a 30-day rolling lifetime. Cookie is `HttpOnly; SameSite=Lax; Path=/`.
+  `Secure` is **off** in local dev; flip to `True` behind TLS.
+- HMAC secret loads from `WISETUTOR_SESSION_SECRET` or is generated into
+  `data/session_secret.key` (`chmod 600`) on first boot. No rotation layer
+  yet; rotation is Phase 2 slice 3.
+- WebSocket upgrades may also carry identity via a signed
+  `wt_uid_token=<user.sig>` query param. This is the same HMAC and is
+  equivalent in security; it exists because WS upgrades across origins can
+  drop cookies. Obtain via `GET /api/v1/users/ws-token`.
+- PINs with `pin_is_default=True` cannot send chat turns. The WS rejects
+  with `reason=pin_rotation_required`; the UI forces a change-PIN modal.
+
 ## User PINs (Phase 2 slice 1)
 
 - PINs are 4 digits. Stored as PBKDF2-SHA256 with a per-user 16-hex-char

@@ -55,6 +55,9 @@ class User:
     voice: dict[str, Any] = field(default_factory=dict)
     created_at: str = ""
     last_seen_at: str | None = None
+    # True while the user still has the seeded default PIN. Blocks chat usage
+    # until the owner rotates via POST /api/v1/users/{id}/pin.
+    pin_is_default: bool = True
 
     def verify_pin(self, pin: str) -> bool:
         if not self.pin_hash or not self.pin_salt:
@@ -72,6 +75,7 @@ class User:
             "created_at": self.created_at,
             "last_seen_at": self.last_seen_at,
             "pin_set": bool(self.pin_hash),
+            "pin_is_default": self.pin_is_default,
         }
 
 
@@ -91,6 +95,18 @@ class UserService:
         self._users_dir = self._data_root / "users"
         self._users: dict[str, User] = {}
         self._active_id: str | None = None
+        # Archive any pre-multi-user files BEFORE seeding. This keeps the live
+        # path clean (nothing reads those locations any more).
+        try:
+            from deeptutor.services.users.legacy_migration import run_legacy_migration
+
+            run_legacy_migration(self._data_root)
+        except Exception:
+            # Migration is best-effort; never block boot on it.
+            import logging
+            logging.getLogger(__name__).warning(
+                "legacy_migration raised; continuing boot", exc_info=True,
+            )
         self._load()
         self._seed_defaults()
 
@@ -204,10 +220,13 @@ class UserService:
                 raise KeyError(user_id)
             u.pin_salt = _mksalt()
             u.pin_hash = _hash_pin(new_pin, u.pin_salt)
+            u.pin_is_default = False  # owner/user rotated — gate lifts
             self._save()
 
     def switch(self, user_id: str, pin: str) -> User:
-        """Validate PIN then mark user active. Raises PermissionError on bad PIN."""
+        """Validate PIN and update last_seen. Does NOT change a process-global
+        active user — identity is per-request via signed cookie. `_active_id`
+        remains as a last-used hint only (for CLI / diagnostics)."""
         with self._lock:
             u = self._users.get(user_id)
             if not u:
@@ -215,16 +234,8 @@ class UserService:
             if not u.verify_pin(pin):
                 raise PermissionError("bad pin")
             u.last_seen_at = datetime.now(timezone.utc).isoformat()
-            self._active_id = u.id
+            self._active_id = u.id  # last-used hint; not a request identity
             self._save()
-            # Invalidate caches that were bound to the old user.
-            from deeptutor.services.memory import reset_memory_service
-            from deeptutor.services.session.sqlite_store import reset_sqlite_session_store
-            from deeptutor.services.session.turn_runtime import reset_turn_runtime_manager
-
-            reset_memory_service()
-            reset_sqlite_session_store()
-            reset_turn_runtime_manager()
             return u
 
     def upsert(

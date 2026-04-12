@@ -16,10 +16,15 @@ from __future__ import annotations
 import logging
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from deeptutor.services.users import get_user_service
+from deeptutor.services.users.identity import (
+    clear_user_cookie,
+    resolve_request_user,
+    set_user_cookie,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -45,35 +50,61 @@ class UpsertRequest(BaseModel):
 
 
 @router.get("")
-async def list_users():
+async def list_users(request: Request):
     svc = get_user_service()
+    # active_user_id in the response reflects the REQUEST's cookie, not the
+    # server-global last-used. This is the shape the frontend relies on.
+    uid_from_cookie = resolve_request_user(request)
     return {
-        "active_user_id": svc.active_user_id(),
+        "active_user_id": uid_from_cookie,
         "users": [u.public() for u in svc.list_users()],
     }
 
 
 @router.get("/active")
-async def active_user():
-    svc = get_user_service()
-    u = svc.active_user()
+async def active_user(request: Request):
+    uid = resolve_request_user(request)
+    if not uid:
+        raise HTTPException(status_code=401, detail="no_user")
+    u = get_user_service().get(uid)
     if not u:
-        raise HTTPException(status_code=404, detail="no active user")
+        raise HTTPException(status_code=401, detail="no_user")
     return u.public()
 
 
 @router.post("/switch")
-async def switch_user(req: SwitchRequest):
+async def switch_user(req: SwitchRequest, response: Response):
     svc = get_user_service()
     try:
         u = svc.switch(req.user_id, req.pin)
     except PermissionError:
         logger.info("user switch rejected: bad PIN for user_id=%s", req.user_id)
-        # Deliberately vague; do not reveal whether the user exists.
         raise HTTPException(status_code=403, detail="invalid credentials")
     except KeyError:
         raise HTTPException(status_code=403, detail="invalid credentials")
+    # Identity is carried by the signed cookie from here on. Only this request's
+    # client gains the new identity; other browser contexts are unaffected.
+    set_user_cookie(response, u.id)
     return {"active_user_id": u.id, "user": u.public()}
+
+
+@router.get("/ws-token")
+async def ws_token(request: Request):
+    """Return a short signed token derived from the request's cookie, usable
+    as `?wt_uid_token=...` on the WebSocket upgrade URL when the browser and
+    backend are on different origins."""
+    from deeptutor.services.users.identity import COOKIE_NAME, sign_user_id
+
+    uid = resolve_request_user(request)
+    if not uid:
+        raise HTTPException(status_code=401, detail="no_user")
+    return {"user_id": uid, "token": sign_user_id(uid), "cookie_name": COOKIE_NAME}
+
+
+@router.post("/logout")
+async def logout(response: Response):
+    clear_user_cookie(response)
+    return {"ok": True}
 
 
 @router.post("/{user_id}/pin")

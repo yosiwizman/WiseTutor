@@ -4,8 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { CircleCheck, CircleAlert, Loader2, RefreshCw, Info } from "lucide-react";
 
 const API_BASE =
-  (typeof process !== "undefined" && (process.env.NEXT_PUBLIC_API_BASE as string)) ||
-  "http://localhost:8001";
+  typeof window !== "undefined"
+    ? window.location.origin
+    : (typeof process !== "undefined" && (process.env.NEXT_PUBLIC_API_BASE as string)) || "http://localhost:8001";
 
 type Verified = { ok: boolean; at: string; error: string | null } | null;
 type Diag = {
@@ -35,8 +36,8 @@ export function RuntimeTruthPanel() {
   const reload = useCallback(async () => {
     try {
       const [d, c] = await Promise.all([
-        fetch(`${API_BASE}/api/v1/settings/diagnostics`).then((r) => r.json()),
-        fetch(`${API_BASE}/api/v1/settings/catalog`).then((r) => r.json()),
+        fetch(`${API_BASE}/api/v1/settings/diagnostics`, { credentials: "include" }).then((r) => r.json()),
+        fetch(`${API_BASE}/api/v1/settings/catalog`, { credentials: "include" }).then((r) => r.json()),
       ]);
       setDiag(d);
       setLlm(c?.catalog?.services?.llm ?? null);
@@ -51,6 +52,7 @@ export function RuntimeTruthPanel() {
     setBusy(k);
     try {
       await fetch(`${API_BASE}/api/v1/settings/verify`, {
+        credentials: "include",
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ service: "llm", profile_id, model_id }),
@@ -65,6 +67,7 @@ export function RuntimeTruthPanel() {
     setBusy("embedding");
     try {
       await fetch(`${API_BASE}/api/v1/settings/verify`, {
+        credentials: "include",
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ service: "embedding" }),
@@ -196,7 +199,8 @@ export function RuntimeTruthPanel() {
           <button
             onClick={async () => {
               if (!confirm("Quarantine PROFILE.md + SUMMARY.md and reset to clean?")) return;
-              await fetch(`${API_BASE}/api/v1/settings/memory/quarantine`, { method: "POST" });
+              await fetch(`${API_BASE}/api/v1/settings/memory/quarantine`, {
+        credentials: "include", method: "POST" });
               await reload();
             }}
             className="rounded-md border border-[var(--border)]/60 px-2 py-0.5 text-[11px] hover:bg-[var(--muted)]/30"

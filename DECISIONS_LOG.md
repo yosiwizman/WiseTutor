@@ -5,6 +5,29 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-12 — Per-request identity + legacy migration + forced PIN rotation (Phase 2 slice 2)
+**Decision.** Replaced the server-global "active user" with a per-request
+signed-cookie identity (`wt_uid = <user>.<HMAC>`). WebSocket identity is
+resolved from either the Cookie header or a `wt_uid_token=<signed>` query
+param. `_VERIFY_CACHE`, `MemoryService`, `SQLiteSessionStore`, and
+`TurnRuntimeManager` are keyed by user id; the old global active-user
+fallback was removed from live code paths. A one-shot legacy migration
+archives `data/memory/`, `data/chat_history.db`, `data/user/chat_history.db`,
+and `data/sessions/` into `data/users/_legacy/<ts>/` on first boot. A
+`pin_is_default` flag was added to `User`; the WebSocket rejects chat
+turns from users with `pin_is_default=True` (reason=`pin_rotation_required`),
+and the frontend `UserGate` forces a change-PIN dialog.
+**Reason.** Two browser contexts must be able to hold different active
+users simultaneously. A server-global active user could never satisfy that
+contract honestly. The seeded default PINs are a known weakness and must
+not gate real use.
+**Consequence.** The drift between the DeepTutor runtime dir and the
+WiseTutor repo is gone — the live backend and frontend now run from
+`/home/ai-desktop/projects/WiseTutor/` directly (venv + node_modules live
+there). Next.js proxies `/api/*` via same-origin rewrites so fetch cookies
+flow. WS uses a short-lived signed token because WS-upgrade cookies can be
+dropped across origins.
+
 ## 2026-04-12 — Multi-user foundation landed (Phase 2 slice 1 of N)
 **Decision.** Introduced a real `UserService` with a registry at
 `data/users.json` and per-user directories at `data/users/<id>/{memory,sessions.db}`.

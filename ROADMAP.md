@@ -46,17 +46,26 @@ decision.
 - [x] Frontend `UserSwitcher` with PIN modal
 - [x] 8 pytest + 3 Playwright cases, all green
 
-### Slice 2 — remaining multi-user gaps (NEXT)
-- [ ] Parallel users: current design is server-global active user. Real
-      multi-tab / multi-process isolation needs a per-request user identity
-      (cookie or header). Keep owner-local single-active for now; revisit
-      when a real second device uses WiseTutor.
-- [ ] Per-user verify cache (`_VERIFY_CACHE` is global today).
+### Slice 2 — per-request identity, legacy migration, forced PIN rotation (LANDED 2026-04-12)
+- [x] Per-request signed-cookie identity (`wt_uid = <user>.<HMAC>`)
+- [x] WebSocket identity via Cookie or signed `wt_uid_token` query param
+- [x] `_VERIFY_CACHE`, Memory/Sessions/Runtime all keyed by user id (no global)
+- [x] Legacy `data/memory/`, `data/chat_history.db`, `data/user/chat_history.db`,
+      `data/sessions/` → archived to `data/users/_legacy/<ts>/`
+- [x] Forced PIN rotation for seeded defaults (WS reject + UserGate modal)
+- [x] Next.js same-origin proxy for `/api/*`; WS uses signed-token param
+- [x] Live drift fix: backend and frontend now run from WiseTutor tree
+- [x] 6 pytest integration + 2 Playwright two-browser E2E — all green
+
+### Slice 3 — remaining multi-user gaps (NEXT)
 - [ ] Identity short-circuit includes "you are talking to user X" context.
-- [ ] Migration for legacy `data/memory/`, `data/chat_history.db`,
-      `data/sessions/` into an archived dir or user-0.
-- [ ] Owner-enforced PIN change flow in UI (on first unlock, force change
-      from the seeded default).
+- [ ] Per-user LLM/provider catalog (currently shared in `data/user/`).
+- [ ] Session-secret rotation + HTTPS-only cookie flag when deployed off
+      localhost.
+- [ ] Multi-tab rotation UX: the current UserGate reload clobbers in-flight
+      chat. Replace with a soft hand-off.
+- [ ] Remove the global `_active_id` last-used hint from `UserService` —
+      it's no longer read on the live path but still exists as "diagnostics".
 
 **Exit criteria (phase).** Two distinct users can chat with no memory
 crossover, verify caches scoped per user, and initial PINs replaced.

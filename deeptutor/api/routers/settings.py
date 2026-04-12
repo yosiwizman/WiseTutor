@@ -24,13 +24,31 @@ from deeptutor.services.path_service import get_path_service
 
 router = APIRouter()
 
-# In-memory last-verified cache (process-local, not persisted).
-# Keyed by f"{service}:{profile_id}:{model_id}" — value: {"ok": bool, "at": iso, "error": str|None}
-_VERIFY_CACHE: dict[str, dict[str, Any]] = {}
+# Per-user last-verified cache. Outer key is user_id from the signed cookie,
+# so two browser contexts can hold independent verify states.
+_VERIFY_CACHE_BY_USER: dict[str, dict[str, dict[str, Any]]] = {}
+
+
+def _user_cache(user_id: str | None) -> dict[str, dict[str, Any]]:
+    uid = user_id or "_anon"
+    bucket = _VERIFY_CACHE_BY_USER.get(uid)
+    if bucket is None:
+        bucket = {}
+        _VERIFY_CACHE_BY_USER[uid] = bucket
+    return bucket
 
 
 def _verify_key(service: str, profile_id: str, model_id: str) -> str:
     return f"{service}:{profile_id}:{model_id}"
+
+
+def _resolve_uid_from_request(request) -> str | None:
+    try:
+        from deeptutor.services.users.identity import resolve_request_user
+
+        return resolve_request_user(request)
+    except Exception:
+        return None
 
 
 def _set_active(catalog: dict[str, Any], service: str, profile_id: str, model_id: str) -> dict[str, Any]:
@@ -168,7 +186,7 @@ async def set_active_selection(payload: ActiveSelection):
 
 
 @router.post("/verify")
-async def verify_selection(payload: VerifyRequest):
+async def verify_selection(payload: VerifyRequest, request: Request):
     """Run a real provider call against a selection and record the result."""
     from deeptutor.services.config.provider_runtime import (
         resolve_embedding_runtime_config,
@@ -226,13 +244,13 @@ async def verify_selection(payload: VerifyRequest):
 
     from datetime import datetime, timezone
     ts = datetime.now(timezone.utc).isoformat()
-    _VERIFY_CACHE[key] = {"ok": ok, "at": ts, "error": error}
+    _user_cache(_resolve_uid_from_request(request))[key] = {"ok": ok, "at": ts, "error": error}
     return {"ok": ok, "at": ts, "error": error, "service": payload.service,
             "profile_id": pid, "model_id": mid, "snippet": (snippet or "")[:120] if ok else None}
 
 
 @router.get("/diagnostics")
-async def get_diagnostics():
+async def get_diagnostics(request: Request):
     """Runtime truth: active provider/model actually resolved by the runtime resolver.
     Never returns API keys. Independent of what a chat response self-reports."""
     from deeptutor.services.config.provider_runtime import (
@@ -269,8 +287,10 @@ async def get_diagnostics():
     emb_svc = catalog.get("services", {}).get("embedding", {})
     llm_key = _verify_key("llm", llm_svc.get("active_profile_id") or "", llm_svc.get("active_model_id") or "")
     emb_key = _verify_key("embedding", emb_svc.get("active_profile_id") or "", emb_svc.get("active_model_id") or "")
-    llm_info["last_verified"] = _VERIFY_CACHE.get(llm_key)
-    emb_info["last_verified"] = _VERIFY_CACHE.get(emb_key)
+    uid = _resolve_uid_from_request(request)
+    user_bucket = _user_cache(uid)
+    llm_info["last_verified"] = user_bucket.get(llm_key)
+    emb_info["last_verified"] = user_bucket.get(emb_key)
     search_svc = catalog.get("services", {}).get("search", {})
     search_profile = next((p for p in search_svc.get("profiles", []) if p.get("id") == search_svc.get("active_profile_id")), None) or (search_svc.get("profiles", [None])[0])
     search_info = None
@@ -293,7 +313,7 @@ async def get_diagnostics():
         "embedding": emb_info,
         "search": search_info,
         "memory": memory_info,
-        "verify_cache": {k: v for k, v in _VERIFY_CACHE.items()},
+        "verify_cache": {k: v for k, v in user_bucket.items()},
     }
 
 

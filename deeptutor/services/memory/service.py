@@ -457,31 +457,39 @@ def _strip_code_fence(content: str) -> str:
     return cleaned.strip()
 
 
-_memory_service: MemoryService | None = None
-_memory_service_user_id: str | None = None
+# Per-user MemoryService cache (keyed by user id). The old server-global
+# "active user" behavior is gone; get_memory_service() now REQUIRES a user id.
+# A dictionary keyed by uid holds instances — no shared mutable "active" state.
+_MEMORY_SERVICES: dict[str, "MemoryService"] = {}
 
 
-def get_memory_service() -> MemoryService:
-    """Return a user-scoped MemoryService. Cached per active user id so that
-    switching user via UserService invalidates this cache via reset_memory_service()."""
-    global _memory_service, _memory_service_user_id
+def get_memory_service(user_id: str | None = None) -> MemoryService:
+    """Return a MemoryService scoped to the given user_id.
+
+    If user_id is None, falls back to the UserService active id. This fallback
+    exists only for code paths that cannot yet thread a request-scoped user
+    through them (CLI, legacy routers). Live chat path MUST pass user_id
+    explicitly.
+    """
     from deeptutor.services.users import get_user_service
 
-    svc = get_user_service()
-    uid = svc.active_user_id()
-    if _memory_service is None or _memory_service_user_id != uid:
-        mem_dir = svc.memory_dir(uid)
-        mem_dir.mkdir(parents=True, exist_ok=True)
-        _memory_service = MemoryService(memory_dir=mem_dir)
-        _memory_service_user_id = uid
-    return _memory_service
+    uid = user_id or get_user_service().active_user_id()
+    inst = _MEMORY_SERVICES.get(uid)
+    if inst is not None:
+        return inst
+    mem_dir = get_user_service().memory_dir(uid)
+    mem_dir.mkdir(parents=True, exist_ok=True)
+    inst = MemoryService(memory_dir=mem_dir)
+    _MEMORY_SERVICES[uid] = inst
+    return inst
 
 
-def reset_memory_service() -> None:
-    """Invalidate the cached per-user MemoryService. Called after a user switch."""
-    global _memory_service, _memory_service_user_id
-    _memory_service = None
-    _memory_service_user_id = None
+def reset_memory_service(user_id: str | None = None) -> None:
+    """Invalidate a single user's MemoryService, or all if user_id is None."""
+    if user_id is None:
+        _MEMORY_SERVICES.clear()
+    else:
+        _MEMORY_SERVICES.pop(user_id, None)
 
 
 __all__ = [

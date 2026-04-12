@@ -35,6 +35,25 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
   branch to `main` via GitHub (merge / PR or rename), or refreshes the
   local `gh` token with `workflow` scope to push `main` directly.
 
+## Per-request identity + legacy migration + forced PIN rotation (Phase 2 slice 2) — PROVEN Tier 1
+
+- Identity is now a **per-request signed cookie** (`wt_uid`). No server-global
+  active user on the live path. WebSocket reads the cookie header or a signed
+  `wt_uid_token` query param.
+- `MemoryService`, `SQLiteSessionStore`, `TurnRuntimeManager`, and
+  `/api/v1/settings/{verify,diagnostics}` are all keyed by user id.
+- The legacy shared `data/memory/`, `data/user/chat_history.db`,
+  `data/chat_history.db`, and `data/sessions/` have been archived to
+  `data/users/_legacy/<timestamp>/` on the first boot from the WiseTutor tree.
+- Seeded-default PINs block chat: the WS rejects turns with
+  `reason=pin_rotation_required`, and the frontend `UserGate` renders a
+  mandatory change-PIN dialog until the user rotates.
+- Next.js proxies `/api/*` (not `/ws`) to the FastAPI backend so fetch
+  cookies flow same-origin.
+- Runtime source of truth: live backend + frontend run from
+  `/home/ai-desktop/projects/WiseTutor/` (not DeepTutor). Drift eliminated.
+- 6/6 pytest integration cases pass, 2/2 Playwright two-browser cases pass.
+
 ## Multi-user foundation (Phase 2 slice 1) — PROVEN Tier 1/2
 
 - `UserService` with registry at `data/users.json` and per-user directories at

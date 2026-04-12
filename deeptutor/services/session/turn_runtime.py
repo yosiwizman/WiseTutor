@@ -386,7 +386,10 @@ class TurnRuntimeManager:
                 language=payload.get("language", "en"),
                 on_event=lambda event: self._persist_and_publish(execution, event),
             )
-            memory_service = get_memory_service()
+            # Per-request user id stamped by unified_ws from the connection's
+            # signed cookie. No fallback to a server-global active user here.
+            _wt_user_id = payload.get("_wt_user_id") or execution.payload.get("_wt_user_id")
+            memory_service = get_memory_service(user_id=_wt_user_id)
             memory_context = memory_service.build_memory_context()
 
             if notebook_references:
@@ -635,30 +638,29 @@ class TurnRuntimeManager:
             logger.debug("Failed to mirror turn event to workspace", exc_info=True)
 
 
-_runtime_instance: TurnRuntimeManager | None = None
-_runtime_instance_user_id: str | None = None
+_RUNTIMES: dict[str, TurnRuntimeManager] = {}
 
 
-def reset_turn_runtime_manager() -> None:
-    global _runtime_instance, _runtime_instance_user_id
-    _runtime_instance = None
-    _runtime_instance_user_id = None
+def reset_turn_runtime_manager(user_id: str | None = None) -> None:
+    if user_id is None:
+        _RUNTIMES.clear()
+    else:
+        _RUNTIMES.pop(user_id, None)
 
 
-def get_turn_runtime_manager() -> TurnRuntimeManager:
-    """Cached per active user so its internal SessionManager + SQLiteStore
-    references pick up the per-user session DB after a switch."""
-    global _runtime_instance, _runtime_instance_user_id
-    try:
-        from deeptutor.services.users import get_user_service
+def get_turn_runtime_manager(user_id: str | None = None) -> TurnRuntimeManager:
+    """Per-user TurnRuntimeManager. Its internal store is constructed with
+    the per-user SQLiteSessionStore so the runtime cannot cross users."""
+    from deeptutor.services.session.sqlite_store import get_sqlite_session_store
+    from deeptutor.services.users import get_user_service
 
-        uid = get_user_service().active_user_id()
-    except Exception:
-        uid = None
-    if _runtime_instance is None or _runtime_instance_user_id != uid:
-        _runtime_instance = TurnRuntimeManager()
-        _runtime_instance_user_id = uid
-    return _runtime_instance
+    uid = user_id or get_user_service().active_user_id()
+    inst = _RUNTIMES.get(uid)
+    if inst is not None:
+        return inst
+    inst = TurnRuntimeManager(store=get_sqlite_session_store(uid))
+    _RUNTIMES[uid] = inst
+    return inst
 
 
 __all__ = [

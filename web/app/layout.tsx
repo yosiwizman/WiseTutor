@@ -4,6 +4,7 @@ import "./globals.css";
 import ThemeScript from "@/components/ThemeScript";
 import { AppShellProvider } from "@/context/AppShellContext";
 import { I18nClientBridge } from "@/i18n/I18nClientBridge";
+import { UserGate } from "@/components/chat/home/UserGate";
 
 const fontSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -18,8 +19,8 @@ const fontSerif = Lora({
 });
 
 export const metadata: Metadata = {
-  title: "DeepTutor",
-  description: "Agent-native intelligent learning companion",
+  title: "WiseTutor",
+  description: "WiseTutor — family tutoring assistant (Mr W + Bella)",
 };
 
 export default function RootLayout({
@@ -35,7 +36,7 @@ export default function RootLayout({
       <body className="font-sans bg-[var(--background)] text-[var(--foreground)]">
         <AppShellProvider>
           <I18nClientBridge>
-            {children}
+            <UserGate>{children}</UserGate>
           </I18nClientBridge>
         </AppShellProvider>
       </body>

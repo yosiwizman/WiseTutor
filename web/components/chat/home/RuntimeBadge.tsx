@@ -31,8 +31,9 @@ type Diag = {
 };
 
 const API_BASE =
-  (typeof process !== "undefined" && (process.env.NEXT_PUBLIC_API_BASE as string)) ||
-  "http://localhost:8001";
+  typeof window !== "undefined"
+    ? window.location.origin
+    : (typeof process !== "undefined" && (process.env.NEXT_PUBLIC_API_BASE as string)) || "http://localhost:8001";
 
 const POPUP_WIDTH = 340;
 const MARGIN = 10;
@@ -76,14 +77,14 @@ export function RuntimeBadge() {
 
   const loadCatalog = useCallback(async () => {
     try {
-      const r = await fetch(`${API_BASE}/api/v1/settings/catalog`);
+      const r = await fetch(`${API_BASE}/api/v1/settings/catalog`, { credentials: "include" });
       const j = await r.json();
       setLlm(j?.catalog?.services?.llm ?? null);
     } catch {}
   }, []);
   const loadDiag = useCallback(async () => {
     try {
-      const r = await fetch(`${API_BASE}/api/v1/settings/diagnostics`);
+      const r = await fetch(`${API_BASE}/api/v1/settings/diagnostics`, { credentials: "include" });
       setDiag(await r.json());
     } catch {}
   }, []);
@@ -174,6 +175,7 @@ export function RuntimeBadge() {
     setLastError(null);
     try {
       const r = await fetch(`${API_BASE}/api/v1/settings/active`, {
+        credentials: "include",
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ service: "llm", profile_id, model_id }),
@@ -192,6 +194,7 @@ export function RuntimeBadge() {
     setLastError(null);
     try {
       const r = await fetch(`${API_BASE}/api/v1/settings/verify`, {
+        credentials: "include",
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ service: "llm" }),

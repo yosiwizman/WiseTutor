@@ -5,11 +5,17 @@ Unified session history API.
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from deeptutor.services.session import get_sqlite_session_store
+from deeptutor.services.users.identity import resolve_request_user
 
 router = APIRouter()
+
+
+def _store_for(request: Request):
+    uid = resolve_request_user(request)
+    return get_sqlite_session_store(user_id=uid)
 
 
 class SessionRenameRequest(BaseModel):
@@ -48,17 +54,18 @@ def _format_quiz_results_message(answers: list[QuizResultItem]) -> str:
 
 @router.get("")
 async def list_sessions(
+    request: Request,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ):
-    store = get_sqlite_session_store()
+    store = _store_for(request)
     sessions = await store.list_sessions(limit=limit, offset=offset)
     return {"sessions": sessions}
 
 
 @router.get("/{session_id}")
-async def get_session(session_id: str):
-    store = get_sqlite_session_store()
+async def get_session(session_id: str, request: Request):
+    store = _store_for(request)
     session = await store.get_session_with_messages(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -66,8 +73,8 @@ async def get_session(session_id: str):
 
 
 @router.patch("/{session_id}")
-async def rename_session(session_id: str, payload: SessionRenameRequest):
-    store = get_sqlite_session_store()
+async def rename_session(session_id: str, payload: SessionRenameRequest, request: Request):
+    store = _store_for(request)
     updated = await store.update_session_title(session_id, payload.title)
     if not updated:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -76,8 +83,8 @@ async def rename_session(session_id: str, payload: SessionRenameRequest):
 
 
 @router.delete("/{session_id}")
-async def delete_session(session_id: str):
-    store = get_sqlite_session_store()
+async def delete_session(session_id: str, request: Request):
+    store = _store_for(request)
     deleted = await store.delete_session(session_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -85,10 +92,10 @@ async def delete_session(session_id: str):
 
 
 @router.post("/{session_id}/quiz-results")
-async def record_quiz_results(session_id: str, payload: QuizResultsRequest):
+async def record_quiz_results(session_id: str, payload: QuizResultsRequest, request: Request):
     if not payload.answers:
         raise HTTPException(status_code=400, detail="Quiz results are required")
-    store = get_sqlite_session_store()
+    store = _store_for(request)
     session = await store.get_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
