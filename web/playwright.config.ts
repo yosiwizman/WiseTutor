@@ -33,5 +33,10 @@ export default defineConfig({
       testMatch: "**/popup-layout.spec.ts",
       use: { ...devices["Desktop Chrome"] },
     },
+    {
+      name: "user-switcher",
+      testMatch: "**/user-switcher.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });

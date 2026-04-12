@@ -36,17 +36,30 @@ decision.
 
 ## Phase 2 — Real multi-user architecture
 
-- Namespace memory, sessions, and catalog state per user under
-  `data/users/<uid>/...`.
-- Define user identification mechanism (local profile switcher, cookie,
-  or auth). No external auth yet.
-- Migration plan for existing single-user data (assign it to user 0).
-- Per-user verify cache; runtime truth chip scoped to the current user.
-- Update identity short-circuit to include "you are talking to user X"
-  context without echoing PII.
+### Slice 1 — foundation (LANDED 2026-04-12)
+- [x] `UserService` + `data/users.json` registry
+- [x] Per-user dirs under `data/users/<id>/{memory,sessions.db}`
+- [x] `MemoryService` / `SQLiteSessionStore` / `TurnRuntimeManager` are
+      per-active-user and invalidate on switch
+- [x] Seed Mr W and Bella
+- [x] PIN-gated switch API + salted PBKDF2 hashes
+- [x] Frontend `UserSwitcher` with PIN modal
+- [x] 8 pytest + 3 Playwright cases, all green
 
-**Exit criteria.** Two distinct users can chat in parallel with no memory
-crossover; Playwright e2e proves isolation.
+### Slice 2 — remaining multi-user gaps (NEXT)
+- [ ] Parallel users: current design is server-global active user. Real
+      multi-tab / multi-process isolation needs a per-request user identity
+      (cookie or header). Keep owner-local single-active for now; revisit
+      when a real second device uses WiseTutor.
+- [ ] Per-user verify cache (`_VERIFY_CACHE` is global today).
+- [ ] Identity short-circuit includes "you are talking to user X" context.
+- [ ] Migration for legacy `data/memory/`, `data/chat_history.db`,
+      `data/sessions/` into an archived dir or user-0.
+- [ ] Owner-enforced PIN change flow in UI (on first unlock, force change
+      from the seeded default).
+
+**Exit criteria (phase).** Two distinct users can chat with no memory
+crossover, verify caches scoped per user, and initial PINs replaced.
 
 ## Phase 3 — Bella / Mr W profile separation
 

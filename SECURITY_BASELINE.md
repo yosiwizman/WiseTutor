@@ -2,6 +2,22 @@
 
 Local-only product today. This file captures the baseline rules.
 
+## User PINs (Phase 2 slice 1)
+
+- PINs are 4 digits. Stored as PBKDF2-SHA256 with a per-user 16-hex-char
+  salt and 50k iterations in `data/users.json`. The registry is
+  gitignored via `data/`.
+- **Default seeded PINs are intentionally weak**: Mr W = `1234`, Bella
+  = `5678`. Override on install with `WISETUTOR_DEFAULT_PIN_MRW` /
+  `WISETUTOR_DEFAULT_PIN_BELLA`, OR change immediately via
+  `POST /api/v1/users/{id}/pin` (requires current PIN).
+- `/api/v1/users` never returns `pin_hash` or `pin_salt`. Wrong PIN
+  returns HTTP 403 with a vague "invalid credentials" message so a leaked
+  response cannot distinguish bad-user from bad-PIN.
+- PIN input in the UI is a masked `<input type="password">` with
+  `inputMode="numeric"`; the value is sent over HTTP (local only) and
+  never logged.
+
 ## Secrets handling
 
 - No secret ever gets committed. The following are gitignored:

@@ -92,13 +92,17 @@ class MemoryService:
         self,
         path_service: PathService | None = None,
         store: SQLiteSessionStore | None = None,
+        memory_dir: Path | None = None,
     ) -> None:
         self._path_service = path_service or get_path_service()
         self._store = store or get_sqlite_session_store()
+        self._override_dir = memory_dir
         self._migrate_legacy()
 
     @property
     def _memory_dir(self) -> Path:
+        if self._override_dir is not None:
+            return self._override_dir
         return self._path_service.get_memory_dir()
 
     def _path(self, which: MemoryFile) -> Path:
@@ -454,18 +458,36 @@ def _strip_code_fence(content: str) -> str:
 
 
 _memory_service: MemoryService | None = None
+_memory_service_user_id: str | None = None
 
 
 def get_memory_service() -> MemoryService:
-    global _memory_service
-    if _memory_service is None:
-        _memory_service = MemoryService()
+    """Return a user-scoped MemoryService. Cached per active user id so that
+    switching user via UserService invalidates this cache via reset_memory_service()."""
+    global _memory_service, _memory_service_user_id
+    from deeptutor.services.users import get_user_service
+
+    svc = get_user_service()
+    uid = svc.active_user_id()
+    if _memory_service is None or _memory_service_user_id != uid:
+        mem_dir = svc.memory_dir(uid)
+        mem_dir.mkdir(parents=True, exist_ok=True)
+        _memory_service = MemoryService(memory_dir=mem_dir)
+        _memory_service_user_id = uid
     return _memory_service
+
+
+def reset_memory_service() -> None:
+    """Invalidate the cached per-user MemoryService. Called after a user switch."""
+    global _memory_service, _memory_service_user_id
+    _memory_service = None
+    _memory_service_user_id = None
 
 
 __all__ = [
     "MemoryFile",
     "MemoryService",
+    "reset_memory_service",
     "MemorySnapshot",
     "MemoryUpdateResult",
     "get_memory_service",

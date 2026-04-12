@@ -733,13 +733,37 @@ class SQLiteSessionStore:
 
 
 _instance: SQLiteSessionStore | None = None
+_instance_user_id: str | None = None
 
 
 def get_sqlite_session_store() -> SQLiteSessionStore:
-    global _instance
-    if _instance is None:
-        _instance = SQLiteSessionStore()
-    return _instance
+    """Per-user session DB. Cached by active user id so cross-user session lists cannot leak."""
+    global _instance, _instance_user_id
+    try:
+        from deeptutor.services.users import get_user_service
+
+        svc = get_user_service()
+        uid = svc.active_user_id()
+        db_path = svc.session_db(uid)
+        if _instance is None or _instance_user_id != uid:
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            _instance = SQLiteSessionStore(db_path=db_path)
+            _instance_user_id = uid
+        return _instance
+    except Exception:
+        # Extremely defensive: if the user service fails to import (e.g. during
+        # early bootstrap), fall back to the legacy global path. This keeps the
+        # app runnable even if users.json is missing.
+        if _instance is None:
+            _instance = SQLiteSessionStore()
+            _instance_user_id = None
+        return _instance
 
 
-__all__ = ["SQLiteSessionStore", "get_sqlite_session_store"]
+def reset_sqlite_session_store() -> None:
+    global _instance, _instance_user_id
+    _instance = None
+    _instance_user_id = None
+
+
+__all__ = ["SQLiteSessionStore", "get_sqlite_session_store", "reset_sqlite_session_store"]

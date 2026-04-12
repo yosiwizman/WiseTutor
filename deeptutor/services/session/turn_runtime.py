@@ -636,13 +636,33 @@ class TurnRuntimeManager:
 
 
 _runtime_instance: TurnRuntimeManager | None = None
+_runtime_instance_user_id: str | None = None
+
+
+def reset_turn_runtime_manager() -> None:
+    global _runtime_instance, _runtime_instance_user_id
+    _runtime_instance = None
+    _runtime_instance_user_id = None
 
 
 def get_turn_runtime_manager() -> TurnRuntimeManager:
-    global _runtime_instance
-    if _runtime_instance is None:
+    """Cached per active user so its internal SessionManager + SQLiteStore
+    references pick up the per-user session DB after a switch."""
+    global _runtime_instance, _runtime_instance_user_id
+    try:
+        from deeptutor.services.users import get_user_service
+
+        uid = get_user_service().active_user_id()
+    except Exception:
+        uid = None
+    if _runtime_instance is None or _runtime_instance_user_id != uid:
         _runtime_instance = TurnRuntimeManager()
+        _runtime_instance_user_id = uid
     return _runtime_instance
 
 
-__all__ = ["TurnRuntimeManager", "get_turn_runtime_manager"]
+__all__ = [
+    "TurnRuntimeManager",
+    "get_turn_runtime_manager",
+    "reset_turn_runtime_manager",
+]

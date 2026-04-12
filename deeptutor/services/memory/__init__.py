@@ -4,6 +4,7 @@ from .service import (
     MemorySnapshot,
     MemoryUpdateResult,
     get_memory_service,
+    reset_memory_service,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "MemorySnapshot",
     "MemoryUpdateResult",
     "get_memory_service",
+    "reset_memory_service",
 ]

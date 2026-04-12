@@ -21,8 +21,16 @@ Usage:
 """
 
 from .base_session_manager import BaseSessionManager
-from .sqlite_store import SQLiteSessionStore, get_sqlite_session_store
-from .turn_runtime import TurnRuntimeManager, get_turn_runtime_manager
+from .sqlite_store import (
+    SQLiteSessionStore,
+    get_sqlite_session_store,
+    reset_sqlite_session_store,
+)
+from .turn_runtime import (
+    TurnRuntimeManager,
+    get_turn_runtime_manager,
+    reset_turn_runtime_manager,
+)
 
 __all__ = [
     "BaseSessionManager",
@@ -30,4 +38,6 @@ __all__ = [
     "TurnRuntimeManager",
     "get_sqlite_session_store",
     "get_turn_runtime_manager",
+    "reset_sqlite_session_store",
+    "reset_turn_runtime_manager",
 ]

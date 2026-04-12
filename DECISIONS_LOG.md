@@ -5,6 +5,22 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-12 — Multi-user foundation landed (Phase 2 slice 1 of N)
+**Decision.** Introduced a real `UserService` with a registry at
+`data/users.json` and per-user directories at `data/users/<id>/{memory,sessions.db}`.
+`MemoryService` and `SQLiteSessionStore` are cached **per active user id**
+and invalidated on user switch. A new REST surface at `/api/v1/users`
+provides list/active/switch/pin-change/upsert with PBKDF2-SHA256 salted
+PIN hashes. Frontend adds a `UserSwitcher` next to the RuntimeBadge.
+**Reason.** The previous single-user shared PROFILE/SUMMARY pattern
+conflated Mr W and Bella. A shared file could never be a safe boundary.
+**Consequence.** `data/memory/` (the legacy shared dir) is no longer read
+by the live chat path; it remains on disk for reference. Per-user memory
+lives under `data/users/<id>/memory/`. Seeded users: Mr W (owner) and
+Bella (child). Dev-default PINs (Mr W=1234, Bella=5678) are configurable
+via `WISETUTOR_DEFAULT_PIN_MRW` / `WISETUTOR_DEFAULT_PIN_BELLA`. Owner
+MUST change these before any real use; see SECURITY_BASELINE.
+
 ## 2026-04-12 — Baseline pushed to `bootstrap/wisetutor-baseline`, not `main`
 **Decision.** The first push lands on a `bootstrap/wisetutor-baseline`
 branch, not directly on `main`. Upstream `.github/workflows/*.yml` files

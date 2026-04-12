@@ -35,11 +35,26 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
   branch to `main` via GitHub (merge / PR or rename), or refreshes the
   local `gh` token with `workflow` scope to push `main` directly.
 
+## Multi-user foundation (Phase 2 slice 1) — PROVEN Tier 1/2
+
+- `UserService` with registry at `data/users.json` and per-user directories at
+  `data/users/<id>/{memory,sessions.db}`.
+- Seed users on first run: `mrw` (Mr W, owner) and `bella` (Bella, child).
+- PINs are PBKDF2-SHA256 with per-user salt. Defaults are configurable via
+  `WISETUTOR_DEFAULT_PIN_MRW` and `WISETUTOR_DEFAULT_PIN_BELLA` env vars.
+- REST API at `/api/v1/users`: list, active, switch, pin change, upsert.
+  Wrong PIN → HTTP 403, never reveals which field was wrong.
+- `MemoryService`, `SQLiteSessionStore`, and `TurnRuntimeManager` all cache
+  per active user id and invalidate on switch.
+- Legacy shared `data/memory/` dir is no longer read by the chat path.
+- Frontend `UserSwitcher` component sits next to the RuntimeBadge pill;
+  profile switch opens a PIN modal and reloads the client on success.
+- 8/8 integration tests pass (`tests/integration/test_multi_user_isolation.py`).
+- 3/3 Playwright E2E pass (`web/tests/e2e/user-switcher.spec.ts`).
+
 ## Designed but not executed (Tier 3)
 
 - WiseTutor rebrand (module names, UI strings, desktop launcher labels).
-- Multi-user per-namespace memory.
-- Bella / Mr W per-user profile isolation.
 - Theme / appearance system.
 - Voice pipeline (STT/TTS).
 - CI for the product repo.

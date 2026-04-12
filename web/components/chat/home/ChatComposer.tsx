@@ -26,6 +26,7 @@ import type { VisualizeFormConfig } from "@/lib/visualize-types";
 import type { DeepResearchFormConfig, ResearchSource } from "@/lib/research-types";
 import { ReferenceChips } from "./ChatMessages";
 import { RuntimeBadge } from "./RuntimeBadge";
+import { UserSwitcher } from "./UserSwitcher";
 
 const QuizConfigPanel = dynamic(() => import("@/components/quiz/QuizConfigPanel"), {
   ssr: false,
@@ -357,7 +358,11 @@ export default function ChatComposer({
             </div>
           )}
 
-          <div className="border-t border-[var(--border)]/35 px-3 pt-1.5 pb-1 flex items-center justify-end">
+          <div className="border-t border-[var(--border)]/35 px-3 pt-1.5 pb-1 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-[10px] uppercase tracking-wide text-[var(--muted-foreground)]">WiseTutor</span>
+              <UserSwitcher />
+            </div>
             <RuntimeBadge />
           </div>
           <div className="border-t border-[var(--border)]/35 px-3 py-2">
