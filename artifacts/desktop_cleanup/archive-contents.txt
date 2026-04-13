@@ -1,0 +1,13 @@
+total 212
+drwxrwxr-x 5 ai-desktop ai-desktop   4096 Apr 13 19:10 .
+drwxrwxr-x 3 ai-desktop ai-desktop   4096 Apr 13 19:10 ..
+-rw-rw-r-- 1 ai-desktop ai-desktop   5165 Apr 10 07:22 3D-PRINT-MANUAL-TEST-FINAL_REPORT.md
+-rw-rw-r-- 1 ai-desktop ai-desktop  35474 Apr 10 07:24 3D-PRINT-MANUAL-TEST-REPORT.html
+drwxrwxr-x 2 ai-desktop ai-desktop   4096 Apr  6 22:47 AKIOR CTO BUILDING RULES 
+-rw-rw-r-- 1 ai-desktop ai-desktop 133537 Apr  9 00:07 AKIOR GROUND TRUTH AUDIT.txt
+drwxrwxr-x 3 ai-desktop ai-desktop   4096 Apr 13 12:50 akior-ssot-snapshot
+drwxrwxr-x 3 ai-desktop ai-desktop   4096 Apr  7 11:03 Claude_dual_operational_system_shadow_pack_2026-04-07
+-rwxrwxr-x 1 ai-desktop ai-desktop    345 Apr 12 14:18 DeepTutor.desktop
+-rwxrwxr-x 1 ai-desktop ai-desktop    288 Apr 12 14:18 DeepTutor Stop.desktop
+-rw-rw-r-- 1 ai-desktop ai-desktop   1936 Apr  9 09:54 HARDWARE Component Spec.txt
+-rw-rw-r-- 1 ai-desktop ai-desktop     13 Apr  9 09:02 mimeinfo.cache
