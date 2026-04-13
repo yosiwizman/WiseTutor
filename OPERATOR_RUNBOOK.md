@@ -118,3 +118,73 @@ After rollback, start the app again (section 1) and run the health check
 ---
 
 Need help? Text Yosi.
+
+---
+
+## 10. No-terminal host launch (on ai-desktop)
+
+**One-time setup:** run `bash host/install_host_launcher.sh` in a terminal
+(only needed once after a fresh clone or machine rebuild). This places a
+"WiseTutor" icon on the Desktop and in the app grid, and registers a user
+systemd unit so the app starts automatically when you log in.
+
+**Daily use:** double-click the "WiseTutor" icon on the Desktop. It calls
+`scripts_local/wt_launch.sh` under the hood, which starts the app and opens
+Chrome in app mode pointing at http://192.168.1.133:3782. A "WiseTutor — Stop"
+icon is placed alongside it to stop the app without a terminal.
+
+**Auto-start on login:** ENABLED (user systemd unit `wisetutor.service`).
+The app starts automatically each time you log in to ai-desktop.
+
+**Auto-start on boot without login:** NOT enabled — enabling that requires
+`sudo loginctl enable-linger`, which is a separate step and was not part
+of this setup. A logged-in session on ai-desktop is acceptable for family use.
+
+**Terminal still required for:** backups (`wt_backup.sh`), restore, rollback.
+Day-to-day launching no longer requires a terminal.
+
+**Router reservation (one-time):** the family URL `http://192.168.1.133:3782`
+is only stable if ai-desktop always gets the same LAN IP. Set a DHCP
+reservation in your router: go to DHCP Settings → Reserved Addresses →
+select the device named `ai-desktop-System-Product-Name` → reserve the IP
+`192.168.1.133`. This is a one-time step; the router remembers it.
+
+---
+
+## 11. Family members (Windows / Mac client launchers)
+
+Family members on Windows or Mac do not run any backend. They install a small
+launcher that opens the hosted app in their browser like a native app icon.
+
+**Windows — `dist/wisetutor-windows-launcher.zip`:**
+1. Send the zip file to the family member.
+2. They unzip it, right-click `install-wisetutor.ps1` → "Run with PowerShell".
+3. A WiseTutor icon appears on their Desktop and in the Start Menu.
+4. Double-click to launch. Chrome opens in app mode to `http://192.168.1.133:3782`.
+
+**Mac — `dist/wisetutor-macos-launcher.zip`:**
+1. Send the zip file to the family member.
+2. They unzip it and drag `WiseTutor.app` into Applications.
+3. First launch: right-click `WiseTutor.app` → Open → Open (macOS Gatekeeper
+   prompt). After that, launch from Launchpad normally.
+4. Fallback: if `WiseTutor.app` won't open, double-click `WiseTutor.command`
+   instead — it does the same thing.
+
+**What the launcher does:** opens `http://192.168.1.133:3782` in Chrome app
+mode. No local backend. No local frontend. No install beyond the small wrapper.
+
+**Requirements:** the family member must be on the home Wi-Fi, and ai-desktop
+must be switched on and logged in.
+
+**If the LAN IP ever changes:** rebuild the two zips on ai-desktop:
+```
+bash clients/windows/build-zip.sh
+bash clients/macos/build-zip.sh
+```
+Then send the new `dist/wisetutor-windows-launcher.zip` and
+`dist/wisetutor-macos-launcher.zip` to the family member. They reinstall.
+
+**Note:** these launchers were built and packaged on Linux. They have not been
+installed on a real Windows or real macOS machine yet (Tier 3 — designed, not
+confirmed). Confirm each OS path with a real install before declaring them
+production-ready.

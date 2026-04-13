@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=WiseTutor
+Comment=Launch WiseTutor (hosted on ai-desktop)
+Exec=/home/ai-desktop/projects/WiseTutor/scripts_local/wt_launch.sh
+Path=/home/ai-desktop/projects/WiseTutor
+Icon=/home/ai-desktop/projects/WiseTutor/web/public/logo-ver2.png
+Terminal=false
+Categories=Education;Network;

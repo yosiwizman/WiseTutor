@@ -5,6 +5,46 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Host-launch + Windows/macOS client launchers
+
+**Decision.** Convert WiseTutor from terminal-first family hosting into
+(a) no-terminal host launch on ai-desktop (Desktop icon + user systemd
+unit for login auto-start) and (b) one-click client launchers for
+Windows and macOS that open the hosted URL. Host remains on ai-desktop;
+clients NEVER run backend/frontend.
+
+**URL strategy.** LAN IP `http://192.168.1.133:3782` hardcoded in every
+launcher. Rationale:
+- Tailscale not installed; installing is out of scope this turn.
+- mDNS (`ai-desktop-System-Product-Name.local`) resolves to the Docker
+  bridge IP (`172.17.0.1`), not the LAN IP — unreliable.
+- LAN IP is honest today with a one-time DHCP reservation at the router.
+- Upgrade path: replace the URL in 4 launcher files + rebuild two zips:
+  `clients/windows/WiseTutor.bat`, `clients/windows/WiseTutor.url`,
+  `clients/macos/WiseTutor.app/Contents/MacOS/WiseTutor`,
+  `clients/macos/WiseTutor.command`. Then `bash clients/*/build-zip.sh`.
+  Family re-downloads.
+
+**Auto-start scope.** User systemd unit enabled for auto-start-on-login.
+Boot-without-login auto-start requires `loginctl enable-linger` with
+sudo; deferred — a logged-in session on ai-desktop is acceptable for
+family use.
+
+**Packaging honesty.** Windows and macOS launchers were BUILT on Linux
+but NOT installed/clicked on real Windows/macOS this session. Tier 3
+until the founder confirms one real install per OS.
+
+**Scope boundary.** No product features. No full desktop-app rewrite.
+No public-internet exposure.
+
+**Percentages.** Whole WiseTutor product: ~70% → ~72% (no-terminal host
+launch + installable family launchers remove a real usability barrier
+for non-technical users; Windows/macOS paths still Tier 3 until real
+install). Voice lane: ~52% unchanged. Whole company vision: ~11%
+unchanged.
+
+---
+
 ## 2026-04-13 — Private family deployment packaging
 
 **Decision.** Package WiseTutor for personal family use on ai-desktop via plain shell scripts under `scripts_local/wt_*.sh`, not systemd / Docker / cloud. Rationale: fastest honest shape for a non-technical operator (Mr W) on a single machine; all dependencies (Ollama, Piper model, `.env` secrets) are already local.

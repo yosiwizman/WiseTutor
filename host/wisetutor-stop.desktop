@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=WiseTutor — Stop
+Comment=Stop the WiseTutor backend and frontend
+Exec=/home/ai-desktop/projects/WiseTutor/scripts_local/wt_stop.sh
+Path=/home/ai-desktop/projects/WiseTutor
+Icon=process-stop
+Terminal=false
+Categories=Education;Network;

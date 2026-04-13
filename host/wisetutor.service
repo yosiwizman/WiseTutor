@@ -1,0 +1,14 @@
+[Unit]
+Description=WiseTutor hosted backend + frontend
+After=graphical-session.target network-online.target
+
+[Service]
+Type=forking
+WorkingDirectory=/home/ai-desktop/projects/WiseTutor
+ExecStart=/home/ai-desktop/projects/WiseTutor/scripts_local/wt_start.sh
+ExecStop=/home/ai-desktop/projects/WiseTutor/scripts_local/wt_stop.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

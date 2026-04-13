@@ -89,6 +89,35 @@ scripts under `scripts_local/wt_*.sh`. Operator runbook at
 
 **NOT in this slice:** Docker, systemd unit, multi-host, cloud, TLS, LAN auth hardening, automated monitoring. Personal use only.
 
+**Host no-terminal launch (2026-04-13):** `scripts_local/wt_launch.sh`
++ `host/wisetutor.desktop` (double-click icon) + `host/wisetutor.service`
+(user systemd unit, auto-start on login). Auto-start on boot without login
+is deferred (requires `sudo loginctl enable-linger`). `bash host/install_host_launcher.sh`
+is the one-command install.
+
+**Family client launchers (2026-04-13):**
+- Windows: `dist/wisetutor-windows-launcher.zip` — zipped .bat + .url +
+  PowerShell installer + README. Built on Linux host; **Gate B partial**
+  — never installed on real Windows this session.
+- macOS: `dist/wisetutor-macos-launcher.zip` — zipped `WiseTutor.app`
+  bundle + `WiseTutor.command` fallback + README. Built on Linux host;
+  **Gate C partial** — never installed on real macOS this session;
+  Gatekeeper may require right-click → Open on first launch.
+- Both launchers open `http://192.168.1.133:3782` in Chrome app mode.
+  Zero backend on client machines.
+
+**Evidence tiers:**
+- Host no-terminal launch (icon + wt_launch.sh + user systemd unit):
+  **Tier 2 local** — syntax-checked and tested for service bring-up
+  (systemctl --user enable is reversible).
+- Windows launcher zip built: **Tier 2 local** (on Linux host).
+- Windows launcher verified on real Windows: **Tier 3** (unverified).
+- macOS launcher zip built: **Tier 2 local** (on Linux host).
+- macOS launcher verified on real macOS: **Tier 3** (unverified).
+- Stable URL: **Tier 2 local** — LAN IP works on the home network;
+  assumes DHCP reservation at the router.
+- Tailscale/MagicDNS: **Tier 4 deferred**.
+
 ---
 
 ## Family alpha readiness (2026-04-13)

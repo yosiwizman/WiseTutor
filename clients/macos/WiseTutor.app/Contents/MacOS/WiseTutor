@@ -1,0 +1,10 @@
+#!/bin/bash
+URL="http://192.168.1.133:3782"
+
+# Try Google Chrome in --app mode first (feels like a real app).
+if [[ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]]; then
+  exec "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --app="$URL"
+fi
+
+# Fall back to whatever the user's default browser is.
+exec open "$URL"
