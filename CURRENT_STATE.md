@@ -57,6 +57,31 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
 
 **Out of scope for this slice (deferred):** TTS, full voice conversation, wake word, server-side STT, transcript history, waveform visualizer.
 
+## Phase 5 slice 2 — Whisper local fallback — **LANDED (local Tier 2)**
+
+**What is built (code):**
+- `deeptutor/api/routers/voice.py` — `POST /api/v1/voice/transcribe` accepts a short audio clip, runs `faster-whisper` locally (lazy-loaded, model defaults to `tiny`, CPU int8), and returns `{text, engine, model}`. `GET /api/v1/voice/status` exposes model/device/max-bytes. Hard byte guardrail (default 5 MB) with 413 on exceed; 400 on empty audio; 503 with `local_whisper_unavailable` if `faster-whisper` is not installed. Deterministic test seam: `WISETUTOR_VOICE_STT_TEST_MODE=1` short-circuits all model loading and returns the `X-WT-Test-Transcript` header (or a fixed stub).
+- `web/lib/whisper-fallback.ts` — `createWhisperFallbackAdapter` speaks the same `SpeechAdapter` interface as the browser-native path. Uses `MediaRecorder` + `getUserMedia`, POSTs the captured clip to `/api/v1/voice/transcribe`, emits one final transcript on response. Deterministic seam: `window.__wt_test_fallback` + `__wt_test_fallback_driver` drive the adapter without real recording or fetch.
+- `web/components/chat/home/MicButton.tsx` now composes both engines: browser-native Web Speech is tried first; if unsupported AND `isWhisperFallbackSupported()` is true, the fallback adapter is selected. A new `data-engine` attribute (`browser-native` | `whisper-fallback` | `unsupported`) exposes the live choice for tests and diagnostics.
+- **Runtime failover (native → fallback):** if the browser-native path selects at mount and then emits a recoverable `error-generic` at runtime, MicButton rebinds `adapterRef` to the Whisper fallback once per mount, clears the error to `idle`, and flips `data-failed-over` to `"true"`. The next mic click uses the fallback. `error-permission` and `error-unsupported` are terminal — they do NOT failover (a surprise fallback after permission-denied would be misleading). Failover fires at most once per mount: if the fallback itself errors, the error stays visible and no further rebind happens.
+- Append semantics, no-auto-send, user-switch cleanup, and error-state behavior are identical across both engines.
+
+**Evidence tiers (honest):**
+- Whisper fallback backend (endpoint wiring + guardrails + test-mode seam): **Tier 2 (local)** — 6 pytest cases under `tests/api/test_voice_router.py` pass hermetically (no model download, no audio).
+- Whisper fallback frontend composition (engine selection, append, error, user-switch, native→fallback runtime failover): **Tier 2 (local)** — 9 Playwright cases under `web/tests/e2e/voice-stt-fallback.spec.ts` (project `voice-stt-fallback`) pass against a running local backend, including 4 dedicated failover cases (rebind on native generic error, post-failover no-auto-send, permission-denied stays terminal, failover fires at most once).
+- Real faster-whisper model transcription on real audio: **Tier 3** — not independently executed in this session. Requires the optional `faster-whisper` install and a human with a real microphone; intentionally not run here.
+- Hosted CI: **NOT wired**. The hosted CI box does not have `faster-whisper` installed and cannot honestly run the real model. The `voice-stt-fallback` Playwright project can run hosted in its deterministic-seam mode, but that would re-prove seams already covered locally; not worth hosting until the real-mic proof pack exists. Left out of hosted CI on purpose.
+
+**Runtime behavior:**
+- If Web Speech API is available → browser-native engine is used (unchanged from Slice 1).
+- If Web Speech API is unavailable (e.g., Firefox) and the browser has `MediaRecorder` → Whisper fallback engine is used: user clicks mic, records a short clip, releases, backend returns text, text is appended to draft, nothing is auto-sent.
+- If neither is available → button is disabled with the `unsupported` status message.
+- Backend 503 / 4xx / 5xx on the fallback round-trip surfaces as `error-generic` in the existing MicButton error UI.
+
+**Install note for real-mic production use:** `pip install faster-whisper` (not added to default `requirements/server.txt` to keep the base server install light; the endpoint reports `local_whisper_unavailable` with a clean 503 when the package is missing).
+
+**What this does NOT prove:** that a real user on Firefox dictating real audio gets an accurate transcript back from `faster-whisper`. That is still a human proof.
+
 ## Phase 6 slice 1 — CI foundation — **LANDED** (hosted green)
 
 **Remote green.** First green GitHub-hosted Actions run:

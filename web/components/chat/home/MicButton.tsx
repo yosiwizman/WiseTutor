@@ -7,6 +7,12 @@ import {
   type SpeechAdapter,
   type SpeechAdapterState,
 } from "@/lib/speech-recognition";
+import {
+  createWhisperFallbackAdapter,
+  isWhisperFallbackSupported,
+} from "@/lib/whisper-fallback";
+
+type MicEngine = "browser-native" | "whisper-fallback" | "unsupported";
 
 interface Props {
   input: string;
@@ -31,21 +37,30 @@ export function MicButton({ input, onInputChange, disabled }: Props) {
   const [state, setState] = useState<SpeechAdapterState>("idle");
   const [interim, setInterim] = useState("");
   const [supported, setSupported] = useState<boolean | null>(null);
+  const [engine, setEngine] = useState<MicEngine>("unsupported");
+  const [failedOver, setFailedOver] = useState(false);
   const inputRef = useRef(input);
   const adapterRef = useRef<SpeechAdapter | null>(null);
+  const engineRef = useRef<MicEngine>("unsupported");
+  const failoverUsedRef = useRef(false);
 
   useEffect(() => {
     inputRef.current = input;
   }, [input]);
 
   useEffect(() => {
-    const adapter = createSpeechAdapter({
+    // Shared event handlers. `onError` implements the narrow runtime
+    // failover from browser-native → Whisper fallback for recoverable
+    // native errors. Permission-denied and unsupported stay terminal
+    // (a surprise fallback after "permission denied" would mislead the
+    // user into thinking the site just got their consent).
+    const events = {
       onStart: () => {
         setState("listening");
         setInterim("");
       },
-      onInterim: (t) => setInterim(t),
-      onFinal: (t) => {
+      onInterim: (t: string) => setInterim(t),
+      onFinal: (t: string) => {
         const cur = inputRef.current;
         const trimmed = t.trim();
         if (!trimmed) return;
@@ -57,23 +72,64 @@ export function MicButton({ input, onInputChange, disabled }: Props) {
         setState("idle");
         setInterim("");
       },
-      onError: (kind) => {
+      onError: (kind: Exclude<SpeechAdapterState, "idle" | "listening">) => {
+        // Recoverable native runtime failure → rebind to Whisper
+        // fallback once per mount. Next mic click uses the fallback
+        // adapter. We do NOT auto-restart recording: the user decides
+        // when to try again.
+        if (
+          kind === "error-generic" &&
+          engineRef.current === "browser-native" &&
+          !failoverUsedRef.current &&
+          isWhisperFallbackSupported()
+        ) {
+          failoverUsedRef.current = true;
+          try {
+            adapterRef.current?.stop();
+          } catch {
+            /* ignore */
+          }
+          const fallback = createWhisperFallbackAdapter(events);
+          adapterRef.current = fallback;
+          engineRef.current = fallback.supported ? "whisper-fallback" : "unsupported";
+          setEngine(engineRef.current);
+          setSupported(fallback.supported);
+          setFailedOver(true);
+          setState("idle");
+          setInterim("");
+          return;
+        }
         setState(kind);
         setInterim("");
       },
-    });
+    };
+
+    // Primary: browser-native Web Speech API (or its deterministic test
+    // seam). If that path is unsupported, fall through to the Whisper
+    // local fallback adapter (or its deterministic test seam) so users
+    // on Firefox / unsupported environments still get voice input.
+    let adapter = createSpeechAdapter(events);
+    let selectedEngine: MicEngine = adapter.supported ? "browser-native" : "unsupported";
+    if (!adapter.supported && isWhisperFallbackSupported()) {
+      adapter = createWhisperFallbackAdapter(events);
+      selectedEngine = adapter.supported ? "whisper-fallback" : "unsupported";
+    }
     adapterRef.current = adapter;
+    engineRef.current = selectedEngine;
+    failoverUsedRef.current = false;
     setSupported(adapter.supported);
+    setEngine(selectedEngine);
+    setFailedOver(false);
 
     const onUserSwitched = () => {
-      adapter.stop();
+      adapterRef.current?.stop();
       setState("idle");
       setInterim("");
     };
     window.addEventListener("wt:user-switched", onUserSwitched);
     return () => {
       window.removeEventListener("wt:user-switched", onUserSwitched);
-      adapter.stop();
+      adapterRef.current?.stop();
     };
   }, [onInputChange]);
 
@@ -103,6 +159,8 @@ export function MicButton({ input, onInputChange, disabled }: Props) {
         data-testid="chat-composer-mic"
         data-state={state}
         data-supported={supported === null ? "pending" : String(supported)}
+        data-engine={engine}
+        data-failed-over={failedOver ? "true" : "false"}
         onClick={handleClick}
         disabled={isUnsupported || !!disabled}
         aria-label={label}

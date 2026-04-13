@@ -168,7 +168,16 @@ test("Unsupported browser: mic button is disabled and shows an explanatory messa
   try {
     await signInAsMrW(ctx, API);
     const page = await ctx.newPage();
-    await injectSpeechSeam(page, false);
+    // Disable both the browser-native seam and the Whisper fallback seam.
+    // Post-Slice-2 the MicButton would otherwise fall through to the
+    // fallback adapter whenever MediaRecorder is available.
+    await page.addInitScript(() => {
+      (window as unknown as { __wt_test_speech: { supported: boolean } }).__wt_test_speech = {
+        supported: false,
+      };
+      (window as unknown as { __wt_test_fallback: { supported: boolean } }).__wt_test_fallback =
+        { supported: false };
+    });
     const mic = await openComposer(page);
     await expect(mic).toBeDisabled();
     await expect(mic).toHaveAttribute("data-supported", "false");

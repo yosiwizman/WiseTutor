@@ -215,6 +215,7 @@ from deeptutor.api.routers import (
     unified_ws,
     users,
     vision_solver,
+    voice,
 )
 
 # Include routers
@@ -235,6 +236,7 @@ app.include_router(agent_config.router, prefix="/api/v1/agent-config", tags=["ag
 app.include_router(vision_solver.router, prefix="/api/v1", tags=["vision-solver"])
 app.include_router(tutorbot.router, prefix="/api/v1/tutorbot", tags=["tutorbot"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
+app.include_router(voice.router, prefix="/api/v1/voice", tags=["voice"])
 
 # Unified WebSocket endpoint
 app.include_router(unified_ws.router, prefix="/api/v1", tags=["unified-ws"])

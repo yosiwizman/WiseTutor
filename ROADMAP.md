@@ -187,8 +187,14 @@ visual-diffs lock the look.
 - [x] Docs corrected: adapter seam is **Tier 2** (not Tier 1); real-browser-native path is **Tier 3** (not Tier 1 "designed/manually verified").
 - [ ] Real-browser mic capture Tier 1 proof — owner action required (human + Chrome + mic).
 
-### Slice 2 — Whisper local fallback (NEXT)
-- [ ] Local Whisper pipeline for browsers without Web Speech API
+### Slice 2 — Whisper local fallback (LANDED 2026-04-13, Tier 2 local)
+- [x] Backend `POST /api/v1/voice/transcribe` using lazy-loaded `faster-whisper` (tiny/cpu/int8 defaults, env-overridable), with short-audio guardrails and a deterministic `WISETUTOR_VOICE_STT_TEST_MODE=1` seam.
+- [x] Frontend `whisper-fallback` adapter (`MediaRecorder` + backend round-trip) with a `__wt_test_fallback` deterministic seam.
+- [x] MicButton composes native-first / fallback-second; live engine exposed as `data-engine`.
+- [x] Runtime failover: browser-native `error-generic` rebinds MicButton to the Whisper fallback once per mount (`data-failed-over="true"`); permission-denied and unsupported stay terminal.
+- [x] 9 Playwright cases green locally (project `voice-stt-fallback`, including 4 failover cases); 6 pytest cases green (`tests/api/test_voice_router.py`).
+- [ ] Real faster-whisper on real audio — **Tier 3**, requires human + mic + optional `pip install faster-whisper`.
+- [ ] Hosted CI wiring — intentionally deferred until the Tier 3 real-mic proof is filed (seam-only hosted coverage would not add signal).
 - [ ] Profile-scoped voice input language
 
 ### Slice 3 — TTS foundation

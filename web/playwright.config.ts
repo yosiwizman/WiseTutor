@@ -78,5 +78,10 @@ export default defineConfig({
       testMatch: "**/voice-stt.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
+    {
+      name: "voice-stt-fallback",
+      testMatch: "**/voice-stt-fallback.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });

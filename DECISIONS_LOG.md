@@ -5,6 +5,85 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Phase 5 slice 2: native→fallback runtime failover LANDED (Tier 2 local)
+**Gap.** The first Slice 2 landing only handled the "native unsupported
+at mount" case. If browser-native was selected and then emitted a
+runtime error, users hit a dead-end error state with no path to the
+fallback short of page reload.
+
+**Decision.** Add narrow runtime failover in `MicButton`:
+- On `error-generic` from the browser-native adapter, rebind
+  `adapterRef` to a fresh Whisper fallback adapter (once per mount),
+  clear state to `idle`, set `data-failed-over="true"`. The user's
+  next click uses the fallback. No auto-restart of recording.
+- `error-permission` and `error-unsupported` stay terminal — a
+  surprise fallback after permission-denied would mislead the user.
+- Failover fires at most once per mount: if the fallback itself errors
+  afterwards, the error surfaces normally and we do not swap back.
+
+**Why in MicButton rather than inside the adapter layer.** The engine
+boundary is a UI concern (which `data-engine` is live, which seam
+Playwright drives next). Pushing failover down into
+`createSpeechAdapter` would have smeared the two lifecycles and made
+the deterministic seams harder to reason about.
+
+**Proof.** 4 new Playwright cases in `voice-stt-fallback` project:
+rebind on native generic error, post-failover no-auto-send,
+permission-denied stays terminal, failover fires at most once.
+Existing voice-stt regression green (7/7). Voice backend pytest green
+(6/6). Local total for voice Slice 2: 9 Playwright + 6 pytest.
+
+**Tier movement.** Runtime-failover behavior is **Tier 2 local** only.
+Real faster-whisper on real audio and hosted CI of the real path
+remain **Tier 3**; those gates do not move.
+
+---
+
+## 2026-04-13 — Phase 5 slice 2: Whisper local fallback LANDED (Tier 2 local)
+**Decision.** Add a local Whisper fallback for browsers/environments where
+Web Speech API is unsupported or unusable. Implementation:
+- Backend: `POST /api/v1/voice/transcribe` in `deeptutor/api/routers/voice.py`,
+  lazy-loaded `faster-whisper` (model `tiny`, device `cpu`, compute_type
+  `int8` by default, overridable via env). Short-audio guardrails (5 MB
+  cap, 400/413/503 error shapes). Deterministic test seam
+  `WISETUTOR_VOICE_STT_TEST_MODE=1` echoes `X-WT-Test-Transcript` without
+  model load so CI stays hermetic.
+- Frontend: `web/lib/whisper-fallback.ts` — `MediaRecorder` +
+  `getUserMedia` adapter that POSTs the captured clip and emits one
+  final transcript. Same `SpeechAdapter` shape as the native path.
+  Deterministic seam (`__wt_test_fallback`) for Playwright.
+- `MicButton` composes native-first, fallback-second, and exposes the
+  live choice via `data-engine`.
+
+**Why faster-whisper over openai-whisper.** CPU-friendly (int8 on tiny
+runs comfortably on this box), faster cold start, narrower dependency
+footprint, and a simple `WhisperModel.transcribe(path)` API that fits a
+one-shot backend endpoint. Not added to base `requirements/server.txt`
+— the endpoint surfaces a clean 503 when missing, and operators opt in
+with `pip install faster-whisper` when they want real transcription.
+
+**Why a new deterministic seam instead of reusing
+`__wt_test_speech`.** The fallback path has a different lifecycle (no
+interim events, single final after stop) and a different error surface
+(backend HTTP errors, not SpeechRecognitionError). Collapsing them
+would have smeared the engines' semantics in tests and hidden
+regressions across the native/fallback boundary.
+
+**Tiers.** Backend endpoint + frontend wiring are **Tier 2 local** —
+6 pytest + 5 Playwright cases pass locally. Real faster-whisper on real
+audio remains **Tier 3**. Hosted CI intentionally not wired; the remote
+box has no model installed and seam-only hosted coverage would not add
+signal beyond local proofs until the Tier 3 human proof is filed.
+
+**Scope preservation.** Phase 5 Slice 1 percentage unchanged (90%) —
+the missing real-browser proof pack remains the gating evidence debt
+for that slice. Slice 2 is tracked separately.
+
+**Consequence.** CURRENT_STATE.md and ROADMAP.md updated. Hosted CI
+config unchanged (no new hosted project).
+
+---
+
 ## 2026-04-13 — Phase 5 slice 1: live no-auto-send audit (narrow claim only)
 **Decision.** Narrow no-auto-send claim proven by live observability audit:
 founder drove the mic in real Chrome as Mr W, dictated "audit one do not
