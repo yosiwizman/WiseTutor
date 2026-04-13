@@ -10,6 +10,8 @@ import json
 import urllib.request
 from pathlib import Path
 
+from .conftest import requires_provider
+
 REPO = Path(__import__("os").environ.get("WISETUTOR_REPO") or "/home/ai-desktop/projects/WiseTutor")
 BASE = "http://localhost:8001"
 
@@ -79,6 +81,7 @@ def test_legacy_shared_catalog_is_off_the_live_path():
     assert has_archived, "expected data/user/settings archived under _legacy"
 
 
+@requires_provider()
 def test_independent_active_selections_per_user():
     mrw = _client()
     bella = _client()
@@ -151,6 +154,7 @@ def test_bella_change_does_not_mutate_mrw_on_disk():
     assert mrw_before == mrw_after, "Bella's active-switch mutated Mr W's catalog file"
 
 
+@requires_provider()
 def test_verify_cache_still_isolated_after_catalog_split():
     """Sanity: the per-user verify cache from slice 2 still works after the
     catalog split (no regression)."""

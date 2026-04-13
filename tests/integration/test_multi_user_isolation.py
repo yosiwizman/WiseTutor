@@ -91,6 +91,7 @@ async def test_sessions_isolated_per_cookie():
     assert bella_sid in bella_ids
     assert mrw_sid not in bella_ids
     assert bella_sid not in mrw_ids
+@requires_provider()
 def test_verify_cache_is_per_user():
     mrw_op, _ = _client()
     bella_op, _ = _client()

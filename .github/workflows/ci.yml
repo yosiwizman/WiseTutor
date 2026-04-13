@@ -203,6 +203,7 @@ jobs:
       # ─── pytest ─────────────────────────────────────────────────────────
       - name: Run pytest integration (no-provider subset)
         run: |
+          mkdir -p artifacts
           python -m pytest tests/integration -v \
             --junitxml=artifacts/pytest-junit.xml \
             2>&1 | tee artifacts/pytest.log
