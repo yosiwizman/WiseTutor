@@ -185,7 +185,7 @@ visual-diffs lock the look.
 - [x] `voice-stt` Playwright project added to hosted CI workflow.
 - [x] Hosted green run includes voice-stt (7 deterministic cases).
 - [x] Docs corrected: adapter seam is **Tier 2** (not Tier 1); real-browser-native path is **Tier 3** (not Tier 1 "designed/manually verified").
-- [ ] Real-browser mic capture Tier 1 proof — owner action required (human + Chrome + mic).
+- [x] Real-browser mic capture **Tier 1 proof (Chrome, 2026-04-13)** — founder dictation in Chrome 146 on ai-desktop; artifacts in `artifacts/phase5_stt_real_browser/`.
 
 ### Slice 2 — Whisper local fallback (LANDED 2026-04-13, Tier 2 local)
 - [x] Backend `POST /api/v1/voice/transcribe` using lazy-loaded `faster-whisper` (tiny/cpu/int8 defaults, env-overridable), with short-audio guardrails and a deterministic `WISETUTOR_VOICE_STT_TEST_MODE=1` seam.

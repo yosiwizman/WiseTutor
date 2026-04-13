@@ -5,6 +5,35 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Phase 5 slice 1: real Chrome mic Tier 1 proof filed
+**Decision.** Promote the browser-native Chrome STT path from Tier 3 to
+**Tier 1 (Chrome only)** based on `artifacts/phase5_stt_real_browser/`:
+founder dictated "audit one do not send" in Chrome 146 at the ai-desktop
+physical display; phrase landed in the composer; no auto-send. Proof
+pack contains `chrome_real_mic_01_before.png`,
+`chrome_real_mic_03_no_auto_send_evidence.png`, and a completed
+`RESULT_20260413.md`.
+
+**Artifact salvage done by agent.** The founder uploaded two distinct
+screenshots plus one byte-identical duplicate (saved without an
+extension as `chrome`). Agent renamed the duplicate to
+`_01_before.png`, removed the mislabeled `_02` slot, and kept `_03` as
+the combined transcript-in-composer + no-auto-send evidence. The
+founder was not asked to rename or edit files.
+
+**Scope.** Tier 1 claim is narrow: Chrome 146 on this machine.
+Firefox real-fallback path stays Tier 3. Slice 1 moves to 100% for the
+Chrome-only claim. Hosted CI status unchanged.
+
+**Proof-workflow rule (operational).** Going forward, browser
+automation and tool-based validation must be exhausted before asking
+for founder/manual action. Manual steps are reserved for irreducible
+real-world proof (physical microphone, subjective UX approval, or
+equivalent). Agents do not ask the founder to edit markdown, rename
+files, or perform steps that tools can do.
+
+---
+
 ## 2026-04-13 — Phase 5 slice 2: native→fallback runtime failover LANDED (Tier 2 local)
 **Gap.** The first Slice 2 landing only handled the "native unsupported
 at mount" case. If browser-native was selected and then emitted a
