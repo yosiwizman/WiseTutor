@@ -35,6 +35,25 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
   branch to `main` via GitHub (merge / PR or rename), or refreshes the
   local `gh` token with `workflow` scope to push `main` directly.
 
+## Phase 3 slice 2 — per-user preferences + prompt identity — PROVEN Tier 1
+
+- `User.preferences` merged with role defaults (`owner` / `user` / `child`).
+  Bella default: tone=warm, response_length=short, safety=child, restricted caps.
+  Mr W default: tone=direct, response_length=medium, safety=standard, full caps.
+- REST surface: `GET /api/v1/users/{id}/preferences`, `PUT .../preferences`.
+  Anon → 401; non-owner cross-user → 403; owner can read/write any; validation → 400.
+- Runtime threading: `unified_ws` resolves prefs from the signed cookie and
+  stamps them + display_name + user_id onto the payload. `turn_runtime`
+  forwards them into `UnifiedContext.metadata`. `ChatCapability`
+  instantiates `AgenticChatPipeline(user_id=...)`. `_build_messages`
+  prepends a boxed, auditable identity/preferences system message.
+- Settings UI gains a `PreferencesPanel` with a visible
+  "editing as <display_name> (<role>)" badge.
+- Measurable divergence proven: same prompt, same model → Bella gets a
+  shorter, child-friendly answer; Mr W gets a longer, direct one. Bytes
+  differ. Proof JSON + screenshots under `artifacts/phase3_prefs/<ts>/`.
+- 22/22 pytest, 15/15 Playwright, **0 skipped**.
+
 ## Phase 3 slice 1 — per-user catalog — PROVEN Tier 1
 
 - Provider/model catalog is now per-user at `data/users/<id>/settings/model_catalog.json`.

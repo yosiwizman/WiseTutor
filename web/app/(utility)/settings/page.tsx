@@ -23,6 +23,7 @@ import {
 
 import { useTranslation } from "react-i18next";
 import { RuntimeTruthPanel } from "./RuntimeTruthPanel";
+import { PreferencesPanel } from "./PreferencesPanel";
 
 import { writeStoredLanguage } from "@/context/AppShellContext";
 import { apiUrl } from "@/lib/api";
@@ -778,6 +779,7 @@ function SettingsPageContent() {
       <div className="mx-auto max-w-[960px] px-6 py-8">
 
         <RuntimeTruthPanel />
+        <PreferencesPanel />
 
         {/* ── Tour Banner ── */}
         {isTourMode && !tourCompleted && (

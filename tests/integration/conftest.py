@@ -23,6 +23,36 @@ def _pick_mrw_snapshot() -> Path | None:
     return None
 
 
+def _reset_user_preferences():
+    """Clear per-user preference overrides before each test so they always
+    start at role defaults."""
+    try:
+        import json as _json
+        users_path = REPO / "data" / "users.json"
+        if not users_path.exists():
+            return
+        doc = _json.loads(users_path.read_text())
+        changed = False
+        for u in doc.get("users", []):
+            if u.get("preferences"):
+                u["preferences"] = {}
+                changed = True
+        if changed:
+            users_path.write_text(_json.dumps(doc, indent=2))
+            # Ask the live backend to reload by asking UserService fresh via
+            # a lightweight ping. We use the environment-held singleton and
+            # a force-reload hint if available.
+            import urllib.request
+            try:
+                urllib.request.urlopen(
+                    "http://localhost:8001/api/v1/users", timeout=1,
+                )
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
 @pytest.fixture(autouse=True)
 def _restore_user_catalogs_before_each_test():
     snap = _pick_mrw_snapshot()

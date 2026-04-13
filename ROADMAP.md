@@ -80,11 +80,21 @@ decision.
 - [x] `AgenticChatPipeline(user_id=…)` wired via UnifiedContext.metadata
 - [x] 13 pytest + 13 Playwright cases green
 
-### Slice 2 — Bella/Mr W profile preferences + prompt identity (NEXT)
-- [ ] Per-user preferences (tone, response length, allowed capabilities)
-- [ ] Safety presets per profile (child vs owner)
-- [ ] Chat system-prompt injects "you are talking to <display_name>"
-- [ ] Profile-scoped theme selection wired (reuse `User.theme`)
+### Slice 2 — Bella/Mr W preferences + prompt identity (LANDED 2026-04-14)
+- [x] `User.preferences` + role defaults (owner/user/child)
+- [x] `/api/v1/users/{id}/preferences` GET/PUT with owner vs self authz
+- [x] Runtime threading: cookie → unified_ws → turn_runtime metadata → pipeline
+- [x] Prompt injection: boxed identity+prefs line in `_build_messages`
+- [x] Settings `PreferencesPanel` with "editing as" badge
+- [x] Legacy test cleanup: 6 duplicate WS tests deleted; 2 unit guards kept
+- [x] 22 pytest + 15 Playwright, 0 skipped
+- [x] Divergence proof: same prompt, different bytes, shorter child reply
+
+### Slice 3 — capability gating (NEXT)
+- [ ] `allowed_capabilities` actually filters the composer's mode picker
+- [ ] unified_ws rejects turns for capabilities not in the user's allowlist
+- [ ] `UnifiedContext.enabled_tools` intersected with `_wt_preferences.allowed_capabilities`
+- [ ] Per-role defaults for `User.theme` wired (Phase 4 dependency)
 
 **Exit criteria (phase).** Two distinct users can chat with no memory
 crossover, verify caches scoped per user, and initial PINs replaced.

@@ -44,6 +44,72 @@ def _mksalt() -> str:
     return os.urandom(8).hex()
 
 
+_DEFAULT_PREFERENCES_BY_ROLE: dict[str, dict[str, Any]] = {
+    "owner": {
+        "tone": "direct",
+        "response_length": "medium",
+        "allowed_capabilities": ["chat", "deep_question", "deep_research",
+                                 "deep_solve", "math_animator", "visualize"],
+        "safety_profile": "standard",
+    },
+    "user": {
+        "tone": "friendly",
+        "response_length": "medium",
+        "allowed_capabilities": ["chat", "deep_question", "deep_solve",
+                                 "math_animator", "visualize"],
+        "safety_profile": "standard",
+    },
+    "child": {
+        "tone": "warm",
+        "response_length": "short",
+        "allowed_capabilities": ["chat", "deep_question", "math_animator"],
+        "safety_profile": "child",
+    },
+}
+
+
+def _default_preferences_for_role(role: str) -> dict[str, Any]:
+    return {**_DEFAULT_PREFERENCES_BY_ROLE.get(role, _DEFAULT_PREFERENCES_BY_ROLE["user"])}
+
+
+_PREF_SCHEMA = {
+    "tone": {"short", "direct", "friendly", "warm", "formal"},
+    "response_length": {"short", "medium", "long"},
+    "safety_profile": {"standard", "child"},
+}
+
+
+def _validate_preferences(prefs: dict[str, Any]) -> dict[str, Any]:
+    """Coerce/validate a preferences dict. Raise ValueError on bad field."""
+    out: dict[str, Any] = {}
+    if "tone" in prefs:
+        val = str(prefs["tone"])
+        if val not in _PREF_SCHEMA["tone"]:
+            raise ValueError(f"tone must be one of {_PREF_SCHEMA['tone']}")
+        out["tone"] = val
+    if "response_length" in prefs:
+        val = str(prefs["response_length"])
+        if val not in _PREF_SCHEMA["response_length"]:
+            raise ValueError(f"response_length must be one of {_PREF_SCHEMA['response_length']}")
+        out["response_length"] = val
+    if "safety_profile" in prefs:
+        val = str(prefs["safety_profile"])
+        if val not in _PREF_SCHEMA["safety_profile"]:
+            raise ValueError(f"safety_profile must be one of {_PREF_SCHEMA['safety_profile']}")
+        out["safety_profile"] = val
+    if "allowed_capabilities" in prefs:
+        caps = prefs["allowed_capabilities"]
+        if not isinstance(caps, list) or not all(isinstance(x, str) for x in caps):
+            raise ValueError("allowed_capabilities must be a list of strings")
+        out["allowed_capabilities"] = caps
+    if "display_name_override" in prefs:
+        v = prefs["display_name_override"]
+        if v is not None and not isinstance(v, str):
+            raise ValueError("display_name_override must be a string or null")
+        out["display_name_override"] = v
+    return out
+
+
 @dataclass
 class User:
     id: str
@@ -58,11 +124,19 @@ class User:
     # True while the user still has the seeded default PIN. Blocks chat usage
     # until the owner rotates via POST /api/v1/users/{id}/pin.
     pin_is_default: bool = True
+    # Per-user behavior preferences. Merged with role defaults on read.
+    preferences: dict[str, Any] = field(default_factory=dict)
 
     def verify_pin(self, pin: str) -> bool:
         if not self.pin_hash or not self.pin_salt:
             return False
         return _hash_pin(pin, self.pin_salt) == self.pin_hash
+
+    def effective_preferences(self) -> dict[str, Any]:
+        """Role defaults merged with per-user overrides."""
+        base = _default_preferences_for_role(self.role)
+        base.update(self.preferences or {})
+        return base
 
     def public(self) -> dict[str, Any]:
         """Safe dict for client — never expose pin_hash/salt."""
@@ -76,6 +150,7 @@ class User:
             "last_seen_at": self.last_seen_at,
             "pin_set": bool(self.pin_hash),
             "pin_is_default": self.pin_is_default,
+            "preferences": self.effective_preferences(),
         }
 
 
@@ -222,6 +297,29 @@ class UserService:
             "cookie resolver (resolve_request_user / resolve_headers_user). "
             "For CLI diagnostics, use last_used_user_id() and pass it explicitly."
         )
+
+    def get_preferences(self, user_id: str) -> dict[str, Any]:
+        u = self._users.get(user_id)
+        if not u:
+            raise KeyError(user_id)
+        return u.effective_preferences()
+
+    def update_preferences(self, user_id: str, patch: dict[str, Any]) -> dict[str, Any]:
+        """Merge-validated partial update. Returns the new effective preferences."""
+        with self._lock:
+            u = self._users.get(user_id)
+            if not u:
+                raise KeyError(user_id)
+            validated = _validate_preferences(patch)
+            # Persist only overrides on top of role defaults; drop keys equal to default.
+            defaults = _default_preferences_for_role(u.role)
+            overrides = {**(u.preferences or {}), **validated}
+            u.preferences = {
+                k: v for k, v in overrides.items()
+                if k == "display_name_override" or v != defaults.get(k)
+            }
+            self._save()
+            return u.effective_preferences()
 
     def set_pin(self, user_id: str, new_pin: str) -> None:
         if not _PIN_RE.match(new_pin):

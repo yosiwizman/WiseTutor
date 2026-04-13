@@ -915,6 +915,48 @@ class AgenticChatPipeline:
 
         return tool_traces
 
+    @staticmethod
+    def _build_identity_preferences_line(context: UnifiedContext) -> str:
+        md = context.metadata or {}
+        display = md.get("_wt_display_name") or ""
+        prefs = md.get("_wt_preferences") or {}
+        if not display and not prefs:
+            return ""
+        tone = prefs.get("tone") or ""
+        length = prefs.get("response_length") or ""
+        safety = prefs.get("safety_profile") or ""
+        allowed = prefs.get("allowed_capabilities") or []
+        parts: list[str] = []
+        if display:
+            parts.append(f"You are talking to {display}.")
+        length_hint = {
+            "short": "Keep replies short (1–3 sentences unless asked for detail).",
+            "medium": "Keep replies reasonably concise.",
+            "long": "You may give longer, thorough replies when useful.",
+        }.get(length, "")
+        tone_hint = {
+            "short": "Be terse.",
+            "direct": "Be direct and unvarnished.",
+            "friendly": "Be friendly and clear.",
+            "warm": "Be warm, encouraging, and easy to follow.",
+            "formal": "Be formal.",
+        }.get(tone, "")
+        if tone_hint:
+            parts.append(tone_hint)
+        if length_hint:
+            parts.append(length_hint)
+        if safety == "child":
+            parts.append(
+                "This user is a child. Use age-appropriate language, avoid adult "
+                "or graphic topics, and if asked about unsafe or adult topics, "
+                "gently redirect."
+            )
+        if allowed:
+            parts.append(
+                "Capabilities allowed for this user: " + ", ".join(sorted(allowed)) + "."
+            )
+        return " ".join(parts)
+
     def _build_messages(
         self,
         context: UnifiedContext,
@@ -922,6 +964,12 @@ class AgenticChatPipeline:
         user_content: str,
     ) -> list[dict[str, Any]]:
         messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
+        # Per-user identity + preference line. Boxed, auditable, and sourced
+        # strictly from the signed request identity (via
+        # UnifiedContext.metadata["_wt_user_id"|"_wt_display_name"|"_wt_preferences"]).
+        id_line = self._build_identity_preferences_line(context)
+        if id_line:
+            messages.append({"role": "system", "content": id_line})
         if context.memory_context:
             messages.append({"role": "system", "content": context.memory_context})
         for item in context.conversation_history:

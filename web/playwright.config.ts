@@ -48,5 +48,10 @@ export default defineConfig({
       testMatch: "**/per-user-catalog.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
+    {
+      name: "preferences-divergence",
+      testMatch: "**/preferences-divergence.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });

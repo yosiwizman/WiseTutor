@@ -14,7 +14,7 @@ Never returns `pin_hash` or `pin_salt`. Never logs PINs.
 from __future__ import annotations
 
 import logging
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, Field
@@ -99,6 +99,57 @@ async def ws_token(request: Request):
     if not uid:
         raise HTTPException(status_code=401, detail="no_user")
     return {"user_id": uid, "token": sign_user_id(uid), "cookie_name": COOKIE_NAME}
+
+
+class PreferencesPatch(BaseModel):
+    tone: Optional[str] = None
+    response_length: Optional[str] = None
+    allowed_capabilities: Optional[list[str]] = None
+    safety_profile: Optional[str] = None
+    display_name_override: Optional[str] = None
+
+
+@router.get("/{user_id}/preferences")
+async def get_preferences(user_id: str, request: Request):
+    """Return the resolved preferences for a user.
+
+    Authorization:
+      - Any signed-in user can read their own preferences.
+      - Owners (role=owner) can read any user's preferences.
+    """
+    caller = resolve_request_user(request)
+    if not caller:
+        raise HTTPException(status_code=401, detail="no_user")
+    svc = get_user_service()
+    caller_u = svc.get(caller)
+    target = svc.get(user_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="user_not_found")
+    if caller != user_id and (caller_u is None or caller_u.role != "owner"):
+        raise HTTPException(status_code=403, detail="forbidden")
+    return {"user_id": user_id, "preferences": target.effective_preferences()}
+
+
+@router.put("/{user_id}/preferences")
+async def put_preferences(user_id: str, patch: PreferencesPatch, request: Request):
+    caller = resolve_request_user(request)
+    if not caller:
+        raise HTTPException(status_code=401, detail="no_user")
+    svc = get_user_service()
+    caller_u = svc.get(caller)
+    target = svc.get(user_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="user_not_found")
+    # Self-writes always allowed; cross-user writes require owner role.
+    if caller != user_id and (caller_u is None or caller_u.role != "owner"):
+        raise HTTPException(status_code=403, detail="forbidden")
+    try:
+        updated = svc.update_preferences(user_id, {
+            k: v for k, v in patch.model_dump().items() if v is not None
+        })
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"user_id": user_id, "preferences": updated}
 
 
 @router.post("/logout")

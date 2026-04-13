@@ -125,6 +125,19 @@ async def unified_websocket(ws: WebSocket) -> None:
                 # Stamp the user id into the payload so turn_runtime and the
                 # chat pipeline can read it without going through any global.
                 msg["_wt_user_id"] = ws_uid
+                # Resolve per-user preferences at the WS boundary and stamp them
+                # into the payload so turn_runtime can place them in the context
+                # metadata that the chat pipeline reads.
+                try:
+                    _prefs = get_user_service().get_preferences(ws_uid)
+                    _display = (_user.display_name if _user else ws_uid) or ws_uid
+                    if _user and _user.preferences.get("display_name_override"):
+                        _display = _user.preferences["display_name_override"]
+                    msg["_wt_preferences"] = _prefs
+                    msg["_wt_display_name"] = _display
+                except Exception:
+                    msg["_wt_preferences"] = {}
+                    msg["_wt_display_name"] = ws_uid
                 try:
                     _, turn = await runtime.start_turn(msg)
                 except RuntimeError as exc:

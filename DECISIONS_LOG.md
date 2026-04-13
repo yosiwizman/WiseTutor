@@ -5,6 +5,24 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-14 — Phase 3 slice 2: per-user preferences + prompt identity
+**Decision.** `User` gains a per-user `preferences` dict (tone,
+response_length, allowed_capabilities, safety_profile,
+display_name_override). Role defaults are explicit for `owner` / `user` /
+`child` and merged with per-user overrides. REST at `/api/v1/users/{id}/preferences`.
+Chat pipeline prepends a boxed identity+preferences system message sourced
+strictly from the request's signed cookie.
+**Legacy test retirement.** Deleted `test_chat_runtime_truth.py` and
+`test_identity_reply_honesty.py` (6 WS-based cases). Replaced with two
+source-code / unit guards in `test_identity_source_truth.py`. The full
+product claim is now covered by the authenticated Playwright
+`identity-truth` spec. 0 skipped tests remain.
+**Reason.** Bella and Mr W had to become meaningfully distinct at runtime.
+The CTO required no orphan skips.
+**Consequence.** 22 pytest + 15 Playwright all green. A divergence spec
+proves (same prompt → different reply bytes + shorter child reply) that
+preferences actually reach the model.
+
 ## 2026-04-13 — Phase 3 slice 1: per-user provider/model catalog
 **Decision.** The provider/model catalog is now per-user. Live path is
 `data/users/<id>/settings/model_catalog.json`. `get_model_catalog_service(user_id)`

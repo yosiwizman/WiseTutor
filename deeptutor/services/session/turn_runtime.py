@@ -508,6 +508,8 @@ class TurnRuntimeManager:
                     "history_references": history_references,
                     "memory_context": memory_context,
                     "_wt_user_id": _wt_user_id,
+                    "_wt_preferences": payload.get("_wt_preferences") or {},
+                    "_wt_display_name": payload.get("_wt_display_name") or "",
                 },
             )
 
