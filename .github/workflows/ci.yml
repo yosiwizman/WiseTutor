@@ -100,20 +100,20 @@ jobs:
             "version": 1,
             "services": {
               "llm": {
-                "active_profile_id": "p-openai", "active_model_id": "m-4o-mini",
+                "active_profile_id": "llm-profile-openai", "active_model_id": "llm-model-openai-4o-mini",
                 "profiles": [
-                  {"id": "p-openai", "name": "OpenAI", "binding": "openai",
+                  {"id": "llm-profile-openai", "name": "OpenAI", "binding": "openai",
                    "base_url": "https://api.openai.com/v1",
                    "api_key": "ci-placeholder", "api_version": "", "extra_headers": {},
-                   "models": [{"id": "m-4o-mini", "name": "gpt-4o-mini", "model": "gpt-4o-mini"}]},
-                  {"id": "p-anthropic", "name": "Anthropic", "binding": "anthropic",
+                   "models": [{"id": "llm-model-openai-4o-mini", "name": "gpt-4o-mini", "model": "gpt-4o-mini"}]},
+                  {"id": "llm-profile-anthropic", "name": "Anthropic", "binding": "anthropic",
                    "base_url": "https://api.anthropic.com/v1",
                    "api_key": "ci-placeholder", "api_version": "", "extra_headers": {},
-                   "models": [{"id": "m-opus-4-6", "name": "claude-opus-4-6", "model": "claude-opus-4-6"}]},
-                  {"id": "p-ollama", "name": "Local Ollama", "binding": "ollama",
+                   "models": [{"id": "llm-model-anthropic-opus46", "name": "claude-opus-4-6", "model": "claude-opus-4-6"}]},
+                  {"id": "llm-profile-ollama", "name": "Local Ollama", "binding": "ollama",
                    "base_url": "http://localhost:11434/v1",
                    "api_key": "ollama-local", "api_version": "", "extra_headers": {},
-                   "models": [{"id": "m-qwen", "name": "qwen2.5:72b", "model": "qwen2.5:72b"}]}
+                   "models": [{"id": "llm-model-qwen", "name": "qwen2.5:72b", "model": "qwen2.5:72b"}]}
                 ]
               },
               "embedding": {"active_profile_id": null, "active_model_id": null, "profiles": []},
@@ -202,7 +202,9 @@ jobs:
 
       # ─── pytest ─────────────────────────────────────────────────────────
       - name: Run pytest integration (no-provider subset)
+        shell: bash
         run: |
+          set -eo pipefail
           mkdir -p artifacts
           python -m pytest tests/integration -v \
             --junitxml=artifacts/pytest-junit.xml \
@@ -211,9 +213,11 @@ jobs:
       # ─── Playwright ─────────────────────────────────────────────────────
       - name: Run Playwright (no-provider subset)
         working-directory: web
+        shell: bash
         env:
           EVIDENCE_DIR: ${{ github.workspace }}/artifacts/playwright-evidence
         run: |
+          set -eo pipefail
           mkdir -p "$EVIDENCE_DIR"
           npx playwright test \
             --project=per-user-catalog \
