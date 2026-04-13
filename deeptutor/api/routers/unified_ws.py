@@ -184,6 +184,11 @@ async def unified_websocket(ws: WebSocket) -> None:
                 # Stamp the user id into the payload so turn_runtime and the
                 # chat pipeline can read it without going through any global.
                 msg["_wt_user_id"] = ws_uid
+                # TEST-ONLY output-gate seam. Only honored when the process
+                # was started with WISETUTOR_TEST_MODE=1; stripped otherwise.
+                import os as _os_mod
+                if _os_mod.environ.get("WISETUTOR_TEST_MODE") != "1":
+                    msg.pop("_wt_test_inject_output", None)
                 # Resolve per-user preferences at the WS boundary and stamp them
                 # into the payload so turn_runtime can place them in the context
                 # metadata that the chat pipeline reads.

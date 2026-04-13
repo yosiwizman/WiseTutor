@@ -5,6 +5,25 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-14 — Phase 3 CLOSED (slice 5: owner admin + output-gate Tier 1)
+**Decision.** Phase 3 is closed. Owner-override on
+`POST /api/v1/users/{id}/pin`: owner's own PIN authorizes resetting a
+different user's PIN. Owner cross-user preference writes confirmed on
+`PUT /api/v1/users/{id}/preferences`. All admin actions audited on the
+`wisetutor.admin` logger. Admin panel shipped in Settings, owner-only.
+**Output-gate Tier 1.** Added a narrowly guarded test-only seam
+`_wt_test_inject_output` honored ONLY when `WISETUTOR_TEST_MODE=1`. The
+seam is stripped at the WS boundary in production. With test mode on, an
+injected unsafe assistant output triggers the real post-generation safety
+gate, the terminal event is emitted, and the persisted SQLite message
+equals the child-safe redirect — proven end-to-end via direct DB read.
+**Why this seam.** Coercing a cloud model to emit flagged content is
+non-deterministic and model-policy-bound. A minimal test seam is safer
+than committing unsafe prompts or building a full stub provider. Source
+guard asserts the seam is stripped in non-test mode.
+**Consequence.** 49 pytest + 24 Playwright green, zero skipped, zero
+deletions.
+
 ## 2026-04-14 — Phase 3 slice 4: child safety reinforcement
 **Decision.** Users whose effective `safety_profile == "child"` are now
 gated server-side by an explicit rule-based policy module at

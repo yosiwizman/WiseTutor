@@ -24,6 +24,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { RuntimeTruthPanel } from "./RuntimeTruthPanel";
 import { PreferencesPanel } from "./PreferencesPanel";
+import { AdminPanel } from "./AdminPanel";
 
 import { writeStoredLanguage } from "@/context/AppShellContext";
 import { apiUrl } from "@/lib/api";
@@ -780,6 +781,7 @@ function SettingsPageContent() {
 
         <RuntimeTruthPanel />
         <PreferencesPanel />
+        <AdminPanel />
 
         {/* ── Tour Banner ── */}
         {isTourMode && !tourCompleted && (

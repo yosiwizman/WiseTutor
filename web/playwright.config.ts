@@ -63,5 +63,10 @@ export default defineConfig({
       testMatch: "**/child-safety.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
+    {
+      name: "admin-panel",
+      testMatch: "**/admin-panel.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });

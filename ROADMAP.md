@@ -105,11 +105,17 @@ decision.
 - [x] Mr W (standard profile) unaffected
 - [x] 11 new pytest + 3 new Playwright, all green (40 + 21 total)
 
-### Slice 5 — owner admin tooling (NEXT)
-- [ ] `POST /api/v1/users/{id}/pin` owner-override path (owner's PIN resets target's PIN)
-- [ ] Owner-only Admin section in Settings listing other users with Reset-PIN button
-- [ ] Owner-only endpoint to flip `allowed_capabilities` / `safety_profile` on Bella
-- [ ] Audit log on owner administrative actions
+### Slice 5 — owner admin tooling + output-gate Tier 1 (LANDED 2026-04-14)
+- [x] Owner-override on `POST /api/v1/users/{id}/pin`
+- [x] Owner cross-user `PUT /preferences` audited
+- [x] `wisetutor.admin` structured audit logger
+- [x] AdminPanel in Settings (owner-only)
+- [x] Output-gate deterministic proof via `_wt_test_inject_output` seam
+- [x] 9 new pytest + 3 new Playwright cases; 49 + 24 green total
+
+**Phase 3 is closed.**
+
+## Phase 4 — Themes / appearance (NEXT)
 
 **Exit criteria (phase).** Two distinct users can chat with no memory
 crossover, verify caches scoped per user, and initial PINs replaced.

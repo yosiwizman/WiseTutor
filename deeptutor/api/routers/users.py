@@ -142,13 +142,21 @@ async def put_preferences(user_id: str, patch: PreferencesPatch, request: Reques
         raise HTTPException(status_code=404, detail="user_not_found")
     # Self-writes always allowed; cross-user writes require owner role.
     if caller != user_id and (caller_u is None or caller_u.role != "owner"):
+        _admin_log.warning(
+            "admin_action denied action=prefs_update actor=%s target=%s reason=not_owner",
+            caller, user_id,
+        )
         raise HTTPException(status_code=403, detail="forbidden")
+    patch_dict = {k: v for k, v in patch.model_dump().items() if v is not None}
     try:
-        updated = svc.update_preferences(user_id, {
-            k: v for k, v in patch.model_dump().items() if v is not None
-        })
+        updated = svc.update_preferences(user_id, patch_dict)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    if caller != user_id:
+        _admin_log.warning(
+            "admin_action ok action=prefs_update actor=%s target=%s fields=%s",
+            caller, user_id, sorted(patch_dict.keys()),
+        )
     return {"user_id": user_id, "preferences": updated}
 
 
@@ -158,15 +166,55 @@ async def logout(response: Response):
     return {"ok": True}
 
 
+_admin_log = logging.getLogger("wisetutor.admin")
+
+
 @router.post("/{user_id}/pin")
-async def change_pin(user_id: str, req: ChangePinRequest):
+async def change_pin(user_id: str, req: ChangePinRequest, request: Request):
+    """Change a user's PIN.
+
+    Self-service: caller == user_id; `current_pin` must be the target's own PIN.
+    Owner override: caller is role=owner and caller != user_id; `current_pin`
+    must be the OWNER'S own PIN. This lets Mr W reset Bella's forgotten PIN
+    without knowing the current target PIN. Audited on wisetutor.admin.
+    """
+    caller_id = resolve_request_user(request)
+    if not caller_id:
+        raise HTTPException(status_code=401, detail="no_user")
     svc = get_user_service()
-    u = svc.get(user_id)
-    if not u or not u.verify_pin(req.current_pin):
-        logger.info("pin change rejected: user_id=%s", user_id)
+    caller = svc.get(caller_id)
+    target = svc.get(user_id)
+    if target is None or caller is None:
         raise HTTPException(status_code=403, detail="invalid credentials")
+
+    if caller_id == user_id:
+        # Self-rotation: current_pin is the target's own PIN.
+        if not target.verify_pin(req.current_pin):
+            logger.info("self pin change rejected: user_id=%s", user_id)
+            raise HTTPException(status_code=403, detail="invalid credentials")
+        svc.set_pin(user_id, req.new_pin)
+        return {"ok": True, "mode": "self"}
+
+    # Cross-user: must be owner, and current_pin must be CALLER'S own PIN.
+    if caller.role != "owner":
+        _admin_log.warning(
+            "admin_action denied action=pin_reset actor=%s target=%s reason=not_owner",
+            caller_id, user_id,
+        )
+        raise HTTPException(status_code=403, detail="forbidden")
+    if not caller.verify_pin(req.current_pin):
+        _admin_log.warning(
+            "admin_action denied action=pin_reset actor=%s target=%s reason=bad_owner_pin",
+            caller_id, user_id,
+        )
+        raise HTTPException(status_code=403, detail="invalid credentials")
+
     svc.set_pin(user_id, req.new_pin)
-    return {"ok": True}
+    _admin_log.warning(
+        "admin_action ok action=pin_reset actor=%s target=%s",
+        caller_id, user_id,
+    )
+    return {"ok": True, "mode": "owner_override"}
 
 
 @router.post("")

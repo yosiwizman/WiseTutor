@@ -35,6 +35,23 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
   branch to `main` via GitHub (merge / PR or rename), or refreshes the
   local `gh` token with `workflow` scope to push `main` directly.
 
+## Phase 3 CLOSED (slice 5) — PROVEN Tier 1
+
+- Output-gate Tier 1 via a test-only seam (`_wt_test_inject_output`) gated
+  by `WISETUTOR_TEST_MODE=1` in both `unified_ws` and `turn_runtime`.
+  Unsafe injected output → `safety_filter_output` terminal event emitted,
+  stored SQLite assistant content equals the child-safe redirect, raw
+  unsafe text is NOT persisted. Verified end-to-end.
+- Owner admin: `POST /api/v1/users/{id}/pin` supports owner-override
+  (caller=owner, caller≠target) authorized with the CALLER'S own PIN.
+  `PUT /api/v1/users/{id}/preferences` accepts owner cross-user writes.
+  `wisetutor.admin` logger emits structured audit lines for every admin
+  action (allowed and denied); raw PINs are never logged.
+- AdminPanel (Settings, owner-only): list of non-self users, Reset-PIN,
+  edit `safety_profile`, toggle `allowed_capabilities`. Visible to Mr W,
+  hidden from Bella.
+- **Phase 3 fully closed.** 49 pytest + 24 Playwright pass, 0 skipped.
+
 ## Phase 3 slice 4 — child safety reinforcement — PROVEN Tier 1 (input) / Tier 2 (output)
 
 - `deeptutor/services/safety/child_policy.py` — conservative rule-based

@@ -543,15 +543,35 @@ class TurnRuntimeManager:
                 },
             )
 
-            orch = ChatOrchestrator()
-            async for event in orch.handle(context):
-                if event.type == StreamEventType.SESSION:
-                    continue
-                payload_event = await self._persist_and_publish(execution, event)
-                if payload_event.get("type") not in {"done", "session"}:
-                    assistant_events.append(payload_event)
-                if _should_capture_assistant_content(event):
-                    assistant_content += event.content
+            # TEST-ONLY seam: when the process is in test mode and the payload
+            # carries _wt_test_inject_output, skip orchestration and use the
+            # injected string as assistant_content. The post-generation safety
+            # gate below then runs on it just like a real model output. The
+            # seam is stripped at the WS boundary in production.
+            import os as _os_mod
+            _inject = payload.get("_wt_test_inject_output")
+            if _inject is not None and _os_mod.environ.get("WISETUTOR_TEST_MODE") == "1":
+                assistant_content = str(_inject)
+                await self._persist_and_publish(
+                    execution,
+                    StreamEvent(
+                        type=StreamEventType.CONTENT,
+                        source="chat",
+                        stage="responding",
+                        content=assistant_content,
+                        metadata={"test_inject": True},
+                    ),
+                )
+            else:
+                orch = ChatOrchestrator()
+                async for event in orch.handle(context):
+                    if event.type == StreamEventType.SESSION:
+                        continue
+                    payload_event = await self._persist_and_publish(execution, event)
+                    if payload_event.get("type") not in {"done", "session"}:
+                        assistant_events.append(payload_event)
+                    if _should_capture_assistant_content(event):
+                        assistant_content += event.content
 
             # Post-generation child-safety gate. For users with
             # safety_profile=child, inspect the assembled assistant content;
