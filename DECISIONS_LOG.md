@@ -42,6 +42,42 @@ and `quiz-summary-67.png`.
 
 ---
 
+## 2026-04-13 — Quiz Score Summary real-path proof upgraded to Tier 1 (local)
+**Decision.** Upgrade the end-to-end quiz capability claim from harness-only
+(Tier 2) to **Tier 1 (local)** by driving the real path with Playwright.
+
+**What landed.** New `web/tests/e2e/quiz-real-path.spec.ts` + new
+`quiz-real-path` Playwright project. One test drives the real capability:
+sign in as Mr W → open workspace → pick `deep_question` → submit a real
+topic → wait for live OpenAI gpt-5.4 quiz generation → answer every
+question (choice + written handled) → assert the summary UI from commit
+`5f839b5` renders with truthful `data-correct` / `data-total` /
+`data-percent` attributes. 1/1 green in ~16 s. Screenshot artifact:
+`artifacts/quiz_summary/quiz-real-path-summary.png`.
+
+**Hosted CI.** The `quiz-real-path` project is intentionally NOT added to
+`.github/workflows/ci.yml`. It calls the real OpenAI API and would flake
+and/or consume tokens on hosted runners. Hosted CI keeps the hermetic
+`quiz-summary` harness proof.
+
+**Root-cause fix required to make the real path work.**
+`deeptutor/services/users/legacy_migration.py` — the user-data migration
+was deleting runtime config files (`main.yaml`, `agents.yaml`) when
+archiving legacy layouts. At request time, `AgentCoordinator` raised
+`FileNotFoundError` and the `deep_question` capability never produced
+its result event. Fix: (a) skip migration for settings dirs that only
+contain `main.yaml` (no actual user data), (b) when archiving a settings
+dir with user data, snapshot runtime config files first and restore
+them afterward. This is the minimum change needed to make the intended
+product path functional; no feature code was added or changed.
+
+**Scope.** Narrow proof upgrade. No UI change, no new capability, no new
+endpoint. Whole-product percentage nudges from ~67% to ~68% because the
+primary tutoring flow now carries a Tier 1 real-path claim, not just
+harness proof. Voice lane stays ~52%. Company vision stays ~11%.
+
+---
+
 ## 2026-04-13 — Scope correction: Connections/Gmail/Calendar lane reverted as out-of-scope drift
 
 **Decision.** Revert commit `6b1fae0` ("Integration connect UX: Connections surface, Gmail, Calendar" slice) in full. Revert commit: `dcd7b5e`.

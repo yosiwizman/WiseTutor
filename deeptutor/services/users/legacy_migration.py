@@ -36,7 +36,16 @@ def run_legacy_migration(data_root: Path) -> dict[str, str]:
     ]
     shared_settings_dir = data_root / "user" / "settings"
 
-    any_work = any(p.exists() for p in candidates) or shared_settings_dir.is_dir()
+    # A settings dir that contains only main.yaml is post-migration config — skip it.
+    settings_has_user_data = (
+        shared_settings_dir.is_dir()
+        and any(
+            f.name != "main.yaml"
+            for f in shared_settings_dir.iterdir()
+            if f.is_file()
+        )
+    )
+    any_work = any(p.exists() for p in candidates) or settings_has_user_data
     if not any_work:
         return moved
 
@@ -48,7 +57,7 @@ def run_legacy_migration(data_root: Path) -> dict[str, str]:
     # last user-visible shared-state surface. Policy: ASSIGN to Mr W as
     # legacy owner state (option (a)), preserving his existing provider/model
     # setup. Bella starts with an empty (default) catalog.
-    if shared_settings_dir.is_dir():
+    if settings_has_user_data:
         mrw_settings = data_root / "users" / "mrw" / "settings"
         mrw_settings.mkdir(parents=True, exist_ok=True)
         for fname in ("model_catalog.json",):
@@ -63,6 +72,21 @@ def run_legacy_migration(data_root: Path) -> dict[str, str]:
                     )
                 except Exception as exc:
                     logger.error("legacy_migration: failed to copy %s: %s", src, exc)
+        # Preserve runtime config files (.yaml, .json excluding model_catalog) —
+        # they are app defaults, not user data. Read before archiving.
+        _runtime_exts = {".yaml", ".yml"}
+        _user_data_names = {"model_catalog.json"}
+        saved_configs: dict[str, str] = {}
+        for _f in shared_settings_dir.iterdir():
+            if not _f.is_file():
+                continue
+            if _f.name in _user_data_names:
+                continue
+            if _f.suffix.lower() in _runtime_exts:
+                try:
+                    saved_configs[_f.name] = _f.read_text(encoding="utf-8")
+                except Exception:
+                    pass
         try:
             archive_target = dest / "user" / "settings"
             archive_target.parent.mkdir(parents=True, exist_ok=True)
@@ -70,6 +94,19 @@ def run_legacy_migration(data_root: Path) -> dict[str, str]:
             moved["user/settings"] = str(archive_target)
         except Exception as exc:
             logger.error("legacy_migration: could not archive user/settings: %s", exc)
+        # Restore runtime config files so capability runners can load them.
+        if saved_configs:
+            try:
+                shared_settings_dir.mkdir(parents=True, exist_ok=True)
+                for fname, content in saved_configs.items():
+                    (shared_settings_dir / fname).write_text(content, encoding="utf-8")
+                logger.warning(
+                    "legacy_migration: restored config files to %s: %s",
+                    shared_settings_dir,
+                    list(saved_configs),
+                )
+            except Exception as exc:
+                logger.error("legacy_migration: failed to restore config files: %s", exc)
 
     for src in candidates:
         if not src.exists():

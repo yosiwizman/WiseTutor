@@ -24,12 +24,22 @@ only thing that was missing.
 
 **Proof:**
 - `web/tests/e2e/quiz-summary.spec.ts` — **4/4 Playwright cases green** in
-  the new `quiz-summary` project (100% path, 2/3 path, review-button
+  the `quiz-summary` project (100% path, 2/3 path, review-button
   dismiss, no-DeepTutor + no-pageerror); wired into hosted CI.
+- `web/tests/e2e/quiz-real-path.spec.ts` — **1/1 Playwright case green**
+  in the NEW `quiz-real-path` project, ~16 s. Drives the real capability:
+  sign in as Mr W → open workspace → pick `deep_question` via
+  `composer-cap-trigger` / `composer-cap-deep_question` → type a real
+  topic → press Send → wait for the real OpenAI gpt-5.4 generation → answer
+  every question (handles both choice and written types) → assert
+  `[data-testid="quiz-summary"]` + `[data-testid="quiz-summary-score"]`
+  attrs present. **Local-only; NOT wired into hosted CI** because it
+  calls the real OpenAI API.
 - Screenshot artifacts under `artifacts/quiz_summary/`:
-  `quiz-summary-100.png`, `quiz-summary-67.png`.
-- No console pageerror on the completion flow.
-- No "DeepTutor" text visible.
+  `quiz-summary-100.png`, `quiz-summary-67.png`,
+  `quiz-real-path-summary.png` (71 866 B).
+- No console pageerror on either flow.
+- No "DeepTutor" text visible on the quiz surface.
 
 **Evidence tiers:**
 - Summary UI (completion branch, score badge, review list, dismiss
@@ -37,10 +47,21 @@ only thing that was missing.
   drives the flow end-to-end.
 - Per-question review truthfulness (correct/incorrect tally matches
   `submittedResults` source of truth): **Tier 2**.
-- Real-LLM-seeded quiz end-to-end completion: **Tier 3** — not
-  exercised by this slice (the harness injects known questions; the
-  real-quiz path already works through the existing chat capability).
+- **Real-LLM-seeded quiz end-to-end (generate → answer → summary):
+  Tier 1 (local, 2026-04-13)** — Playwright independently re-executed
+  the real capability against live OpenAI gpt-5.4; summary rendered
+  with truthful data attrs. Not yet proven on hosted CI (real-API
+  calls intentionally excluded from hosted runners).
 - Learning efficacy / pedagogy claims: not made.
+
+**Incidental fix:** `deeptutor/services/users/legacy_migration.py` — the
+user-data migration previously deleted `main.yaml` / `agents.yaml`
+during archival, causing `AgentCoordinator` to raise
+`FileNotFoundError` at request time and blocking `deep_question`
+generation on first-use paths. Migration now (a) skips config-only
+settings dirs and (b) restores runtime config files after archiving.
+This was the root cause of the prior real-path failure; the fix is
+the minimum needed to make the intended product path actually work.
 
 ---
 
