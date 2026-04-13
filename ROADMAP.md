@@ -247,22 +247,6 @@ Full readiness report: `artifacts/family_alpha_readiness/READINESS_20260413.md`.
 This is NOT commercial readiness. No architectural changes were made. This slice
 exists to close rollout debt before family members first use the product.
 
-## Integration connect UX
-
-### Slice 1 — Connections surface foundation (LANDED 2026-04-13, Tier 2 local + hosted CI)
-- [x] New `/connections` route + sidebar entry ("Connections").
-- [x] Gmail card with truthful "Not available yet" status (no fake button).
-- [x] Google Calendar card with truthful "Not available yet" status.
-- [x] Locale strings added in en + zh.
-- [x] 5 Playwright cases under `connections` project (sidebar nav, Gmail card, Calendar card, no-fake-button guardrail, no-DeepTutor + no-pageerror). Wired into hosted CI.
-
-### Slice 2 — Real OAuth wiring (NEXT, not started)
-- [ ] Decide wiring path: direct Google OAuth in this repo vs OpenClaw gateway (per AKIOR bible).
-- [ ] Connection status truth source (backend endpoint or external-service probe).
-- [ ] Connect button wired to real flow.
-- [ ] Disconnect flow.
-- [ ] Status transitions (connected / not connected / error).
-
 ## Phase 6 — Evidence-driven polish + hardening
 
 - CI on push (pytest + Playwright headless).

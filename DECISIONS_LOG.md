@@ -5,24 +5,6 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
-## 2026-04-13 — Integration connect UX Slice 1: Connections surface landed (Tier 2 local + hosted CI)
-
-**Decision.** Ship the narrowest honest Connections surface: a new `/connections` route with two read-only status cards (Gmail, Google Calendar), each showing "Not available yet". No Connect buttons. No fake-connected state. No real OAuth in this slice.
-
-**Scope chosen.** Read-only cards only. Truthful constant status. Five Playwright cases prove the surface renders correctly and carries no misleading state. Locale strings in en + zh.
-
-**Why no Connect buttons.** There is no real OAuth path in the repo. Per the AKIOR bible (CLAUDE.md), OAuth for Gmail and Google Calendar belongs in an external OpenClaw gateway flow — not in custom code in this repo. Shipping a Connect button before that path exists would create a dead-end UI that implies a flow exists when it does not. A dead button violates the non-technical-user bible ("can my grandmother do this in under 60 seconds?") more than an honest "Not available yet" label.
-
-**Why `/connections` not nested in `/settings`.** The AKIOR bible prioritises sidebar discoverability for non-technical users. A top-level route with its own sidebar entry gives Yosi and Bella a clear, direct path to connection management. Settings-page taxonomy is a developer convention, not a user-facing one.
-
-**Deferred to Slice 2.** Real OAuth wiring (or external OpenClaw gateway decision), connection status truth source, Connect button, disconnect flow, status transitions (connected / not connected / error).
-
-**Deferred entirely (not planned for this lane).** WhatsApp, iMessage, Drive, Sheets, Docs, Contacts — those are separate AKIOR bible items; none are scoped to the integration-connect UX lane.
-
-**Consequence.** Integration connect UX lane starts at ~10% (Slice 1 foundation). Whole WiseTutor product % nudges from ~54% to ~55% (small, honest lane-start). Whole company vision %: unchanged.
-
----
-
 ## 2026-04-13 — Family alpha readiness pass: white-label cleanup + smoke validation
 
 **Decision.** Declare WiseTutor **FAMILY ALPHA READY** for private rollout to Yosi,
