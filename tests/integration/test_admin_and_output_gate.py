@@ -17,7 +17,7 @@ import websockets
 
 BASE = "http://localhost:8001"
 WS_BASE = "ws://localhost:8001/api/v1/ws"
-REPO = "/home/ai-desktop/projects/WiseTutor"
+REPO = __import__("os").environ.get("WISETUTOR_REPO") or "/home/ai-desktop/projects/WiseTutor"
 
 # Known PINs (rotated earlier in the slice series)
 MRW_PIN = "2468"
@@ -97,7 +97,7 @@ def test_owner_can_reset_target_pin_with_owner_pin(caplog):
         assert body.get("mode") == "owner_override"
         # Audit log is emitted by the server (out-of-process), assert by
         # grepping the backend's log file.
-        with open("/home/ai-desktop/projects/WiseTutor/logs/backend.log") as f:
+        with open(f"{__import__('os').environ.get('WISETUTOR_REPO') or '/home/ai-desktop/projects/WiseTutor'}/logs/backend.log") as f:
             log_text = f.read()
         assert "admin_action ok action=pin_reset" in log_text
         assert "target=bella" in log_text
@@ -131,7 +131,7 @@ def test_owner_can_update_target_preferences():
         assert body["preferences"]["safety_profile"] == "standard"
         assert body["preferences"]["allowed_capabilities"] == ["chat", "deep_question"]
         # Server-side audit log
-        with open("/home/ai-desktop/projects/WiseTutor/logs/backend.log") as f:
+        with open(f"{__import__('os').environ.get('WISETUTOR_REPO') or '/home/ai-desktop/projects/WiseTutor'}/logs/backend.log") as f:
             log_text = f.read()
         assert "admin_action ok action=prefs_update" in log_text
     finally:

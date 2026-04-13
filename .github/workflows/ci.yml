@@ -1,0 +1,242 @@
+name: WiseTutor CI
+
+# Phase 6 slice 1 — CI foundation.
+#
+# Runs the deterministic portion of the test suite against a clean Ubuntu
+# runner. The full local proof is 56 pytest + 28 Playwright across 9 projects.
+# CI intentionally skips tests that require a live cloud LLM (OpenAI /
+# Anthropic) or a local Ollama server, because those resources are not
+# available to a GitHub-hosted runner without secrets and non-deterministic
+# network behavior. The excluded surface is documented in the workflow
+# summary below and in DECISIONS_LOG.
+#
+# CI proves:
+#   - all auth / identity / memory / sessions / per-user catalog / preferences
+#     / capability enforcement / child-safety input-gate / themes / owner-
+#     admin / output-gate (via the WISETUTOR_TEST_MODE seam) tests pass.
+#
+# CI does NOT prove (left to local full-provider runs):
+#   - identity-truth Playwright spec (uses real providers)
+#   - popup-layout Playwright spec (calls /settings/verify against real providers)
+#   - preferences-divergence Playwright spec (sends a real OpenAI turn)
+#   - pytest turns that depend on a live chat completion
+
+on:
+  push:
+    branches:
+      - bootstrap/wisetutor-baseline
+      - main
+  pull_request:
+    branches:
+      - bootstrap/wisetutor-baseline
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: pytest + Playwright (no-provider subset)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      WISETUTOR_REPO: ${{ github.workspace }}
+      WT_CI_SKIP_PROVIDER_TESTS: "1"
+      WISETUTOR_TEST_MODE: "1"
+      WT_MRW_PIN: "2468"
+      WT_BELLA_PIN: "1357"
+      DEEPTUTOR_APP: "http://localhost:3782"
+      NEXT_PUBLIC_API_BASE: "http://localhost:8001"
+      PW_SERIAL: "1"
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements/server.txt
+            pyproject.toml
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # ─── Python deps ────────────────────────────────────────────────────
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip wheel setuptools
+          pip install -r requirements/server.txt
+          pip install -e .
+          pip install pytest pytest-asyncio websockets
+
+      # ─── Node deps + Playwright browser ─────────────────────────────────
+      - name: Install web deps
+        working-directory: web
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      # ─── Seed minimal user + catalog state ──────────────────────────────
+      # First boot runs legacy_migration + seeds users with default PINs.
+      # Our tests expect the PINs rotated to 2468 / 1357.
+      - name: Seed owner + child + catalog
+        run: |
+          set -eu
+          mkdir -p data/users/mrw/settings data/users/bella/settings
+          # Minimal per-user catalog; tests don't dial providers on CI.
+          cat > data/users/mrw/settings/model_catalog.json <<'EOF'
+          {
+            "version": 1,
+            "services": {
+              "llm": {
+                "active_profile_id": "p-openai", "active_model_id": "m-4o-mini",
+                "profiles": [
+                  {"id": "p-openai", "name": "OpenAI", "binding": "openai",
+                   "base_url": "https://api.openai.com/v1",
+                   "api_key": "ci-placeholder", "api_version": "", "extra_headers": {},
+                   "models": [{"id": "m-4o-mini", "name": "gpt-4o-mini", "model": "gpt-4o-mini"}]},
+                  {"id": "p-anthropic", "name": "Anthropic", "binding": "anthropic",
+                   "base_url": "https://api.anthropic.com/v1",
+                   "api_key": "ci-placeholder", "api_version": "", "extra_headers": {},
+                   "models": [{"id": "m-opus-4-6", "name": "claude-opus-4-6", "model": "claude-opus-4-6"}]},
+                  {"id": "p-ollama", "name": "Local Ollama", "binding": "ollama",
+                   "base_url": "http://localhost:11434/v1",
+                   "api_key": "ollama-local", "api_version": "", "extra_headers": {},
+                   "models": [{"id": "m-qwen", "name": "qwen2.5:72b", "model": "qwen2.5:72b"}]}
+                ]
+              },
+              "embedding": {"active_profile_id": null, "active_model_id": null, "profiles": []},
+              "search": {"active_profile_id": null, "profiles": []}
+            }
+          }
+          EOF
+          cat > data/users/bella/settings/model_catalog.json <<'EOF'
+          {
+            "version": 1,
+            "services": {
+              "llm": {
+                "active_profile_id": "llm-profile-default",
+                "active_model_id": "llm-model-bella",
+                "profiles": [{
+                  "id": "llm-profile-default", "name": "Bella", "binding": "ollama",
+                  "base_url": "http://localhost:11434/v1", "api_key": "local",
+                  "api_version": "", "extra_headers": {},
+                  "models": [{"id": "llm-model-bella", "name": "qwen2.5:7b", "model": "qwen2.5:7b"}]
+                }]
+              },
+              "embedding": {"active_profile_id": null, "active_model_id": null, "profiles": []},
+              "search": {"active_profile_id": null, "profiles": []}
+            }
+          }
+          EOF
+
+      # ─── Start backend ──────────────────────────────────────────────────
+      - name: Start backend (uvicorn, test mode)
+        run: |
+          mkdir -p logs
+          nohup python -m uvicorn deeptutor.api.main:app \
+              --host 0.0.0.0 --port 8001 \
+              > logs/backend.log 2>&1 &
+          echo $! > logs/backend.pid
+
+      - name: Wait for backend
+        run: |
+          for i in {1..60}; do
+            if curl -sf -o /dev/null http://localhost:8001/docs; then
+              echo "backend up"; exit 0
+            fi
+            sleep 1
+          done
+          echo "backend did not start"; tail -n 120 logs/backend.log; exit 1
+
+      # ─── Rotate seeded PINs to the CI-known values ──────────────────────
+      - name: Rotate Mr W + Bella PINs to CI values
+        run: |
+          set -e
+          # Mr W 1234 -> 2468
+          curl -s --fail-with-body -c /tmp/mrw.jar -X POST \
+              http://localhost:8001/api/v1/users/switch \
+              -H "Content-Type: application/json" \
+              -d '{"user_id":"mrw","pin":"1234"}'
+          curl -s --fail-with-body -b /tmp/mrw.jar -X POST \
+              http://localhost:8001/api/v1/users/mrw/pin \
+              -H "Content-Type: application/json" \
+              -d '{"current_pin":"1234","new_pin":"2468"}'
+          # Bella 5678 -> 1357
+          curl -s --fail-with-body -c /tmp/bella.jar -X POST \
+              http://localhost:8001/api/v1/users/switch \
+              -H "Content-Type: application/json" \
+              -d '{"user_id":"bella","pin":"5678"}'
+          curl -s --fail-with-body -b /tmp/bella.jar -X POST \
+              http://localhost:8001/api/v1/users/bella/pin \
+              -H "Content-Type: application/json" \
+              -d '{"current_pin":"5678","new_pin":"1357"}'
+
+      # ─── Start frontend ─────────────────────────────────────────────────
+      - name: Start frontend (next dev)
+        working-directory: web
+        run: |
+          nohup npm run dev -- --port 3782 > ../logs/frontend.log 2>&1 &
+          echo $! > ../logs/frontend.pid
+
+      - name: Wait for frontend
+        run: |
+          for i in {1..90}; do
+            if curl -sf -o /dev/null http://localhost:3782/; then
+              echo "frontend up"; exit 0
+            fi
+            sleep 1
+          done
+          echo "frontend did not start"; tail -n 120 logs/frontend.log; exit 1
+
+      # ─── pytest ─────────────────────────────────────────────────────────
+      - name: Run pytest integration (no-provider subset)
+        run: |
+          python -m pytest tests/integration -v \
+            --junitxml=artifacts/pytest-junit.xml \
+            2>&1 | tee artifacts/pytest.log
+
+      # ─── Playwright ─────────────────────────────────────────────────────
+      - name: Run Playwright (no-provider subset)
+        working-directory: web
+        env:
+          EVIDENCE_DIR: ${{ github.workspace }}/artifacts/playwright-evidence
+        run: |
+          mkdir -p "$EVIDENCE_DIR"
+          npx playwright test \
+            --project=per-user-catalog \
+            --project=two-browser-isolation \
+            --project=capability-enforcement \
+            --project=child-safety \
+            --project=admin-panel \
+            --project=themes \
+            --reporter=list \
+            2>&1 | tee ../artifacts/playwright.log
+
+      # ─── Collect artifacts on success or failure ────────────────────────
+      - name: Collect logs
+        if: always()
+        run: |
+          mkdir -p artifacts
+          cp logs/*.log artifacts/ 2>/dev/null || true
+          cp -r web/playwright-report artifacts/playwright-report 2>/dev/null || true
+          cp -r web/test-results        artifacts/test-results 2>/dev/null || true
+
+      - name: Upload CI artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wisetutor-ci-artifacts
+          path: artifacts/
+          retention-days: 14

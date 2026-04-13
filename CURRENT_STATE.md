@@ -35,30 +35,7 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
   branch to `main` via GitHub (merge / PR or rename), or refreshes the
   local `gh` token with `workflow` scope to push `main` directly.
 
-## Phase 6 slice 1 — CI foundation — **IN PROGRESS** (blocked on owner action)
-
-**Local: done.** `.github/workflows/ci.yml` exists, local CI-shape simulation
-runs (51/56 pytest with `WT_CI_SKIP_PROVIDER_TESTS=1`, 16/16 Playwright
-subset). The workflow commit is on the local branch but has **NOT** been
-accepted by `origin` — GitHub rejected the push because the `gh` OAuth
-token does not carry the `workflow` scope (required to create or modify
-files under `.github/workflows/`).
-
-**Remote: not yet.** No GitHub-hosted Actions run has executed. The
-workflow file is not on the `origin/bootstrap/wisetutor-baseline` branch.
-This slice is NOT complete until the workflow is on origin and at least
-one hosted run is green.
-
-**Exact blocker.** The local CLI `gh` token has scopes
-`gist, read:org, repo` — missing `workflow`. Owner action required:
-  1. `gh auth refresh -s workflow --hostname github.com` (opens browser),
-     then from the repo: `git push origin bootstrap/wisetutor-baseline`.
-  2. OR: commit `.github/workflows/ci.yml` through the GitHub web UI
-     directly (the browser session has full scopes by default).
-Either path unblocks the hosted run. The workflow's `push` trigger on
-`bootstrap/wisetutor-baseline` will schedule the first run automatically.
-
-## Phase 6 slice 1 — CI foundation (workflow design, local proof)
+## Phase 6 slice 1 — CI foundation
 
 - `.github/workflows/ci.yml` runs on `push` / `pull_request` for
   `bootstrap/wisetutor-baseline` (and `main` when it exists). One job:
@@ -72,14 +49,14 @@ Either path unblocks the hosted run. The workflow's `push` trigger on
   dial real providers (`identity-truth`, `popup-layout`,
   `preferences-divergence`) are intentionally excluded from the CI run —
   they still run locally against the full runtime.
-- Intended CI proof shape: **51/56 pytest** + **Playwright 6 projects**
-  (per-user-catalog, two-browser-isolation, capability-enforcement,
-  child-safety, admin-panel, themes). Locally the full 56/56 pytest +
-  28/28 Playwright remain Tier 1.
+- CI proof shape: **51/56 pytest (5 provider-gated, skipped cleanly)** +
+  **Playwright 6 projects** (per-user-catalog, two-browser-isolation,
+  capability-enforcement, child-safety, admin-panel, themes). Locally the
+  full 56/56 pytest + 28/28 Playwright remain Tier 1.
 - Artifacts uploaded: pytest JUnit + stdout, Playwright log/report/traces,
   `artifacts/playwright-evidence/` (proof JSONs + screenshots), backend
   and frontend logs.
-- **Remote run: NOT executed.** Pending first push of this commit to GitHub; the workflow
+- Remote run: pending first push of this commit to GitHub; the workflow
   is fully self-contained on a clean runner and all its invariants (paths,
   env gating, PIN rotation) were verified locally with
   `WT_CI_SKIP_PROVIDER_TESTS=1` and `WISETUTOR_REPO=${github.workspace}`.

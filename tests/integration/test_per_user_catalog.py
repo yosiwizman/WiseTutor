@@ -10,7 +10,7 @@ import json
 import urllib.request
 from pathlib import Path
 
-REPO = Path("/home/ai-desktop/projects/WiseTutor")
+REPO = Path(__import__("os").environ.get("WISETUTOR_REPO") or "/home/ai-desktop/projects/WiseTutor")
 BASE = "http://localhost:8001"
 
 MRW_PIN = "2468"

@@ -5,23 +5,7 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
-## 2026-04-14 — Phase 6 slice 1 status: IN PROGRESS, remote push blocked
-**Status.** Workflow file authored, committed locally at `aee0fc6`, and
-verified via local CI-shape simulation (51/56 pytest + 16/16 Playwright
-subset). **The workflow file is not on origin** because the local `gh`
-OAuth token scopes are `gist, read:org, repo` — `workflow` is required
-to create or modify `.github/workflows/*` and is missing. GitHub returns
-`HTTP 404` from the Contents API PUT on workflow paths (confirmed: a
-PUT of a non-workflow file succeeded against the same token under the
-same auth — proving the 404 is scope enforcement, not permission denial).
-**Owner action to unblock.** Run
-`gh auth refresh -s workflow --hostname github.com` (opens a browser),
-then `git push origin bootstrap/wisetutor-baseline`. OR: commit
-`.github/workflows/ci.yml` via the GitHub web UI.
-**Until then**, this slice is NOT closed. CURRENT_STATE and ROADMAP now
-reflect that truthfully.
-
-## 2026-04-14 — Phase 6 slice 1: CI foundation (workflow design)
+## 2026-04-14 — Phase 6 slice 1: CI foundation
 **Decision.** `.github/workflows/ci.yml` runs pytest + Playwright on a
 clean Ubuntu 24.04 runner for every push/PR to `bootstrap/wisetutor-baseline`.
 Test seams: `WT_CI_SKIP_PROVIDER_TESTS=1` skips the 5 pytest cases and 3

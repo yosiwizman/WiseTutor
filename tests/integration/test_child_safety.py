@@ -1,3 +1,5 @@
+from .conftest import requires_provider
+
 """Phase 3 slice 4 — child safety reinforcement proofs."""
 
 import asyncio
@@ -122,6 +124,7 @@ async def test_bella_drugs_blocked_at_input_gate():
 
 
 @pytest.mark.asyncio
+@requires_provider()
 async def test_bella_safe_educational_prompt_is_not_blocked():
     """A normal math question must pass through the safety gate.
 
@@ -151,6 +154,7 @@ async def test_bella_safe_educational_prompt_is_not_blocked():
 
 
 @pytest.mark.asyncio
+@requires_provider()
 async def test_mrw_unsafe_prompt_is_not_routed_through_child_gate():
     """Mr W has safety_profile=standard — the child input gate must NOT
     activate for him on the same text. The capability-allowed plain chat

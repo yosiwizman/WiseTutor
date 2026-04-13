@@ -1,3 +1,5 @@
+from .conftest import requires_provider
+
 """Multi-user foundation — live integration tests (Phase 2 slice 2).
 These hit the running backend at http://localhost:8001 using cookie-scoped
 identity. Per-request identity removes the server-global active user, so the
@@ -71,6 +73,7 @@ def test_two_clients_hold_independent_identities():
     assert a_bella["id"] == "bella"
     assert a_mrw["pin_is_default"] is False or a_bella["pin_is_default"] is False
 @pytest.mark.asyncio
+@requires_provider()
 async def test_sessions_isolated_per_cookie():
     mrw_op, _ = _client()
     bella_op, _ = _client()
@@ -99,7 +102,8 @@ def test_verify_cache_is_per_user():
     assert mrw_diag.get("verify_cache"), "mrw should see its own verify cache"
     assert not bella_diag.get("verify_cache"), "bella must not see mrw's verify cache"
 def test_legacy_dir_was_migrated_off_live_path():
-    repo = Path("/home/ai-desktop/projects/WiseTutor")
+    import os as _os
+    repo = Path(_os.environ.get("WISETUTOR_REPO") or "/home/ai-desktop/projects/WiseTutor")
     assert not (repo / "data" / "memory").exists(), "legacy data/memory was not archived"
     archive_root = repo / "data" / "users" / "_legacy"
     assert archive_root.is_dir(), "legacy archive dir missing"

@@ -1,12 +1,20 @@
 """Restore per-user catalog snapshots before each test run so destructive
 tests don't pollute subsequent ones."""
 
+import os
 import shutil
 from pathlib import Path
 
 import pytest
 
-REPO = Path("/home/ai-desktop/projects/WiseTutor")
+REPO = Path(os.environ.get("WISETUTOR_REPO") or "/home/ai-desktop/projects/WiseTutor")
+CI_SKIP_PROVIDER = os.environ.get("WT_CI_SKIP_PROVIDER_TESTS") == "1"
+
+
+def requires_provider(reason: str = "requires a live provider (OpenAI/Anthropic/Ollama)"):
+    """Decorator/helper: skip the test if CI environment set
+    WT_CI_SKIP_PROVIDER_TESTS=1. Local full-runtime runs still execute it."""
+    return pytest.mark.skipif(CI_SKIP_PROVIDER, reason=reason)
 LEGACY = REPO / "data/users/_legacy"
 MRW_CATALOG = REPO / "data/users/mrw/settings/model_catalog.json"
 BELLA_CATALOG = REPO / "data/users/bella/settings/model_catalog.json"

@@ -173,12 +173,12 @@ test("Bella and Mr W produce divergent responses for the same prompt", async () 
     // Restore Mr W's catalog from the archive so downstream Playwright specs
     // that assume his multi-profile catalog still work.
     try {
-      const legacyRoot = "/home/ai-desktop/projects/WiseTutor/data/users/_legacy";
+      const legacyRoot = `${process.env.WISETUTOR_REPO || "/home/ai-desktop/projects/WiseTutor"}/data/users/_legacy`;
       const entries = fs.readdirSync(legacyRoot).sort();
       for (const snap of entries) {
         const src = path.join(legacyRoot, snap, "user", "settings", "model_catalog.json");
         if (fs.existsSync(src)) {
-          fs.copyFileSync(src, "/home/ai-desktop/projects/WiseTutor/data/users/mrw/settings/model_catalog.json");
+          fs.copyFileSync(src, `${process.env.WISETUTOR_REPO || "/home/ai-desktop/projects/WiseTutor"}/data/users/mrw/settings/model_catalog.json`);
           break;
         }
       }

@@ -1,3 +1,5 @@
+from .conftest import requires_provider
+
 """Phase 3 slice 3 — capability enforcement proofs."""
 
 import asyncio
@@ -92,6 +94,7 @@ async def test_bella_deep_solve_rejected_at_ws_boundary():
 
 
 @pytest.mark.asyncio
+@requires_provider()
 async def test_bella_chat_allowed():
     """Chat IS in Bella's allowlist — the WS must NOT emit a capability_not_allowed
     rejection. We don't require the turn to complete; we require that any early
@@ -122,6 +125,7 @@ async def test_bella_chat_allowed():
 
 
 @pytest.mark.asyncio
+@requires_provider()
 async def test_mrw_deep_research_allowed():
     """deep_research IS in Mr W's owner default allowlist."""
     mrw = _client()
