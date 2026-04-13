@@ -204,9 +204,16 @@ visual-diffs lock the look.
 - [x] 5 Playwright cases under `tts` project (supported, single-active, unsupported hidden, no-autoplay, user-switch cleanup); wired into hosted CI.
 - [ ] Real audible browser output — **Tier 3**, requires human + speakers.
 
-### Slice 3B — local TTS fallback (NEXT)
-- [ ] Piper or Coqui local TTS for browsers without speechSynthesis or for higher-quality offline voices.
-- [ ] Profile-scoped voice choice.
+### Slice 3B — Piper local TTS fallback (LANDED 2026-04-13, Tier 2 local + hosted CI seam, ~90%)
+- [x] `createPiperRealAdapter` in `web/lib/tts.ts` — fetches audio blob from `POST /api/v1/voice/synthesize`, plays via `HTMLAudioElement`, single-active-utterance semantics.
+- [x] `createPiperTestAdapter` — deterministic seam (`__wt_test_tts_piper` + `__wt_test_tts_piper_driver`) for Playwright; deferred-event model (`emitStart/emitEnd/emitBackendError`, `lastText`).
+- [x] `useAssistantTts` hook extended: `engine` (TTSEngine) + `ttsState` exposed.
+- [x] `ChatMessages.tsx` and `tts-harness/page.tsx` updated: `data-engine`, `data-tts-state` using `tts.ttsState`; render gate changed to `engine !== "unsupported"`.
+- [x] Backend `POST /api/v1/voice/synthesize` + `GET /api/v1/voice/tts-status` wired; 503 with `piper_not_installed` when binary absent.
+- [x] 7 of 7 Playwright cases green under `tts-fallback` project; wired into hosted CI (`--project=tts-fallback`). Seam gap (case 7) closed: Rule 3 now requires `__wt_test_tts_piper.supported !== false`.
+- [x] Coqui ruled out (archived 2024); Piper only.
+- [ ] **Tier 3 (real audible):** install `piper` binary, verify audio output with human + speakers — NOT done; piper not installed on this machine.
+- [ ] Profile-scoped voice choice (deferred to a future slice).
 
 ### Slice 4 — Voice conversation orchestration
 - [ ] Push-to-talk and continuous modes.

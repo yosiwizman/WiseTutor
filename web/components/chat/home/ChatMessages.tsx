@@ -477,7 +477,7 @@ export function ChatMessageList({
                         onClick={() => onRetryMessage(pairedUserMessage?.requestSnapshot)}
                       />
                     )}
-                    {tts.supported ? (
+                    {tts.engine !== "unsupported" ? (
                       (() => {
                         const key = `msg-${i}`;
                         const active = tts.speakingKey === key;
@@ -485,7 +485,8 @@ export function ChatMessageList({
                           <button
                             type="button"
                             data-testid={`assistant-tts-${i}`}
-                            data-tts-state={active ? "speaking" : "idle"}
+                            data-engine={tts.engine}
+                            data-tts-state={active ? "speaking" : tts.ttsState === "error-generic" ? "error-generic" : "idle"}
                             onClick={() => tts.speak(key, msg.content)}
                             className="inline-flex items-center gap-1 px-0.5 py-0.5 text-[11px] text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
                             aria-label={active ? "Stop listening" : "Listen"}

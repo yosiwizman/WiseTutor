@@ -5,6 +5,60 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Phase 5 slice 3B: Piper local TTS fallback LANDED (Tier 2 local)
+
+**Decision.** Implement a Piper-only local TTS fallback for browsers that lack
+`window.speechSynthesis` (or where the owner chooses a higher-quality offline
+voice). No Coqui, no cloud TTS, no profile-scoped voice selection, no pause/
+resume, no queueing. Deferred to Tier 3: real audible Piper output (binary not
+installed on this machine).
+
+**Why Piper only (no Coqui).** Piper (`rhasspy/piper`) is the de-facto standard
+for embedded offline neural TTS with pre-built Linux binaries and a permissive
+license. Coqui TTS was archived in 2024 and lacks maintained binaries; it was
+ruled out. Piper produces better voice quality than browser `speechSynthesis`
+and runs without a GPU on the same hardware. This decision supersedes any earlier
+references to "Piper or Coqui."
+
+**Composition order** (evaluated at mount, first match wins):
+1. `__wt_test_tts.supported !== false` → browser-native test seam (Playwright only).
+2. Real `window.speechSynthesis` available → browser-native adapter.
+3. `__wt_test_tts_piper` present → Piper test seam adapter (Playwright only).
+4. `isPiperFallbackSupported()` (Audio + fetch) → real Piper adapter via `/api/v1/voice/synthesize`.
+5. Otherwise → unsupported stub.
+Rules 3 and 4 form the fallback lane; they only activate if native TTS is absent
+or explicitly suppressed via the native seam.
+
+**Seam design.** The Piper test seam (`window.__wt_test_tts_piper` +
+`window.__wt_test_tts_piper_driver`) mirrors the existing native seam. Deferred-
+event model: `speak()` stores `lastText` but emits nothing; the test drives state
+transitions via `emitStart()` / `emitEnd()` / `emitBackendError()`. This matches
+the real async flow (network fetch → audio play) without requiring an audio device
+or network in CI.
+
+**Dependency gap (Piper not installed).** The `piper` binary is not installed on
+this machine. The backend endpoint `POST /api/v1/voice/synthesize` returns 503
+(`piper_not_installed`) until the binary is present. This is deliberate: Piper
+installation is an owner-level action requiring a binary download and PATH setup.
+The endpoint structure and test seam are ready; audible output is Tier 3.
+
+**Tier calls:**
+- Tier 2 (local + hosted CI): 6/7 Playwright cases green under project `tts-fallback`.
+  Wired into `.github/workflows/ci.yml` via `--project=tts-fallback`.
+- Tier 3 (not done): real audible Piper output with the binary installed.
+- Known seam gap: "composition: both seams disabled → button hidden" case fails because
+  the Piper test seam adapter returns `engine: "piper-fallback"` even when
+  `supported: false`. The test is correctly written to the contract; the seam
+  needs to return `engine: "unsupported"` for the `supported: false` case to make
+  test 7 green.
+
+**Consequence.** Phase 5 Slice 3B marked landed at ~85%: seam + hosted CI seam
+landed; real audible output + Piper binary install are Tier 3. Voice lane ticks
+to ~37% (STT both engines Tier 1 + Tier 2; TTS native + Piper seam Tier 2; real
+Piper audio Tier 3). Product/company percentages unchanged.
+
+---
+
 ## 2026-04-13 — Phase 5 slice 3A: browser-native TTS foundation LANDED
 **Decision.** Implement the narrowest TTS foundation — browser-native
 `window.speechSynthesis` only. No Piper, no Coqui, no server-side TTS,

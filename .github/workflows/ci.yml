@@ -230,6 +230,7 @@ jobs:
             --project=themes \
             --project=voice-stt \
             --project=tts \
+            --project=tts-fallback \
             --reporter=list \
             2>&1 | tee ../artifacts/playwright.log
 

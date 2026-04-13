@@ -74,6 +74,37 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
 
 **Out of scope for this slice (deferred):** TTS, full voice conversation, wake word, server-side STT, transcript history, waveform visualizer.
 
+## Phase 5 slice 3B — Piper local TTS fallback — **LANDED (Tier 2 local + hosted CI seam)**
+
+**What is built (code):**
+- `web/lib/tts.ts` — extended with Piper real adapter (`createPiperRealAdapter`) and Piper test seam adapter (`createPiperTestAdapter`). Composition order: (1) native test seam if `__wt_test_tts.supported !== false`, (2) real `speechSynthesis` if available, (3) Piper test seam if `__wt_test_tts_piper` is present, (4) real Piper adapter if `isPiperFallbackSupported()`, (5) unsupported stub. New type: `TTSEngine = "browser-native" | "piper-fallback" | "unsupported"`.
+- `web/hooks/useAssistantTts.ts` — extended: exposes `engine` (TTSEngine) and `ttsState` ("idle" | "speaking" | "error-generic") alongside existing `supported`, `speakingKey`, `speak`, `stop`. Piper seam driver: `window.__wt_test_tts_piper_driver` with `emitStart()`, `emitEnd()`, `emitBackendError()`, `lastText`.
+- `web/components/chat/home/ChatMessages.tsx` — render condition changed to `tts.engine !== "unsupported"` (was `tts.supported`); buttons now expose `data-engine={tts.engine}` and `data-tts-state={active ? "speaking" : tts.ttsState}`.
+- `web/app/(workspace)/tts-harness/page.tsx` — updated to match ChatMessages: `engine !== "unsupported"` render gate, `data-engine`, `data-tts-state` using `tts.ttsState`.
+- `web/tests/e2e/tts-fallback.spec.ts` — 7 Playwright cases for the Piper seam path (see below).
+- Backend: `POST /api/v1/voice/synthesize` (Piper synthesis endpoint) and `GET /api/v1/voice/tts-status` — wired in `deeptutor/api/routers/voice.py`. Returns a WAV/MP3 audio blob; responds with 503 (`piper_not_installed`) when the Piper binary is absent. Deterministic test seam: `WISETUTOR_VOICE_TTS_TEST_MODE=1`.
+
+**Endpoints summary:**
+- `GET /api/v1/voice/tts-status` — returns `{ engine, supported, piper_available }`.
+- `POST /api/v1/voice/synthesize` — body `{ text: string }`, returns audio/wav blob or 503.
+
+**Composition rules:**
+1. `__wt_test_tts.supported !== false` → browser-native test seam (Playwright use only).
+2. Real `window.speechSynthesis` present → browser-native adapter (production Chrome/Safari).
+3. `__wt_test_tts_piper` present → Piper test seam adapter (Playwright use only).
+4. `isPiperFallbackSupported()` (Audio + fetch available) → real Piper adapter via `/api/v1/voice/synthesize`.
+5. Otherwise → unsupported stub (buttons hidden).
+
+**Seam design:** To force the Piper seam in Playwright: inject `__wt_test_tts = {supported: false}` AND `__wt_test_tts_piper = {supported: true}`. Driver is auto-wired at `window.__wt_test_tts_piper_driver`. Call `emitStart()` / `emitEnd()` / `emitBackendError()` to control playback state; read `lastText` to assert spoken payload.
+
+**Evidence tiers:**
+- Piper seam + hosted CI seam: **Tier 2 local + hosted CI** — 7 of 7 Playwright cases under `web/tests/e2e/tts-fallback.spec.ts` (project `tts-fallback`) pass locally and are wired into hosted CI. Cases: engine=piper-fallback happy path, toggle stop, single-active cancel, backend-error → error-generic, user-switched cleanup, no-autoplay, both-seams-disabled hides the button. Rule 3 in `createTtsAdapter` now requires `__wt_test_tts_piper.supported !== false` before selecting the Piper seam; `supported: false` falls through to the unsupported stub as intended. Existing `tts` (5) regression: green.
+- **Real audible Piper TTS output (speakers producing sound):** **Tier 3** — Piper binary is not installed on this machine. The real adapter (`createPiperRealAdapter`) is wired and makes `POST /api/v1/voice/synthesize` calls, but the backend returns 503 until Piper is installed. This is an intentional gap: real audible output requires a Tier 3 → Tier 1 promotion with a human + speakers + `piper` binary.
+
+**Install note for real Piper production use:** install the `piper` binary to the system PATH (e.g., `apt install piper-tts` or download from `rhasspy/piper` releases). Not added to default deps to keep the base install light. Backend reports `piper_not_installed` with 503 when absent.
+
+**What this does NOT prove:** real audible TTS output through the Piper binary; that is Tier 3 until a human independently verifies audio with Piper installed.
+
 ## Phase 5 slice 2 — Whisper local fallback — **LANDED (local Tier 2)**
 
 **What is built (code):**

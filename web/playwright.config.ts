@@ -88,5 +88,10 @@ export default defineConfig({
       testMatch: "**/tts.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
+    {
+      name: "tts-fallback",
+      testMatch: "**/tts-fallback.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });
