@@ -116,7 +116,8 @@ is the one-command install.
 - macOS launcher verified on real macOS: **Tier 3** (unverified).
 - Stable URL: **Tier 2 local** — LAN IP works on the home network;
   assumes DHCP reservation at the router.
-- Tailscale/MagicDNS: **Tier 4 deferred**.
+- **Tailscale/MagicDNS:** Tier 4 — install + login both need sudo and founder SSO; one-time founder action pending (see `docs/TAILSCALE_SETUP.md`). LAN IP is still the canonical launcher URL.
+- **Ubuntu host-launcher click-launch:** **Tier 1 local (2026-04-13)** — `web/tests/e2e/ubuntu-launcher.spec.ts` (new `ubuntu-launcher` Playwright project, 1/1 passed in 1.5 s) invokes the exact Exec= target of the installed Desktop `.desktop` file (`scripts_local/wt_launch.sh` with `WT_LAUNCH_SKIP_BROWSER=1` to skip the GUI Chrome spawn), asserts the LAN URL renders with correct branding, zero pageerror, no "DeepTutor" text. Full-page screenshot at `artifacts/ubuntu_launcher/launcher-proof.png` (20 761 B). `wt_launch.sh` gained a 3-line `WT_LAUNCH_SKIP_BROWSER` test seam; production behavior unchanged when the env var is unset.
 
 ---
 

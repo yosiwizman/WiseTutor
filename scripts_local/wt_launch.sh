@@ -53,6 +53,10 @@ done
 log "Service is up after ${WAIT}s"
 
 # --- Step 3: Open Chrome in app mode, detached ---
+if [[ "${WT_LAUNCH_SKIP_BROWSER:-0}" == "1" ]]; then
+  echo "WT_LAUNCH_SKIP_BROWSER=1 — skipping Chrome open (launcher-proof test)"
+  exit 0
+fi
 log "Opening Chrome: ${TARGET_URL}"
 google-chrome --app="${TARGET_URL}" >> "${LOG_FILE}" 2>&1 &
 

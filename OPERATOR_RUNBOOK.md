@@ -188,3 +188,13 @@ Then send the new `dist/wisetutor-windows-launcher.zip` and
 installed on a real Windows or real macOS machine yet (Tier 3 — designed, not
 confirmed). Confirm each OS path with a real install before declaring them
 production-ready.
+
+---
+
+## 12. Remote access (phones / off-Wi-Fi)
+
+Remote access requires a one-time Tailscale setup. See
+`docs/TAILSCALE_SETUP.md` for the 5 steps. Until that is done:
+- Family devices on home Wi-Fi: use the launcher zips or
+  `http://192.168.1.133:3782` in any browser.
+- Phones off home Wi-Fi: NOT reachable yet. Blocked on Tailscale.

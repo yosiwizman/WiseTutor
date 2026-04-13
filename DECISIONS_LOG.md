@@ -5,6 +5,42 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Tailscale + Ubuntu click-launch slice
+
+**Tailscale: BLOCKED (irreducible founder action required).**
+Tailscale is not installed on ai-desktop; install + first-time login
+both require sudo + browser SSO. Exact founder steps captured in
+`docs/TAILSCALE_SETUP.md`. Parent agent verified:
+  - `which tailscale` → not found
+  - `/var/lib/tailscale` → missing
+  - `systemctl status tailscaled` → unit not found
+  - `sudo -n true` → password required
+No LAN-IP → MagicDNS migration was performed; launcher zips + Ubuntu
+Desktop icon still hardcode `http://192.168.1.133:3782`. Migration is
+deferred to the next slice once the founder completes the one-time
+Tailscale install + login and pastes back the MagicDNS name.
+
+**Ubuntu click-launch: PROVED (Tier 1 local).** New `ubuntu-launcher`
+Playwright project (`web/tests/e2e/ubuntu-launcher.spec.ts`, 1/1 pass
+in 1.5 s) invokes the `.desktop` file's exact Exec= target
+(`scripts_local/wt_launch.sh`) with a `WT_LAUNCH_SKIP_BROWSER=1` test
+seam so the Chrome GUI spawn is skipped during the test. The spec
+asserts the LAN URL renders with correct WiseTutor branding, zero
+pageerror, no "DeepTutor" text. Screenshot:
+`artifacts/ubuntu_launcher/launcher-proof.png` (20 761 B).
+`wt_launch.sh` gained a 3-line `WT_LAUNCH_SKIP_BROWSER` guard;
+production path (env unset) unchanged.
+
+**Windows/macOS launcher artifacts: unchanged** — they still ship the
+LAN-IP URL. No rebuild this turn (gated on Tailscale readiness).
+
+**Percentages.** Whole WiseTutor product: ~72% → ~73% — Ubuntu
+click-launch promoted Tier 2 → Tier 1 via independent Playwright
+re-execution; Tailscale remains deferred (blocker) so the bump is
+narrow. Voice lane ~52% unchanged. Company vision ~11% unchanged.
+
+---
+
 ## 2026-04-13 — Host-launch + Windows/macOS client launchers
 
 **Decision.** Convert WiseTutor from terminal-first family hosting into

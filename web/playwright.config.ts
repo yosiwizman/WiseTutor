@@ -124,5 +124,11 @@ export default defineConfig({
       testMatch: "**/family-alpha-screenshots.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
+    {
+      name: "ubuntu-launcher",
+      testMatch: "**/ubuntu-launcher.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+      timeout: 120_000,
+    },
   ],
 });
