@@ -115,6 +115,23 @@ decision.
 
 **Phase 3 is closed.**
 
+## Phase 6 — CI / hardening
+
+### Slice 1 — CI foundation (IN PROGRESS — blocked on remote push)
+- [x] `.github/workflows/ci.yml` authored locally (clean Ubuntu 24.04 runner)
+- [x] Boots uvicorn + next dev, rotates PINs to CI values
+- [x] Runs pytest integration + Playwright subset (no-provider)
+- [x] Uploads JUnit + Playwright report + logs + evidence artifacts
+- [x] `@requires_provider()` gates 5 pytest cases behind `WT_CI_SKIP_PROVIDER_TESTS=1`
+- [x] CI skips Playwright projects: identity-truth, popup-layout, preferences-divergence
+- [x] Local CI-shape simulation green (51/56 pytest + 16 Playwright in the CI subset)
+- [ ] **Remote: workflow committed to origin** (blocked: `gh` OAuth token lacks `workflow` scope)
+- [ ] **Remote: first hosted Actions run green**
+
+### Slice 2 — CI provider lane (NEXT, optional)
+- [ ] Secrets-gated job running the excluded projects with repo-secret keys
+- [ ] Honest pass/fail reporting for that lane
+
 ## Phase 4 — Themes / appearance
 
 ### Slice 1 — per-user theme foundation (LANDED 2026-04-14)
