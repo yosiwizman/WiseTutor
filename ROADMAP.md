@@ -193,8 +193,8 @@ visual-diffs lock the look.
 - [x] MicButton composes native-first / fallback-second; live engine exposed as `data-engine`.
 - [x] Runtime failover: browser-native `error-generic` rebinds MicButton to the Whisper fallback once per mount (`data-failed-over="true"`); permission-denied and unsupported stay terminal.
 - [x] 9 Playwright cases green locally (project `voice-stt-fallback`, including 4 failover cases); 6 pytest cases green (`tests/api/test_voice_router.py`).
-- [ ] Real faster-whisper on real audio — **Tier 3**, requires human + mic + optional `pip install faster-whisper`.
-- [ ] Hosted CI wiring — intentionally deferred until the Tier 3 real-mic proof is filed (seam-only hosted coverage would not add signal).
+- [x] Real `faster-whisper` on real audio (Firefox 149 on ai-desktop, 2026-04-13) — **Tier 1** — proof pack: `artifacts/phase5_whisper_real_firefox/`.
+- [ ] Hosted CI wiring — still deferred; hosted runners lack `faster-whisper` and real mic. Will revisit only if the voice lane expands beyond single-machine proof.
 - [ ] Profile-scoped voice input language
 
 ### Slice 3 — TTS foundation

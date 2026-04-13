@@ -5,6 +5,42 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Phase 5 slice 2: Firefox real Whisper fallback Tier 1 proof filed
+**Decision.** Promote the Firefox → MediaRecorder → local `faster-whisper`
+fallback path from Tier 3 to **Tier 1 (Firefox on this machine)** based
+on `artifacts/phase5_whisper_real_firefox/`. Proof pack contents:
+- `firefox_real_fallback_01_before.png` — DOM inspector on the live
+  mic button shows `data-engine="whisper-fallback"`,
+  `data-failed-over="false"`, real Firefox 149, no test seam.
+- `firefox_real_fallback_02_after.png` — composer holds
+  "for back one do not send" (real `faster-whisper tiny` rendering of
+  the spoken phrase "fallback one do not send"), chat thread empty
+  (no auto-send), Network panel shows two
+  `POST /api/v1/voice/transcribe` rows at status 200.
+- `RESULT_20260413.md` — completed.
+- Backend `test_mode=false` at prep rules out the deterministic stub.
+
+**Artifact salvage done by agent.** Founder uploaded the BEFORE image
+as `fir` (extension stripped) and the AFTER image with a UUID filename.
+Agent renamed both to the canonical names without bothering the
+founder.
+
+**Scope.** Tier 1 claim narrow: Firefox 149, `tiny` model, ai-desktop
+machine. Not a cross-machine claim, not an accuracy claim, not a
+large-model claim. Hosted CI remains unwired by design.
+
+**React dev stack trace.** Founder reported a dev-mode trace rooted
+at `whisper-fallback.ts:121 postAudio → :169 recorder.onstop → :161
+start → MicButton.tsx:144 handleClick`. Not a fatal error — transcript
+landed, response came back 200. Noted in the RESULT for transparency.
+No code change required.
+
+**Consequence.** Phase 5 Slice 2 moves from 85% → **100%** (narrow
+Firefox Tier 1 claim). Slice 1 unchanged at 100%. Voice-lane and
+product-level percentages tick up modestly (see CURRENT_STATE).
+
+---
+
 ## 2026-04-13 — Phase 5 slice 1: real Chrome mic Tier 1 proof filed
 **Decision.** Promote the browser-native Chrome STT path from Tier 3 to
 **Tier 1 (Chrome only)** based on `artifacts/phase5_stt_real_browser/`:
