@@ -65,6 +65,32 @@ the minimum needed to make the intended product path actually work.
 
 ---
 
+## Private family deployment on ai-desktop (2026-04-13)
+
+**Landed:** reproducible start/stop/status/health/backup/restore/rollback
+scripts under `scripts_local/wt_*.sh`. Operator runbook at
+`OPERATOR_RUNBOOK.md`. Target: Yosi + Bella + family on ai-desktop
+(LAN, personal use). NOT commercial deployment.
+
+**Scripts:**
+- `wt_start.sh` — launches backend + frontend with Piper env; idempotent; polls readiness.
+- `wt_stop.sh` — SIGTERM/SIGKILL pattern; port sweep.
+- `wt_status.sh` — PID + port + Ollama visibility.
+- `wt_health.sh` — 5 endpoint checks (backend, frontend, voice/status, voice/tts-status, Ollama).
+- `wt_backup.sh` — tars `data/` + `.env` to `backups/wt-backup-<UTC>.tar.gz` + manifest; 14d retention.
+- `wt_restore.sh` — moves live `data/` + `.env` aside, extracts backup; supports `--dry-run`.
+- `wt_rollback.sh` — `git checkout <ref>` with clean-tree precondition; supports `--dry-run`.
+
+**Evidence tiers:**
+- Packaged startup scripts exist + basic sanity: **Tier 2 local** — Agent A ran wt_status + wt_health against live services.
+- Backup created + restore/rollback dry-runs: **Tier 2 local** — Agent B live-ran wt_backup and dry-ran restore + rollback.
+- Deployed-shape Playwright regression: **Tier 2 local + hosted CI** — family-alpha-smoke + quiz-summary + voice suites pass against the scripts' runtime. Exact counts recorded below after parent validation.
+- Full restart/recovery end-to-end (stop → verify down → start → verify up) with Playwright after: **Tier 1 local (to be filled in after parent-run validation)**.
+
+**NOT in this slice:** Docker, systemd unit, multi-host, cloud, TLS, LAN auth hardening, automated monitoring. Personal use only.
+
+---
+
 ## Family alpha readiness (2026-04-13)
 
 **Call: FAMILY ALPHA READY** — private family alpha for Yosi, Bella, and immediate

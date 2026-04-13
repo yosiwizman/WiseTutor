@@ -303,3 +303,4 @@ test-results/
 .env.*
 !.env.example
 !.env.example_CN
+backups/

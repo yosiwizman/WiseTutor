@@ -5,6 +5,22 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Private family deployment packaging
+
+**Decision.** Package WiseTutor for personal family use on ai-desktop via plain shell scripts under `scripts_local/wt_*.sh`, not systemd / Docker / cloud. Rationale: fastest honest shape for a non-technical operator (Mr W) on a single machine; all dependencies (Ollama, Piper model, `.env` secrets) are already local.
+
+**Choice — dev server vs production build.** Frontend runs `next dev` (not `next build && next start`). Acceptable for private family use: faster start, forgiving of small edits, no build step to fail. Switching to production build is deferred until (a) a second family member reports lag, or (b) ai-desktop needs to serve more than one active Chrome session concurrently.
+
+**Choice — shell scripts vs systemd.** `setsid nohup` + pidfiles in `logs/`. Survives shell exit; no root required; no unit files to audit. If a family member accidentally reboots ai-desktop, the operator runbook says run `wt_start.sh`. Automated-on-boot is deferred.
+
+**Persistence.** `data/` + `.env` backed up; `.venv/` + `web/node_modules/` rebuildable; models at `/mnt/models/` externally persistable. 14-day retention inside repo's `backups/`.
+
+**Scope boundary.** No new product features. No capability added. Deployment hardening only.
+
+**Percentages.** Whole WiseTutor product: ~68% → ~70% (a real deployable shape materially improves usability for the family target). Voice lane: ~52% unchanged. Whole company vision: ~11% unchanged.
+
+---
+
 ## 2026-04-13 — Quiz Score Summary UI slice
 
 **Decision.** Add a completion-state branch to `QuizViewer.tsx` that renders
