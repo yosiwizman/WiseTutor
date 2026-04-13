@@ -103,5 +103,10 @@ export default defineConfig({
       testMatch: "**/voice-turn-real.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
+    {
+      name: "family-alpha-smoke",
+      testMatch: "**/family-alpha-smoke.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });

@@ -8,6 +8,28 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
 `data/memory/_quarantined/`, `data/user/`. Upstream's README was renamed to
 `DEEPTUTOR_UPSTREAM_README.md`.
 
+## Family alpha readiness (2026-04-13)
+
+**Call: FAMILY ALPHA READY** — private family alpha for Yosi, Bella, and immediate
+family. This is NOT commercial readiness.
+
+Branding cleanup pass completed: sidebar, composer, onboarding text, locales (en + zh),
+settings page, playground page, and persistence.ts JSDoc are all free of "DeepTutor".
+Document title was already WiseTutor (pre-existing in `web/app/layout.tsx`).
+
+Smoke validation: 5/5 family-alpha-smoke Playwright cases pass (branding×2, critical-flow×3).
+Full voice regression: 38/43 — the 5 non-passing cases (1 fail + 4 skipped) are a pre-existing
+Bella-PIN mismatch in `voice-stt.spec.ts`, not introduced by this slice.
+
+Deferred (non-blocking):
+- `web/app/(workspace)/co-writer/sampleTemplate.ts` — inline placeholder text still says
+  "DeepTutor"; not visible in first-run flow.
+- Marketing pages, about page, logo refresh.
+
+Artifact: `artifacts/family_alpha_readiness/READINESS_20260413.md`
+
+---
+
 ## Proven today (Tier 1 or Tier 2)
 
 - Local backend + frontend run (Python :8001, Next.js :3782) using

@@ -5,6 +5,44 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Family alpha readiness pass: white-label cleanup + smoke validation
+
+**Decision.** Declare WiseTutor **FAMILY ALPHA READY** for private rollout to Yosi,
+Bella, and immediate family. This is explicitly NOT commercial readiness.
+
+**Scope.** Branding cleanup of user-visible strings (sidebar, composer, onboarding text,
+both locale files, settings page, playground page, persistence.ts). Playwright smoke
+suite (5 cases) covering branding × 2 + critical-flow × 3. No product code changes — docs
+and tests only (plus one auth-helper PIN fix).
+
+**What was fixed.**
+- `web/components/sidebar/SidebarShell.tsx` — sidebar header label + alt text
+- `web/lib/persistence.ts` — JSDoc comment + console.info string
+- `web/locales/en/app.json` — 9 string replacements
+- `web/locales/zh/app.json` — 9 parallel string replacements
+- `web/app/(utility)/settings/page.tsx` — tour step + redirect text
+- `web/app/(workspace)/playground/page.tsx` — playground description
+- `web/tests/e2e/_auth_helper.ts` (new file) — auth helper PIN default corrected 1234→2468
+- `web/tests/e2e/family-alpha-smoke.spec.ts` (new file) — 5 smoke cases
+
+**What is deferred (non-blocking).**
+- `web/app/(workspace)/co-writer/sampleTemplate.ts` — inline placeholder text references
+  "DeepTutor"; not encountered in first-run family alpha flow. FUTURE POLISH.
+- Marketing pages, about page, logo refresh. FUTURE POLISH.
+- `voice-stt.spec.ts` Bella-PIN mismatch (pre-existing, unrelated to this slice).
+
+**Classification rule used.** BLOCKING = prevents a family member from using the product
+on first launch. NON-BLOCKING = visible only in secondary flows or developer-facing paths.
+FUTURE POLISH = never visible in family alpha scope.
+
+**Evidence.** family-alpha-smoke 5/5 (Tier 2 local). Voice regression 38/43 (1 pre-existing
+failure, 4 skipped — pre-existing Bella PIN issue). Artifact: `artifacts/family_alpha_readiness/READINESS_20260413.md`.
+
+**Consequence.** Whole WiseTutor product % nudges from ~52% to ~54% (voice lane
+unchanged; branding cleanup + family-alpha smoke gate added). Whole company vision %: unchanged.
+
+---
+
 ## 2026-04-13 — Phase 5 slice 4B: audible end-to-end conversation Tier 1 confirmed — CLOSED at 100%
 **Decision.** Promote full human-audible mic→LLM→speakers conversation
 from Tier 3 to **Tier 1**. Founder ran one real PTT cycle in Chrome at

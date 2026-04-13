@@ -230,6 +230,23 @@ visual-diffs lock the look.
 **Exit criteria.** End-to-end voice conversation with Bella and Mr W
 profiles using at least one local voice path; latency budget documented.
 
+## Family alpha readiness (2026-04-13) — rollout-debt slice, not a feature slice
+
+**Call: FAMILY ALPHA READY** (private — Yosi, Bella, immediate family only).
+
+- [x] Branding cleanup: sidebar, composer, onboarding, locales (en + zh), settings,
+      playground, persistence.ts — all user-visible "DeepTutor" strings replaced.
+- [x] Document `<title>`: WiseTutor (pre-existing in `web/app/layout.tsx`).
+- [x] Playwright smoke gate: 5/5 `family-alpha-smoke` cases pass (branding×2 + critical-flow×3).
+- [x] Voice regression baseline: 38/43 (pre-existing Bella-PIN issue; not a regression).
+- [ ] Co-writer sample template text ("DeepTutor" placeholder) — FUTURE POLISH.
+- [ ] Marketing pages / about page / logo refresh — FUTURE POLISH.
+
+Full readiness report: `artifacts/family_alpha_readiness/READINESS_20260413.md`.
+
+This is NOT commercial readiness. No architectural changes were made. This slice
+exists to close rollout debt before family members first use the product.
+
 ## Phase 6 — Evidence-driven polish + hardening
 
 - CI on push (pytest + Playwright headless).

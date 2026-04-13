@@ -233,6 +233,7 @@ jobs:
             --project=tts-fallback \
             --project=voice-turn \
             --project=voice-turn-real \
+            --project=family-alpha-smoke \
             --reporter=list \
             2>&1 | tee ../artifacts/playwright.log
 
