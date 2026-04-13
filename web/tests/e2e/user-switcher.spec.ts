@@ -20,8 +20,10 @@ async function setActiveViaApi(user_id: string, pin: string) {
 
 test.describe.configure({ mode: "serial" });
 
-test("active user label visible + switcher opens", async ({ page }) => {
-  await setActiveViaApi("mrw", "1234");
+// Superseded by two-browser-isolation.spec.ts after Phase 2 slice 2 introduced
+// cookie-based identity + UserGate. Kept as documentation of the slice-1 flow.
+test.skip("active user label visible + switcher opens", async ({ page }) => {
+  await setActiveViaApi("mrw", process.env.WT_MRW_PIN || "1234");
   await page.goto(APP);
   await page.waitForLoadState("networkidle");
   await expect(page.getByTestId("user-switcher-label")).toHaveText("Mr W");
@@ -32,8 +34,8 @@ test("active user label visible + switcher opens", async ({ page }) => {
   await page.screenshot({ path: path.join(EVID, "01_switcher_open.png"), fullPage: false });
 });
 
-test("wrong PIN is rejected and no switch happens", async ({ page }) => {
-  await setActiveViaApi("mrw", "1234");
+test.skip("wrong PIN is rejected and no switch happens", async ({ page }) => {
+  await setActiveViaApi("mrw", process.env.WT_MRW_PIN || "1234");
   await page.goto(APP);
   await page.waitForLoadState("networkidle");
   await page.getByTestId("user-switcher-trigger").click();
@@ -48,8 +50,8 @@ test("wrong PIN is rejected and no switch happens", async ({ page }) => {
   await page.screenshot({ path: path.join(EVID, "02_wrong_pin_rejected.png"), fullPage: false });
 });
 
-test("correct PIN switches and label updates", async ({ page }) => {
-  await setActiveViaApi("mrw", "1234");
+test.skip("correct PIN switches and label updates", async ({ page }) => {
+  await setActiveViaApi("mrw", process.env.WT_MRW_PIN || "1234");
   await page.goto(APP);
   await page.waitForLoadState("networkidle");
   await page.getByTestId("user-switcher-trigger").click();

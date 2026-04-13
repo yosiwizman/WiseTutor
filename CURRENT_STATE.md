@@ -35,6 +35,26 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
   branch to `main` via GitHub (merge / PR or rename), or refreshes the
   local `gh` token with `workflow` scope to push `main` directly.
 
+## Phase 2 closed (slice 3) — PROVEN Tier 1
+
+- `get_memory_service` / `get_sqlite_session_store` / `get_turn_runtime_manager`
+  **REQUIRE an explicit `user_id`**. The legacy "fall back to UserService
+  active hint" behavior is removed from live paths; any bare call raises
+  `RuntimeError`. Only a narrow CLI helper (`get_memory_service_for_cli`)
+  remains, and it still requires an explicit user.
+- `/api/v1/sessions` and `/api/v1/memory` return **401** when there is no
+  signed cookie (no silent reads of another user's data).
+- `UserService.active_user_id()` now raises; the last-used hint is available
+  as `last_used_user_id()` for CLI/diagnostic callers only. No router reads it.
+- `UserSwitcher` no longer `window.location.reload()`s. It blocks while a
+  turn is in flight (`window.__wt_inflight_turn`) and dispatches a
+  `wt:user-switched` event on clean switch.
+- `lib/unified-ws.ts` now asks the backend for a signed `ws-token` and
+  connects with `?wt_uid_token=...` — main composer WS is identity-bound.
+- Mr W and Bella are **both off** the seeded default PIN (`pin_is_default: false`).
+- 6 pytest + 12 Playwright cases pass against the live WiseTutor runtime.
+- Legacy shared storage archived to `data/users/_legacy/<ts>/` on first WiseTutor boot.
+
 ## Per-request identity + legacy migration + forced PIN rotation (Phase 2 slice 2) — PROVEN Tier 1
 
 - Identity is now a **per-request signed cookie** (`wt_uid`). No server-global

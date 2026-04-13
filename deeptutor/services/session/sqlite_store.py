@@ -738,16 +738,18 @@ _STORES: dict[str, SQLiteSessionStore] = {}
 
 
 def get_sqlite_session_store(user_id: str | None = None) -> SQLiteSessionStore:
-    """Return the session store for a specific user.
+    """Return the session store for an explicit user_id.
 
-    If user_id is None we fall back to UserService's active id for legacy
-    call sites that haven't been threaded yet. Live chat paths MUST pass it
-    explicitly.
-    """
+    The legacy "fall back to UserService's last-used hint" behavior is GONE
+    from live paths. Passing None raises."""
     from deeptutor.services.users import get_user_service
 
+    if not user_id:
+        raise RuntimeError(
+            "get_sqlite_session_store requires an explicit user_id; no global active user."
+        )
     svc = get_user_service()
-    uid = user_id or svc.active_user_id()
+    uid = user_id
     inst = _STORES.get(uid)
     if inst is not None:
         return inst

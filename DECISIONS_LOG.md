@@ -5,6 +5,21 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Phase 2 closed (slice 3)
+**Decision.** Phase 2 is CLOSED. The per-user factories
+(`get_memory_service`, `get_sqlite_session_store`, `get_turn_runtime_manager`)
+now raise on missing `user_id`; no live router can silently fall back to a
+server-global. `UserService.active_user_id()` raises; only `last_used_user_id()`
+remains as a diagnostic. `UserSwitcher` no longer reloads — soft hand-off via
+CustomEvent. `unified-ws.ts` carries a signed ws-token. Mr W and Bella are
+both off the seeded default PIN. Twelve Playwright + six pytest cases pass
+against the WiseTutor runtime source.
+**Reason.** CTO phase-close required initial PINs replaced (not just gated),
+no global identity read on live paths, and no silent clobber of in-flight
+chat on user switch.
+**Consequence.** Phase 3 (Bella / Mr W profile specialization) can now
+start on a real foundation.
+
 ## 2026-04-12 — Per-request identity + legacy migration + forced PIN rotation (Phase 2 slice 2)
 **Decision.** Replaced the server-global "active user" with a per-request
 signed-cookie identity (`wt_uid = <user>.<HMAC>`). WebSocket identity is

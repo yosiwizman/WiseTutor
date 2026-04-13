@@ -649,12 +649,14 @@ def reset_turn_runtime_manager(user_id: str | None = None) -> None:
 
 
 def get_turn_runtime_manager(user_id: str | None = None) -> TurnRuntimeManager:
-    """Per-user TurnRuntimeManager. Its internal store is constructed with
-    the per-user SQLiteSessionStore so the runtime cannot cross users."""
+    """Per-user TurnRuntimeManager. Requires an explicit user_id."""
     from deeptutor.services.session.sqlite_store import get_sqlite_session_store
-    from deeptutor.services.users import get_user_service
 
-    uid = user_id or get_user_service().active_user_id()
+    if not user_id:
+        raise RuntimeError(
+            "get_turn_runtime_manager requires an explicit user_id; no global active user."
+        )
+    uid = user_id
     inst = _RUNTIMES.get(uid)
     if inst is not None:
         return inst

@@ -1,3 +1,4 @@
+import { ensureSignedIn } from "./_auth_helper";
 /* eslint-disable i18n/no-literal-ui-text */
 import { test, expect, type Page } from "@playwright/test";
 import * as fs from "node:fs";
@@ -54,7 +55,7 @@ test.describe.configure({ mode: "serial" });
 test.beforeAll(() => ensureDir(EVID));
 
 test("settings runtime truth + memory health panel", async ({ page }) => {
-  await page.goto(`${APP}/settings`);
+  await ensureSignedIn(page, API); await page.goto(`${APP}/settings`);
   await page.waitForLoadState("networkidle");
   await page.getByText("Runtime Truth", { exact: false }).first().waitFor({ timeout: 15000 });
   await page.getByTestId("memory-health").waitFor({ timeout: 15000 });
@@ -71,7 +72,7 @@ const cases: { file: string; label: string; profile: string; model: string; expe
 for (const c of cases) {
   test(`identity reply matches runtime for ${c.label}`, async ({ page }) => {
     await setActive(c.profile, c.model);
-    await page.goto(APP);
+    await ensureSignedIn(page, API); await page.goto(APP);
     await page.waitForLoadState("networkidle");
     const body = await askIdentity(page, "What AI model and provider are you?");
     const ss = path.join(EVID, c.file);

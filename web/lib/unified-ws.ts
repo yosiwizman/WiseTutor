@@ -112,10 +112,20 @@ export class UnifiedWSClient {
     this.onClose = onClose;
   }
 
-  connect(): void {
+  async connect(): Promise<void> {
     if (this.ws && this.ws.readyState <= WebSocket.OPEN) return;
 
-    const url = wsUrl("/api/v1/ws");
+    // Fetch a short-lived signed identity token. The cookie lives on the
+    // app origin (:3782) but the WS goes direct to the backend (:8001), which
+    // would drop the cookie cross-origin. The token covers that gap.
+    let token = "";
+    try {
+      const r = await fetch("/api/v1/users/ws-token", { credentials: "include" });
+      if (r.ok) token = (await r.json()).token || "";
+    } catch { /* anon connect; backend will reject with no_user */ }
+
+    const base = wsUrl("/api/v1/ws");
+    const url = token ? `${base}?wt_uid_token=${encodeURIComponent(token)}` : base;
     this.ws = new WebSocket(url);
 
     this.ws.onmessage = (ev) => {

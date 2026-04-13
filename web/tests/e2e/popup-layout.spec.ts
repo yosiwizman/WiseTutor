@@ -1,3 +1,4 @@
+import { ensureSignedIn } from "./_auth_helper";
 /* eslint-disable i18n/no-literal-ui-text */
 import { test, expect, type Page } from "@playwright/test";
 import * as fs from "node:fs";
@@ -54,7 +55,7 @@ for (const c of providerCases) {
   test(`popup fits viewport — provider=${c.label}`, async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await setActive(c.profile, c.model);
-    await page.goto(APP);
+    await ensureSignedIn(page, API); await page.goto(APP);
     await page.waitForLoadState("networkidle");
     await openPopup(page);
     await assertFullyInViewport(page);
@@ -72,7 +73,7 @@ for (const s of sizeCases) {
   test(`popup fits viewport — size=${s.width}x${s.height}`, async ({ page }) => {
     await page.setViewportSize({ width: s.width, height: s.height });
     await setActive("llm-profile-openai", "llm-model-openai-gpt54");
-    await page.goto(APP);
+    await ensureSignedIn(page, API); await page.goto(APP);
     await page.waitForLoadState("networkidle");
     await openPopup(page);
     await assertFullyInViewport(page);

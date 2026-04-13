@@ -95,7 +95,11 @@ class MemoryService:
         memory_dir: Path | None = None,
     ) -> None:
         self._path_service = path_service or get_path_service()
-        self._store = store or get_sqlite_session_store()
+        # Store is optional — only needed for refresh_from_session(). Leave as
+        # None here so MemoryService can be constructed per-user without
+        # forcing a per-user store lookup (and to keep the strict no-global
+        # contract intact).
+        self._store = store
         self._override_dir = memory_dir
         self._migrate_legacy()
 
@@ -287,17 +291,24 @@ class MemoryService:
         *,
         language: str = "en",
         max_messages: int = 10,
+        store: SQLiteSessionStore | None = None,
     ) -> MemoryUpdateResult:
+        session_store = store or self._store
+        if session_store is None:
+            raise RuntimeError(
+                "refresh_from_session requires an explicit store= or a store "
+                "provided at MemoryService construction time. No global fallback."
+            )
         target = (session_id or "").strip()
         if not target:
-            sessions = await self._store.list_sessions(limit=1)
+            sessions = await session_store.list_sessions(limit=1)
             if sessions:
                 target = str(sessions[0].get("session_id", "") or "")
 
         if not target:
             return MemoryUpdateResult(content="", changed=False, updated_at=None)
 
-        messages = await self._store.get_messages_for_context(target)
+        messages = await session_store.get_messages_for_context(target)
         relevant = [
             m for m in messages
             if str(m.get("role", "")) in {"user", "assistant"}
@@ -314,7 +325,7 @@ class MemoryService:
         )
 
         cap = ""
-        sess = await self._store.get_session(target)
+        sess = await session_store.get_session(target)
         if sess:
             cap = str(sess.get("capability", "") or "")
 
@@ -464,16 +475,21 @@ _MEMORY_SERVICES: dict[str, "MemoryService"] = {}
 
 
 def get_memory_service(user_id: str | None = None) -> MemoryService:
-    """Return a MemoryService scoped to the given user_id.
+    """Return a MemoryService scoped to an explicit user_id.
 
-    If user_id is None, falls back to the UserService active id. This fallback
-    exists only for code paths that cannot yet thread a request-scoped user
-    through them (CLI, legacy routers). Live chat path MUST pass user_id
-    explicitly.
+    The legacy "fall back to UserService's last-used hint" behavior is GONE
+    from live paths. Passing None raises unless the caller is marked as a
+    CLI/diagnostic path — in which case it must use get_memory_service_for_cli().
     """
     from deeptutor.services.users import get_user_service
 
-    uid = user_id or get_user_service().active_user_id()
+    if not user_id:
+        raise RuntimeError(
+            "get_memory_service requires an explicit user_id; no global active user. "
+            "HTTP/WS paths resolve the user from the signed cookie; CLI should call "
+            "get_memory_service_for_cli(user_id)."
+        )
+    uid = user_id
     inst = _MEMORY_SERVICES.get(uid)
     if inst is not None:
         return inst
@@ -482,6 +498,11 @@ def get_memory_service(user_id: str | None = None) -> MemoryService:
     inst = MemoryService(memory_dir=mem_dir)
     _MEMORY_SERVICES[uid] = inst
     return inst
+
+
+def get_memory_service_for_cli(user_id: str) -> MemoryService:
+    """Explicit CLI/diagnostic entry — required uid, no hidden global."""
+    return get_memory_service(user_id=user_id)
 
 
 def reset_memory_service(user_id: str | None = None) -> None:

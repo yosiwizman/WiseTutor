@@ -200,16 +200,28 @@ class UserService:
     def get(self, user_id: str) -> User | None:
         return self._users.get(user_id)
 
-    def active_user(self) -> User | None:
+    # ── DIAGNOSTIC ONLY — NOT read by any live HTTP/WS runtime path ─────
+    # Kept so a CLI or operator diagnostic can ask "who was the last user
+    # to authenticate on this machine?". Attempting to use this in a live
+    # path is a bug — live paths resolve identity from the request cookie.
+    def last_used_user_id(self) -> str | None:
         with self._lock:
-            if not self._active_id:
-                return None
-            return self._users.get(self._active_id)
+            return self._active_id
+
+    def last_used_user(self) -> User | None:
+        with self._lock:
+            return self._users.get(self._active_id) if self._active_id else None
+
+    # Back-compat aliases, explicitly DEPRECATED. Remove in a later slice.
+    def active_user(self) -> User | None:
+        return self.last_used_user()
 
     def active_user_id(self) -> str:
-        """Always returns a non-empty id; falls back to 'mrw' if somehow unset."""
-        u = self.active_user()
-        return u.id if u else "mrw"
+        raise RuntimeError(
+            "active_user_id() is removed from live paths. Use the per-request "
+            "cookie resolver (resolve_request_user / resolve_headers_user). "
+            "For CLI diagnostics, use last_used_user_id() and pass it explicitly."
+        )
 
     def set_pin(self, user_id: str, new_pin: str) -> None:
         if not _PIN_RE.match(new_pin):

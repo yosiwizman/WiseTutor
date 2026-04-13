@@ -15,6 +15,8 @@ router = APIRouter()
 
 def _store_for(request: Request):
     uid = resolve_request_user(request)
+    if not uid:
+        raise HTTPException(status_code=401, detail="no_user")
     return get_sqlite_session_store(user_id=uid)
 
 

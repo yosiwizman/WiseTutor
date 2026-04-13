@@ -57,15 +57,20 @@ decision.
 - [x] Live drift fix: backend and frontend now run from WiseTutor tree
 - [x] 6 pytest integration + 2 Playwright two-browser E2E — all green
 
-### Slice 3 — remaining multi-user gaps (NEXT)
-- [ ] Identity short-circuit includes "you are talking to user X" context.
-- [ ] Per-user LLM/provider catalog (currently shared in `data/user/`).
-- [ ] Session-secret rotation + HTTPS-only cookie flag when deployed off
-      localhost.
-- [ ] Multi-tab rotation UX: the current UserGate reload clobbers in-flight
-      chat. Replace with a soft hand-off.
-- [ ] Remove the global `_active_id` last-used hint from `UserService` —
-      it's no longer read on the live path but still exists as "diagnostics".
+### Slice 3 — phase close (LANDED 2026-04-13)
+- [x] Per-user factories raise on missing `user_id` (no live global fallback)
+- [x] `/api/v1/sessions` + `/api/v1/memory` → 401 anon
+- [x] `UserService.active_user_id()` removed from live paths; `last_used_user_id`
+      retained as CLI diagnostic only
+- [x] Soft hand-off in `UserSwitcher` (no `location.reload`, in-flight guard,
+      `wt:user-switched` CustomEvent)
+- [x] `unified-ws.ts` uses signed ws-token for backend WS
+- [x] Mr W + Bella off seeded default PINs
+- [x] 12 Playwright + 6 pytest cases pass against the WiseTutor runtime
+
+**Phase 2 exit criteria all met.**
+
+## Phase 3 — Bella / Mr W profile specialization (NEXT)
 
 **Exit criteria (phase).** Two distinct users can chat with no memory
 crossover, verify caches scoped per user, and initial PINs replaced.

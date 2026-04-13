@@ -16,11 +16,15 @@ router = APIRouter()
 
 def _mem_for(request: Request):
     uid = resolve_request_user(request)
+    if not uid:
+        raise HTTPException(status_code=401, detail="no_user")
     return get_memory_service(user_id=uid)
 
 
 def _store_for(request: Request):
     uid = resolve_request_user(request)
+    if not uid:
+        raise HTTPException(status_code=401, detail="no_user")
     return get_sqlite_session_store(user_id=uid)
 
 _VALID_FILES: set[MemoryFile] = {"summary", "profile"}
@@ -75,6 +79,7 @@ async def refresh_memory(payload: MemoryRefreshRequest, request: Request):
     result = await mem.refresh_from_session(
         session_id or None,
         language=payload.language,
+        store=store,  # explicit per-user store; no global fallback
     )
     snap = mem.read_snapshot()
     return {**_snap_dict(snap), "changed": result.changed}

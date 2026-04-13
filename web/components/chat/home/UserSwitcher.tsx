@@ -118,6 +118,14 @@ export function UserSwitcher() {
 
   async function submit() {
     if (!target || pin.length !== 4) return;
+    // Soft hand-off: check whether the current tab has an in-flight WS turn.
+    // If so, refuse to switch silently — operator must explicitly cancel
+    // first. We surface this via a sentinel set by UnifiedChatContext.
+    const inflight = typeof window !== "undefined" && (window as any).__wt_inflight_turn;
+    if (inflight) {
+      setErr("A chat turn is still running. Wait for it to finish, or press Stop, then switch.");
+      return;
+    }
     setBusy(true);
     setErr(null);
     try {
@@ -135,8 +143,13 @@ export function UserSwitcher() {
       setOpen(false);
       setTarget(null);
       setPin("");
-      // Force a soft reload so any client-held session list resets.
-      window.location.reload();
+      // Soft hand-off: dispatch an event so open WS consumers can cancel
+      // cleanly and re-read the cookie on their next request. No page reload.
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("wt:user-switched", { detail: { user_id: target } })
+        );
+      }
     } catch (e: any) {
       setErr(e?.message || "switch failed");
     } finally {
