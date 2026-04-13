@@ -15,11 +15,13 @@ type Prefs = {
   safety_profile?: string;
   allowed_capabilities?: string[];
   display_name_override?: string | null;
+  theme?: string;
 };
 
 const TONES = ["short", "direct", "friendly", "warm", "formal"];
 const LENGTHS = ["short", "medium", "long"];
 const SAFETY = ["standard", "child"];
+const THEMES = ["light", "dark", "bella"];
 
 export function PreferencesPanel() {
   const [user, setUser] = useState<ActiveUser | null>(null);
@@ -37,7 +39,10 @@ export function PreferencesPanel() {
       setUser(u);
       const rp = await fetch(`${API_BASE}/api/v1/users/${u.id}/preferences`, { credentials: "include" });
       if (rp.ok) {
-        setPrefs(((await rp.json()) as { preferences: Prefs }).preferences || {});
+        const loaded = ((await rp.json()) as { preferences: Prefs }).preferences || {};
+        // theme lives at top-level User, not in preferences — hydrate it so
+        // the selector reflects current state.
+        setPrefs({ ...loaded, theme: (u as any).theme ?? loaded.theme });
       }
     } catch (e: any) {
       setErr(e?.message || "load failed");
@@ -65,8 +70,12 @@ export function PreferencesPanel() {
         return;
       }
       const j = (await r.json()) as { preferences: Prefs };
-      setPrefs(j.preferences);
+      setPrefs({ ...j.preferences, theme: prefs.theme });
       setSaved("ok");
+      // Let the ThemeProvider re-read the active user's theme live.
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("wt:theme-changed"));
+      }
       setTimeout(() => setSaved("idle"), 2000);
     } finally {
       setBusy(false);
@@ -150,6 +159,19 @@ export function PreferencesPanel() {
             className="rounded-md border border-[var(--border)]/60 bg-[var(--background)] px-2 py-1.5"
             placeholder={user.display_name}
           />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-[10px] uppercase tracking-wide text-[var(--muted-foreground)]">Theme</span>
+          <select
+            data-testid="pref-theme"
+            value={prefs.theme ?? "light"}
+            onChange={(e) => setPrefs({ ...prefs, theme: e.target.value || undefined })}
+            className="rounded-md border border-[var(--border)]/60 bg-[var(--background)] px-2 py-1.5"
+          >
+            {THEMES.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
         </label>
       </div>
 

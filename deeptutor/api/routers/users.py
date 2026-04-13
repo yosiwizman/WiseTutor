@@ -107,6 +107,7 @@ class PreferencesPatch(BaseModel):
     allowed_capabilities: Optional[list[str]] = None
     safety_profile: Optional[str] = None
     display_name_override: Optional[str] = None
+    theme: Optional[str] = None
 
 
 @router.get("/{user_id}/preferences")

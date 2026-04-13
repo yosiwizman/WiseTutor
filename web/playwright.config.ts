@@ -68,5 +68,10 @@ export default defineConfig({
       testMatch: "**/admin-panel.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
+    {
+      name: "themes",
+      testMatch: "**/themes.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });

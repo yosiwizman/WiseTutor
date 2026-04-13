@@ -5,6 +5,23 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-14 — Phase 4 slice 1: themes foundation
+**Decision.** `User.theme` becomes a real per-user product feature end-to-end.
+Finite enum `{light, dark, bella}`. Validation routed through
+`_validate_preferences` so writes share the existing auth path; the key is
+written to top-level `User.theme` (not the `preferences` dict) to keep
+`/active` the canonical source. Frontend `ThemeProvider` reads from
+`/api/v1/users/active` on mount + on `wt:user-switched` and
+`wt:theme-changed`; applies `html[data-theme=...]` plus legacy `.dark`.
+CSS tokens in `globals.css` override `:root` for dark and bella palettes.
+**Reason.** Themes finish the per-user product story — Bella and Mr W are
+visibly distinct in two simultaneous browser contexts.
+**Scope discipline.** No design system rewrite, no color picker, no
+voice, no CI, no deeptutor rename.
+**Consequence.** 56 pytest + 28 Playwright pass; artifact
+`artifacts/phase4_themes/<ts>/two_browser_theme_proof.json` captures
+data-theme + bg + primary divergence across the two user contexts.
+
 ## 2026-04-14 — Phase 3 CLOSED (slice 5: owner admin + output-gate Tier 1)
 **Decision.** Phase 3 is closed. Owner-override on
 `POST /api/v1/users/{id}/pin`: owner's own PIN authorizes resetting a

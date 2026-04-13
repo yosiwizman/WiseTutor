@@ -115,7 +115,21 @@ decision.
 
 **Phase 3 is closed.**
 
-## Phase 4 — Themes / appearance (NEXT)
+## Phase 4 — Themes / appearance
+
+### Slice 1 — per-user theme foundation (LANDED 2026-04-14)
+- [x] Finite theme enum `{light, dark, bella}`; backend validation
+- [x] Top-level `User.theme` persisted; `/active` returns it
+- [x] `ThemeProvider` applies `data-theme=…` on mount + user switch
+- [x] `globals.css` tokens for dark + bella
+- [x] Self + owner-admin theme controls in Settings
+- [x] Two-browser simultaneous-theme proof captured
+- [x] 7 pytest + 4 Playwright new cases; 56 + 28 total green
+
+### Slice 2 — theme depth + accessibility (NEXT, optional)
+- [ ] Contrast verification for each theme (WCAG AA spot check)
+- [ ] Motion / font-size preference per user
+- [ ] Respect `prefers-reduced-motion`
 
 **Exit criteria (phase).** Two distinct users can chat with no memory
 crossover, verify caches scoped per user, and initial PINs replaced.

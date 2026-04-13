@@ -34,6 +34,7 @@ const ALL_CAPS = [
   "visualize",
 ];
 const SAFETY = ["standard", "child"];
+const THEMES = ["light", "dark", "bella"];
 
 export function AdminPanel() {
   const [me, setMe] = useState<ActiveUser | null>(null);
@@ -46,6 +47,7 @@ export function AdminPanel() {
   const [newPin, setNewPin] = useState<Record<string, string>>({});
   const [ownerPin, setOwnerPin] = useState<string>("");
   const [safety, setSafety] = useState<Record<string, string>>({});
+  const [themes, setThemes] = useState<Record<string, string>>({});
   const [caps, setCaps] = useState<Record<string, Set<string>>>({});
 
   const load = useCallback(async () => {
@@ -80,12 +82,15 @@ export function AdminPanel() {
       setOthers(enriched);
       const initialCaps: Record<string, Set<string>> = {};
       const initialSafety: Record<string, string> = {};
+      const initialTheme: Record<string, string> = {};
       for (const u of enriched) {
         initialCaps[u.id] = new Set(u.preferences?.allowed_capabilities ?? []);
         initialSafety[u.id] = u.preferences?.safety_profile ?? "standard";
+        initialTheme[u.id] = (u as any).theme ?? "light";
       }
       setCaps(initialCaps);
       setSafety(initialSafety);
+      setThemes(initialTheme);
     } catch (e: any) {
       setErr(e?.message || "load failed");
     }
@@ -130,6 +135,25 @@ export function AdminPanel() {
       });
       if (!r.ok) { setErr(`safety update ${r.status}`); return; }
       setFlash(`Updated safety profile for ${targetId}`);
+      setTimeout(() => setFlash(null), 2500);
+      await load();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function saveTheme(targetId: string) {
+    setBusy(`theme:${targetId}`);
+    setErr(null);
+    try {
+      const r = await fetch(`${API_BASE}/api/v1/users/${targetId}/preferences`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme: themes[targetId] }),
+      });
+      if (!r.ok) { setErr(`theme update ${r.status}`); return; }
+      setFlash(`Updated theme for ${targetId}`);
       setTimeout(() => setFlash(null), 2500);
       await load();
     } finally {
@@ -231,6 +255,27 @@ export function AdminPanel() {
               data-testid={`admin-save-safety-${u.id}`}
               onClick={() => saveSafety(u.id)}
               disabled={busy === `safety:${u.id}`}
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)]/60 bg-[var(--background)] px-2 py-1 text-[11px]"
+            >
+              <Save size={11} /> Save
+            </button>
+          </div>
+
+          {/* theme */}
+          <div className="flex items-center gap-2 mb-3 text-[12px]">
+            <span className="text-[var(--muted-foreground)] w-28">theme</span>
+            <select
+              data-testid={`admin-theme-${u.id}`}
+              value={themes[u.id] ?? "light"}
+              onChange={(e) => setThemes({ ...themes, [u.id]: e.target.value })}
+              className="rounded-md border border-[var(--border)]/60 bg-[var(--background)] px-2 py-1"
+            >
+              {THEMES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <button
+              data-testid={`admin-save-theme-${u.id}`}
+              onClick={() => saveTheme(u.id)}
+              disabled={busy === `theme:${u.id}`}
               className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)]/60 bg-[var(--background)] px-2 py-1 text-[11px]"
             >
               <Save size={11} /> Save

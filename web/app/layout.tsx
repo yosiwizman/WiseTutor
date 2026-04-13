@@ -5,6 +5,7 @@ import ThemeScript from "@/components/ThemeScript";
 import { AppShellProvider } from "@/context/AppShellContext";
 import { I18nClientBridge } from "@/i18n/I18nClientBridge";
 import { UserGate } from "@/components/chat/home/UserGate";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
 const fontSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -36,7 +37,9 @@ export default function RootLayout({
       <body className="font-sans bg-[var(--background)] text-[var(--foreground)]">
         <AppShellProvider>
           <I18nClientBridge>
-            <UserGate>{children}</UserGate>
+            <ThemeProvider>
+              <UserGate>{children}</UserGate>
+            </ThemeProvider>
           </I18nClientBridge>
         </AppShellProvider>
       </body>

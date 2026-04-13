@@ -25,7 +25,8 @@
     --ring: #C35A2C;
   }
 
-  .dark {
+  .dark,
+  [data-theme="dark"] {
     --background: #1A1918;
     --foreground: #E8E4DE;
     --card: #242220;
@@ -45,6 +46,30 @@
     --border: #3A3634;
     --input: #3A3634;
     --ring: #D4734B;
+  }
+
+  /* WiseTutor Phase 4 slice 1: child-friendly accent theme.
+     Distinct tokens so two browser contexts can prove divergence. */
+  [data-theme="bella"] {
+    --background: #FFF6F0;
+    --foreground: #2A1F1A;
+    --card: #FFFFFF;
+    --card-foreground: #2A1F1A;
+    --popover: #FFFFFF;
+    --popover-foreground: #2A1F1A;
+    --primary: #7B4FBF;         /* soft purple */
+    --primary-foreground: #FFFFFF;
+    --secondary: #FFE1D3;
+    --secondary-foreground: #2A1F1A;
+    --muted: #FFEADC;
+    --muted-foreground: #7A6A5E;
+    --accent: #FFD6C0;
+    --accent-foreground: #2A1F1A;
+    --destructive: #D44A3C;
+    --destructive-foreground: #FFFFFF;
+    --border: #F5D9C8;
+    --input: #F5D9C8;
+    --ring: #7B4FBF;
   }
 
   * {

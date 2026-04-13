@@ -35,6 +35,27 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
   branch to `main` via GitHub (merge / PR or rename), or refreshes the
   local `gh` token with `workflow` scope to push `main` directly.
 
+## Phase 4 slice 1 — themes foundation — PROVEN Tier 1
+
+- Finite theme set: `light` (default), `dark`, `bella` (child-friendly).
+- `_validate_preferences` validates `theme` against the finite set and
+  writes to top-level `User.theme`; `/api/v1/users/active` returns it.
+- `PUT /api/v1/users/{id}/preferences` with `{theme}` supports self and
+  owner-cross-user writes. Non-owner cross-user → 403, unknown theme → 400,
+  anon → 401.
+- Frontend `ThemeProvider` (mounted in root layout) resolves theme from
+  `/api/v1/users/active` on mount and on `wt:user-switched` /
+  `wt:theme-changed`; applies `html[data-theme=…]` + legacy `.dark` class.
+  No page reload required.
+- `globals.css` ships three distinct palettes (`[data-theme="dark"]` and
+  `[data-theme="bella"]` override `:root` tokens).
+- Settings: `PreferencesPanel` adds a theme selector; `AdminPanel` adds a
+  per-user theme save row.
+- Two-browser proof: Mr W=`dark`, Bella=`bella` simultaneously; `data-theme`,
+  `--background`, `--primary` all differ. Saved in
+  `artifacts/phase4_themes/<ts>/two_browser_theme_proof.json`.
+- 56 pytest + 28 Playwright pass, 0 skipped.
+
 ## Phase 3 CLOSED (slice 5) — PROVEN Tier 1
 
 - Output-gate Tier 1 via a test-only seam (`_wt_test_inject_output`) gated

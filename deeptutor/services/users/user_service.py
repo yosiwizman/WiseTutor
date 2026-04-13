@@ -76,6 +76,7 @@ _PREF_SCHEMA = {
     "tone": {"short", "direct", "friendly", "warm", "formal"},
     "response_length": {"short", "medium", "long"},
     "safety_profile": {"standard", "child"},
+    "theme": {"light", "dark", "bella"},
 }
 
 
@@ -107,6 +108,11 @@ def _validate_preferences(prefs: dict[str, Any]) -> dict[str, Any]:
         if v is not None and not isinstance(v, str):
             raise ValueError("display_name_override must be a string or null")
         out["display_name_override"] = v
+    if "theme" in prefs:
+        val = str(prefs["theme"])
+        if val not in _PREF_SCHEMA["theme"]:
+            raise ValueError(f"theme must be one of {_PREF_SCHEMA['theme']}")
+        out["theme"] = val
     return out
 
 
@@ -311,6 +317,9 @@ class UserService:
             if not u:
                 raise KeyError(user_id)
             validated = _validate_preferences(patch)
+            # `theme` is a top-level User field (not inside preferences dict).
+            if "theme" in validated:
+                u.theme = validated.pop("theme")
             # Persist only overrides on top of role defaults; drop keys equal to default.
             defaults = _default_preferences_for_role(u.role)
             overrides = {**(u.preferences or {}), **validated}
