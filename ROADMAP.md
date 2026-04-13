@@ -204,7 +204,7 @@ visual-diffs lock the look.
 - [x] 5 Playwright cases under `tts` project (supported, single-active, unsupported hidden, no-autoplay, user-switch cleanup); wired into hosted CI.
 - [ ] Real audible browser output — **Tier 3**, requires human + speakers.
 
-### Slice 3B — Piper local TTS fallback (LANDED 2026-04-13, Tier 2 local + hosted CI seam + Tier 1 backend synth, ~95%)
+### Slice 3B — Piper local TTS fallback (LANDED 2026-04-13, Tier 1 audible, 100%)
 - [x] `createPiperRealAdapter` in `web/lib/tts.ts` — fetches audio blob from `POST /api/v1/voice/synthesize`, plays via `HTMLAudioElement`, single-active-utterance semantics.
 - [x] `createPiperTestAdapter` — deterministic seam (`__wt_test_tts_piper` + `__wt_test_tts_piper_driver`) for Playwright; deferred-event model (`emitStart/emitEnd/emitBackendError`, `lastText`).
 - [x] `useAssistantTts` hook extended: `engine` (TTSEngine) + `ttsState` exposed.
@@ -213,7 +213,7 @@ visual-diffs lock the look.
 - [x] 7 of 7 Playwright cases green under `tts-fallback` project; wired into hosted CI (`--project=tts-fallback`). Seam gap (case 7) closed: Rule 3 now requires `__wt_test_tts_piper.supported !== false`.
 - [x] Coqui ruled out (archived 2024); Piper only.
 - [x] **Piper installed (2026-04-13):** `piper-tts 1.4.2` via `.venv/bin/pip install piper-tts`; binary at `.venv/bin/piper`. Voice model `en_US-lessac-low` at `/mnt/models/piper/en_US-lessac-low.onnx` (63 MB). Backend synth returns real WAV — Tier 1 backend-side (see `artifacts/phase5_piper_real_backend/`).
-- [ ] **Tier 3 (real audible with human + speakers):** human has not confirmed audio through speakers in this session. Requires a human to play `synth_hello_world.wav` or live TTS output and confirm it is audible and intelligible.
+- [x] **Tier 1 (real audible with human + speakers) 2026-04-13:** founder ran `aplay artifacts/phase5_piper_real_backend/synth_hello_world.wav` on ai-desktop; confirmed audible. `aplay` reported "Signed 16 bit Little Endian, Rate 16000 Hz, Mono".
 - [ ] Profile-scoped voice choice (deferred to a future slice).
 
 ### Slice 4 — Voice conversation orchestration

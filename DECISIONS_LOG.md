@@ -5,6 +5,26 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Phase 5 slice 3B: audible Tier 1 confirmed — CLOSED at 100%
+**Decision.** Promote the "real audible Piper TTS output" claim from
+Tier 3 to **Tier 1**. Founder ran
+`aplay /home/ai-desktop/projects/WiseTutor/artifacts/phase5_piper_real_backend/synth_hello_world.wav`
+at the ai-desktop physical display and reported **"audible: yes"**.
+`aplay` logged "Signed 16 bit Little Endian, Rate 16000 Hz, Mono" —
+matches the WAV header recorded in the proof pack.
+
+Slice 3B closes at **100%**. End-to-end narrow claim proven: user
+triggers Listen → frontend POSTs /api/v1/voice/synthesize → real
+Piper binary + en_US-lessac-low model produce real WAV bytes → bytes
+play through real speakers, audible to a human.
+
+**Scope.** Narrow claim: this machine (ai-desktop), this voice
+(en_US-lessac-low, low quality), single language (en_US). Not a
+cross-machine, multi-voice, or quality claim. Profile-scoped voice
+selection + larger-model upgrades remain deferred.
+
+---
+
 ## 2026-04-13 — Phase 5 slice 3B: real Piper runtime installed + backend synth verified (Tier 1 backend-side)
 
 **Decision.** Install `piper-tts` via pip into the repo virtualenv, download
