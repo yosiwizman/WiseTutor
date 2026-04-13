@@ -223,7 +223,7 @@ visual-diffs lock the look.
 - [x] 8 Playwright cases under `voice-turn` project (happy path, cancel-listening, cancel-speaking, STT failure, submit failure, empty reply, TTS failure, start-while-not-idle no-op + no-autoplay). All green. Wired into hosted CI (`--project=voice-turn`).
 - [x] Cross-suite regression: 36/36 (voice-stt 7 + voice-stt-fallback 9 + tts 5 + tts-fallback 7 + voice-turn 8).
 - [x] **Slice 4B LANDED 2026-04-13 (Tier 2 local + hosted CI seam):** `useVoiceTurnProduction(chatAdapter)` subscribes to the real `useUnifiedChat` isStreaming + messages. Submit resolves with the completed assistant message (or rejects with `reply-timeout` after 60 s, `reply-failed` on stream-end with no assistant message). Workspace page builds the adapter with ref-backed live state. ChatComposer accepts the controls as a `voiceTurn` prop. Cancel in submitting/awaiting_assistant returns to idle without canceling the chat turn. 7 Playwright cases under `voice-turn-real` project; wired into hosted CI.
-- [ ] Full human-audible mic→LLM→speakers conversation (Tier 1): requires one human PTT cycle in Chrome on ai-desktop.
+- [x] **Full human-audible mic→LLM→speakers conversation (Tier 1, 2026-04-13):** founder ran one real PTT cycle in Chrome on ai-desktop and confirmed "audible conversation: yes". Slice 4B closes at 100%.
 - [ ] Continuous / duplex / barge-in modes (not planned for 4).
 - [ ] Wake word (out of scope for Phase 5).
 

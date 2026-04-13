@@ -5,6 +5,28 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Phase 5 slice 4B: audible end-to-end conversation Tier 1 confirmed — CLOSED at 100%
+**Decision.** Promote full human-audible mic→LLM→speakers conversation
+from Tier 3 to **Tier 1**. Founder ran one real PTT cycle in Chrome at
+the ai-desktop physical display and reported **"audible conversation:
+yes"**. End-to-end narrow claim proven: real mic → browser-native STT
+(Chrome Web Speech) → real chat turn via `useUnifiedChat` → real LLM
+reply streamed and captured on the trailing `isStreaming` edge →
+`useVoiceTurnProduction` resolved the submit → TTS played the reply via
+the existing TTS path (Piper on this machine) → audible through
+speakers.
+
+Slice 4B closes at **100%**. Phase 5 voice lane now has Tier 1 evidence
+for each of its narrow claims: Slice 1 (Chrome STT), Slice 2 (Firefox
+Whisper fallback), Slice 3B (Piper TTS audible), Slice 4B (full PTT
+conversation).
+
+**Scope.** Narrow claim: this machine, Chrome, one voice (Piper
+en_US-lessac-low), explicit one-turn PTT. Not continuous, not duplex,
+not multi-voice, not cross-machine.
+
+---
+
 ## 2026-04-13 — Phase 5 slice 4B: real reply→TTS production handoff LANDED (Tier 2 local + hosted CI seam)
 **Decision.** Close the 4A gap by adding a thin production adapter
 that resolves the voice-turn submit promise from the real chat store.
