@@ -5,6 +5,54 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Phase 5 slice 3A: browser-native TTS foundation LANDED
+**Decision.** Implement the narrowest TTS foundation — browser-native
+`window.speechSynthesis` only. No Piper, no Coqui, no server-side TTS,
+no profile-scoped voice, no autoplay, no queueing, no pause/resume,
+no reading of user messages. Future local-fallback work moves to a
+separate Slice 3B entry.
+
+**Shape.**
+- `web/lib/tts.ts`: thin adapter. Single-active-utterance guarantee
+  (every `speak()` cancels any current utterance first). Deterministic
+  seam: `window.__wt_test_tts` + `__wt_test_tts_driver` with
+  `lastText` readback for payload assertions.
+- `web/hooks/useAssistantTts.ts`: owns the adapter, exposes
+  `{ supported, speakingKey, speak, stop }`. Cancels on
+  `wt:user-switched` and on unmount. Toggle semantics: clicking the
+  currently-speaking message stops; clicking another swaps.
+- `ChatMessages.tsx`: Listen / Stop action beside existing Copy/Retry.
+  Hidden entirely when unsupported (rather than disabled — an
+  always-inert "Listen" button would be noisy UI clutter).
+- `tts-harness/page.tsx`: test-only harness that reuses the hook and
+  renders two fake assistant messages. Avoids requiring a live LLM
+  turn inside Playwright; kept out of any nav.
+
+**Seam design choice: supersede without onEnd.** An early test
+failure revealed a race — the adapter's cancel-before-speak path fired
+`onEnd` for the old utterance, which clobbered the hook's
+`speakingKeyRef` after the new key was set, making the incoming
+`onStart` show a null key. Fix: during a supersede the test adapter
+skips `onEnd` and emits `onStart` directly. Matches the real
+SpeechSynthesis semantics where the old utterance's onend is scoped
+by a `current === u` guard in the adapter anyway.
+
+**Proof.** 5 Playwright cases under `web/tests/e2e/tts.spec.ts`
+(project `tts`) — supported happy-path + stop, single-active-utterance
+cancel, unsupported hidden, no-autoplay, user-switch cleanup. All
+green locally. Regression: existing `voice-stt` (7) and
+`voice-stt-fallback` (9) suites still green — total voice 21/21.
+Hosted CI workflow updated to include `--project=tts` (low-risk: the
+seam never touches the real SpeechSynthesis API and never produces
+audio). Real audible browser output is **Tier 3** — not claimed here.
+
+**Consequence.** Phase 5 Slice 3A marked landed at Tier 2 local +
+hosted CI seam. Voice lane moves modestly (STT already at Tier 1 for
+both engines on this machine; TTS adds deterministic foundation but
+no real-audio claim yet). Product/company percentages unchanged.
+
+---
+
 ## 2026-04-13 — Phase 5 slice 2: Firefox real Whisper fallback Tier 1 proof filed
 **Decision.** Promote the Firefox → MediaRecorder → local `faster-whisper`
 fallback path from Tier 3 to **Tier 1 (Firefox on this machine)** based

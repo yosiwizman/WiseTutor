@@ -10,10 +10,13 @@ import {
   MessageSquare,
   RotateCcw,
   Square,
+  Volume2,
+  VolumeX,
   X,
   Zap,
   type LucideIcon,
 } from "lucide-react";
+import { useAssistantTts } from "@/hooks/useAssistantTts";
 import { useTranslation } from "react-i18next";
 import type { SelectedHistorySession } from "@/components/chat/HistorySessionPicker";
 import AssistantResponse from "@/components/common/AssistantResponse";
@@ -297,6 +300,7 @@ export function ChatMessageList({
   onConfirmOutline?: (outline: Array<{ title: string; overview: string }>, topic: string, researchConfig?: Record<string, unknown> | null) => void;
 }) {
   const { t } = useTranslation();
+  const tts = useAssistantTts();
   const outlineStatusByIndex = useMemo(() => {
     const map = new Map<number, "editing" | "researching" | "done">();
     for (let i = 0; i < messages.length; i++) {
@@ -460,7 +464,7 @@ export function ChatMessageList({
             {(showActions || costSummary) && (
               <div className="mt-2 flex items-center">
                 {showActions && (
-                  <div className="flex gap-2">
+                  <div className="flex gap-2" data-testid={`assistant-actions-${i}`}>
                     <RoughActionButton
                       icon={Copy}
                       label="Copy"
@@ -473,6 +477,30 @@ export function ChatMessageList({
                         onClick={() => onRetryMessage(pairedUserMessage?.requestSnapshot)}
                       />
                     )}
+                    {tts.supported ? (
+                      (() => {
+                        const key = `msg-${i}`;
+                        const active = tts.speakingKey === key;
+                        return (
+                          <button
+                            type="button"
+                            data-testid={`assistant-tts-${i}`}
+                            data-tts-state={active ? "speaking" : "idle"}
+                            onClick={() => tts.speak(key, msg.content)}
+                            className="inline-flex items-center gap-1 px-0.5 py-0.5 text-[11px] text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+                            aria-label={active ? "Stop listening" : "Listen"}
+                            title={active ? "Stop listening" : "Listen"}
+                          >
+                            {active ? (
+                              <VolumeX size={11} strokeWidth={1.5} />
+                            ) : (
+                              <Volume2 size={11} strokeWidth={1.5} />
+                            )}
+                            <span>{active ? "Stop" : "Listen"}</span>
+                          </button>
+                        );
+                      })()
+                    ) : null}
                   </div>
                 )}
                 {costSummary && (

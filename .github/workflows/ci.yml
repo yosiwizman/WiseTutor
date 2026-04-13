@@ -229,6 +229,7 @@ jobs:
             --project=admin-panel \
             --project=themes \
             --project=voice-stt \
+            --project=tts \
             --reporter=list \
             2>&1 | tee ../artifacts/playwright.log
 

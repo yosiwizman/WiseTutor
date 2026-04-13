@@ -55,6 +55,21 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
 
 **What is NOT yet proven:** Firefox real-audio capture through the Whisper fallback with the real `faster-whisper` engine (that is Slice 2's Tier 3 gap, not Slice 1's).
 
+## Phase 5 slice 3A — browser-native TTS foundation — **LANDED (Tier 2 local + hosted CI seam)**
+
+**What is built (code):**
+- `web/lib/tts.ts` — thin adapter over `window.speechSynthesis` + `SpeechSynthesisUtterance`. Single-active-utterance: every `speak()` cancels first. Deterministic seam: `window.__wt_test_tts = { supported }` + `__wt_test_tts_driver` (`emitStart`, `emitEnd`, `emitGenericError`, `lastText`) for Playwright.
+- `web/hooks/useAssistantTts.ts` — React hook that owns the adapter, exposes `{ supported, speakingKey, speak(key, text), stop() }`, cancels on `wt:user-switched` and unmount. Toggle semantics: clicking the speaking message's button stops; clicking another cancels and starts the new one.
+- `web/components/chat/home/ChatMessages.tsx` — adds a **Listen / Stop** action next to Copy/Retry on every assistant message when TTS is supported. Hidden entirely when unsupported. Exposes `data-testid="assistant-tts-<i>"` and `data-tts-state="idle"|"speaking"`.
+- `web/app/(workspace)/tts-harness/page.tsx` — test-only harness page rendering two fake assistant messages with the same button wiring (avoids requiring a live LLM turn for Playwright).
+
+**Semantics:** user-triggered only (no autoplay), single active utterance at a time, starting a new utterance cancels any current one, unmount / user-switch cancels. Out of scope: Piper/Coqui, server-side TTS, profile voice selection, pause/resume, queueing, reading user messages.
+
+**Evidence tiers:**
+- Browser-native TTS deterministic seam: **Tier 2 local + hosted CI** — 5 Playwright cases under `web/tests/e2e/tts.spec.ts` (project `tts`) pass locally and are wired into the hosted CI workflow.
+- Unsupported-browser TTS behavior: **Tier 2** — "listen control is hidden entirely" case covers this.
+- **Real audible browser TTS output (speakers actually producing sound):** **Tier 3** — not independently re-executed in this session.
+
 **Proof-workflow rule (operational).** Browser automation and tool-based validation must be exhausted first. Founder/manual testing is reserved for irreducible real-world proof — physical microphone input, subjective UX approval, or anything that cannot be honestly captured by a headless tool. Agents must not ask the founder to edit markdown, rename files, or perform steps the tools can do.
 
 **Out of scope for this slice (deferred):** TTS, full voice conversation, wake word, server-side STT, transcript history, waveform visualizer.

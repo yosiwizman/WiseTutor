@@ -197,8 +197,15 @@ visual-diffs lock the look.
 - [ ] Hosted CI wiring — still deferred; hosted runners lack `faster-whisper` and real mic. Will revisit only if the voice lane expands beyond single-machine proof.
 - [ ] Profile-scoped voice input language
 
-### Slice 3 — TTS foundation
-- [ ] OS voice or Coqui / Piper local; provider-based TTS only as fallback.
+### Slice 3A — browser-native TTS foundation (LANDED 2026-04-13, Tier 2 local + hosted CI seam)
+- [x] `window.speechSynthesis` adapter (`web/lib/tts.ts`) with deterministic seam.
+- [x] `useAssistantTts` hook: single-active-utterance, cancel-on-user-switch / unmount.
+- [x] Listen / Stop control on assistant messages (next to Copy/Retry).
+- [x] 5 Playwright cases under `tts` project (supported, single-active, unsupported hidden, no-autoplay, user-switch cleanup); wired into hosted CI.
+- [ ] Real audible browser output — **Tier 3**, requires human + speakers.
+
+### Slice 3B — local TTS fallback (NEXT)
+- [ ] Piper or Coqui local TTS for browsers without speechSynthesis or for higher-quality offline voices.
 - [ ] Profile-scoped voice choice.
 
 ### Slice 4 — Voice conversation orchestration
