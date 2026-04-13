@@ -5,6 +5,40 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Phase 5 slice 1: Voice STT foundation LANDED (Tier 1 local)
+**Decision.** Use the browser-native Web Speech API for STT v1. No
+server-side transcription in this slice. A narrow deterministic seam
+(`window.__wt_test_speech`) makes the mic path testable in Playwright
+without a real microphone; the seam is off by default in production.
+
+**Semantics.** Final transcripts APPEND to the existing composer draft
+with a single-space separator. Interim transcripts appear only in a
+status chip and never touch the input. Mic does NOT auto-send — this
+slice fills the draft and stops.
+
+**Cleanup.** MicButton tears its adapter down on unmount and on the
+`wt:user-switched` event so zombie listeners cannot bleed across user
+switches. Two-context Playwright proof confirms no cross-context leak.
+
+**Proof.** 7 new Playwright cases (project `voice-stt`) green locally:
+mic insert (Mr W), append-to-draft, mic insert (Bella), two-context
+isolation, permission-denied, unsupported-browser, mid-listen stop.
+Pytest regression green: 48 passed / 8 skipped in CI shape.
+
+**Tier classification.**
+- Tier 1 locally: the deterministic adapter path (the real product path
+  that runs for Playwright and under test-mode inspection).
+- Tier 1 (designed but NOT automated): the real Web Speech API path —
+  verified manually; Playwright cannot drive a real microphone
+  headlessly, so the real-browser path is not in the automated proof
+  set. This is honest: the automated proof only covers the adapter +
+  UI wiring, not live audio capture.
+- Not added to hosted CI in this slice. Will be added to CI in a
+  follow-up once the voice-stt project has proven itself locally.
+
+**Out of scope (deferred).** TTS, full voice conversation orchestration,
+wake word, transcript history, waveform visualizer, server-side STT.
+
 ## 2026-04-13 — Phase 6 slice 1: CI foundation LANDED (hosted green)
 **Status.** First green GitHub-hosted Actions run: run ID `24325424376`,
 commit `5b2db76`, workflow `WiseTutor CI`, job `pytest + Playwright

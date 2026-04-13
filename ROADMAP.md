@@ -173,11 +173,25 @@ visual-diffs lock the look.
 
 ## Phase 5 — Voice STT/TTS
 
-- STT path: browser Web Speech API as first pass; Whisper local as fallback.
-- TTS path: OS voice or Coqui / Piper local; provider-based TTS only as
-  fallback.
-- Profile-scoped voice choice.
-- Push-to-talk and continuous modes.
+### Slice 1 — STT foundation (LANDED 2026-04-13, Tier 1 local)
+- [x] Browser Web Speech API adapter (`web/lib/speech-recognition.ts`)
+- [x] Deterministic test seam (`window.__wt_test_speech`) for Playwright
+- [x] MicButton in composer: idle / listening / permission / unsupported states
+- [x] Final transcripts append to draft; interim shown in status chip only
+- [x] Cleanup on unmount + `wt:user-switched` (no zombie listeners)
+- [x] 7 Playwright cases green locally (project `voice-stt`); 48 pytest passed / 8 skipped
+- [ ] Add `voice-stt` project to hosted CI (follow-up after local proof settles)
+
+### Slice 2 — Whisper local fallback (NEXT)
+- [ ] Local Whisper pipeline for browsers without Web Speech API
+- [ ] Profile-scoped voice input language
+
+### Slice 3 — TTS foundation
+- [ ] OS voice or Coqui / Piper local; provider-based TTS only as fallback.
+- [ ] Profile-scoped voice choice.
+
+### Slice 4 — Voice conversation orchestration
+- [ ] Push-to-talk and continuous modes.
 
 **Exit criteria.** End-to-end voice conversation with Bella and Mr W
 profiles using at least one local voice path; latency budget documented.

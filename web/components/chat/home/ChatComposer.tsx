@@ -27,6 +27,7 @@ import type { DeepResearchFormConfig, ResearchSource } from "@/lib/research-type
 import { ReferenceChips } from "./ChatMessages";
 import { RuntimeBadge } from "./RuntimeBadge";
 import { UserSwitcher } from "./UserSwitcher";
+import { MicButton } from "./MicButton";
 
 const QuizConfigPanel = dynamic(() => import("@/components/quiz/QuizConfigPanel"), {
   ssr: false,
@@ -524,6 +525,12 @@ export default function ChatComposer({
                     <option key={kb.name} value={kb.name}>{kb.name}</option>
                   ))}
                 </select>
+
+                <MicButton
+                  input={input}
+                  onInputChange={onInputChange}
+                  disabled={isStreaming}
+                />
 
                 <button
                   data-testid="chat-composer-send"

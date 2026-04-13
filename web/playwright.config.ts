@@ -73,5 +73,10 @@ export default defineConfig({
       testMatch: "**/themes.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
+    {
+      name: "voice-stt",
+      testMatch: "**/voice-stt.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });

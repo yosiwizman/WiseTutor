@@ -35,6 +35,16 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
   branch to `main` via GitHub (merge / PR or rename), or refreshes the
   local `gh` token with `workflow` scope to push `main` directly.
 
+## Phase 5 slice 1 — Voice STT foundation — **LANDED Tier 1 (local)**
+
+- `web/lib/speech-recognition.ts` — thin adapter over `window.SpeechRecognition` / `webkitSpeechRecognition`. Returns `supported: false` in browsers that lack it. Production code path is unchanged for real users.
+- Deterministic automation seam: when `window.__wt_test_speech` is present (set via Playwright `addInitScript`), the adapter swaps to a fake that exposes `window.__wt_test_speech_driver` with `emitStart/emitInterim/emitFinal/emitEnd/emitPermissionDenied/emitGenericError`. The seam never activates for real users because the global is never set.
+- `web/components/chat/home/MicButton.tsx` renders next to the composer send button. States (exposed via `data-state`): `idle`, `listening`, `error-permission`, `error-unsupported`, `error-generic`. Interim transcripts appear in a small inline status badge (`chat-composer-mic-status`) and are **never** written to the input. Final transcripts are **appended** to the existing draft with a single-space separator. Stop/cancel leaves the composer exactly as it was pre-listen (no promotion of interim to final).
+- Cleanup: adapter.stop() runs on component unmount and on `wt:user-switched`, preventing zombie listeners across user switches.
+- Send semantics unchanged — mic does NOT auto-send; it only fills the draft.
+- 7 new Playwright cases under `web/tests/e2e/voice-stt.spec.ts` (project `voice-stt`): Mr W insert, draft preservation + append, Bella insert, two-context non-leak, permission-denied, unsupported-browser, mid-listen stop. **All green locally.** Pytest regression: 48 passed / 8 skipped (CI shape, unchanged).
+- Out of scope for this slice (deferred): TTS, full voice conversation, wake word, server-side STT, transcript history, waveform visualizer.
+
 ## Phase 6 slice 1 — CI foundation — **LANDED** (hosted green)
 
 **Remote green.** First green GitHub-hosted Actions run:
