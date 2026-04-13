@@ -19,7 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useVoiceTurn } from "@/hooks/useVoiceTurn";
+import type { VoiceTurnState, VoiceTurnErrorReason } from "@/hooks/useVoiceTurn";
 import type { SelectedHistorySession } from "@/components/chat/HistorySessionPicker";
 import AtMentionPopup from "@/components/chat/AtMentionPopup";
 import type { SelectedRecord } from "@/app/(workspace)/guide/types";
@@ -148,6 +148,7 @@ export default function ChatComposer({
   onChangeVisualizeConfig,
   onChangeResearchConfig,
   onToggleResearchCollapsed,
+  voiceTurn,
 }: {
   composerRef: RefObject<HTMLDivElement | null>;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
@@ -217,21 +218,15 @@ export default function ChatComposer({
   onChangeVisualizeConfig: (next: VisualizeFormConfig) => void;
   onChangeResearchConfig: (next: DeepResearchFormConfig) => void;
   onToggleResearchCollapsed: () => void;
+  voiceTurn: {
+    state: VoiceTurnState;
+    errorReason: VoiceTurnErrorReason;
+    start: () => void;
+    cancel: () => void;
+    reset: () => void;
+  };
 }) {
   const { t } = useTranslation();
-  // 4A: harness-proven orchestration; real reply→TTS integration in 4B.
-  // In production the submit leg routes the transcript through the existing
-  // onInputChange + onSend path and resolves with empty reply, which the
-  // hook maps to state="error" / errorReason="empty-reply". Agent A's
-  // harness proves the full state machine deterministically.
-  const voiceTurn = useVoiceTurn({
-    submit: async (text: string) => {
-      onInputChange(text, text.length);
-      await new Promise<void>((resolve) => setTimeout(resolve, 0));
-      onSend();
-      return { reply: "" };
-    },
-  });
   const vtState = voiceTurn.state;
   const vtActive = vtState === "listening" || vtState === "speaking";
   const vtError = vtState === "error";

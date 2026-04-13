@@ -39,6 +39,8 @@ export type VoiceTurnErrorReason =
   | "stt-failed"
   | "submit-failed"
   | "empty-reply"
+  | "reply-timeout"
+  | "reply-failed"
   | null;
 
 export function useVoiceTurn(opts: {
@@ -94,6 +96,13 @@ export function useVoiceTurn(opts: {
 
         submitRef.current(text).then(
           ({ reply }) => {
+            // If the user canceled while awaiting, ignore the late result.
+            if (
+              stateRef.current !== "submitting" &&
+              stateRef.current !== "awaiting_assistant"
+            ) {
+              return;
+            }
             const trimmed = reply?.trim() ?? "";
             if (!trimmed) {
               setErrorReason("empty-reply");
@@ -104,8 +113,22 @@ export function useVoiceTurn(opts: {
             setStateSynced("speaking");
             ttsRef.current?.speak(trimmed);
           },
-          () => {
-            setErrorReason("submit-failed");
+          (err: unknown) => {
+            // Ignore late rejects after user-initiated cancel too.
+            if (
+              stateRef.current !== "submitting" &&
+              stateRef.current !== "awaiting_assistant"
+            ) {
+              return;
+            }
+            const msg = err instanceof Error ? err.message : "";
+            if (msg.startsWith("reply-timeout")) {
+              setErrorReason("reply-timeout");
+            } else if (msg.startsWith("reply-failed")) {
+              setErrorReason("reply-failed");
+            } else {
+              setErrorReason("submit-failed");
+            }
             setStateSynced("error");
           },
         );
@@ -179,8 +202,15 @@ export function useVoiceTurn(opts: {
     } else if (s === "speaking") {
       ttsRef.current?.cancel();
       setStateSynced("idle");
+    } else if (s === "submitting" || s === "awaiting_assistant") {
+      // 4B: aborting the voice-turn controller while the chat turn is
+      // in flight returns the orchestration to idle without canceling
+      // the underlying chat turn. The in-flight submit promise will
+      // still resolve in the background; the hook ignores the result
+      // because stateRef is no longer in submitting/awaiting_assistant.
+      setStateSynced("idle");
     }
-    // No-op for all other states.
+    // No-op for other states.
   }, [setStateSynced]);
 
   const reset = useCallback(() => {

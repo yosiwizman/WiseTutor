@@ -25,6 +25,7 @@ import ChatComposer from "@/components/chat/home/ChatComposer";
 import { ChatMessageList } from "@/components/chat/home/ChatMessages";
 import { apiUrl } from "@/lib/api";
 import { useUnifiedChat, type MessageRequestSnapshot } from "@/context/UnifiedChatContext";
+import { useVoiceTurnProduction, type ChatAdapter } from "@/hooks/useVoiceTurnProduction";
 import type { StreamEvent } from "@/lib/unified-ws";
 import { extractBase64FromDataUrl, readFileAsDataUrl } from "@/lib/file-attachments";
 import { useChatAutoScroll } from "@/hooks/useChatAutoScroll";
@@ -213,6 +214,45 @@ export default function HomePage() {
     newSession,
     loadSession,
   } = useUnifiedChat();
+
+  // Voice turn production wiring (Phase 5 Slice 4B).
+  // Live state is mirrored into refs so chatAdapter.getState() reads
+  // the freshest snapshot even when a submit subscriber captured an
+  // earlier chatAdapter identity. Without the refs the subscriber can
+  // fire while its closure sees stale messages, and the reply never
+  // correlates.
+  const vtMessagesRef = useRef(state.messages);
+  const vtIsStreamingRef = useRef(state.isStreaming);
+  const vtSendRef = useRef(sendMessage);
+  const vtListenersRef = useRef(new Set<() => void>());
+  useEffect(() => {
+    vtMessagesRef.current = state.messages;
+    vtIsStreamingRef.current = state.isStreaming;
+    vtSendRef.current = sendMessage;
+    for (const cb of vtListenersRef.current) cb();
+  }, [state.messages, state.isStreaming, sendMessage]);
+  const chatAdapter = useMemo<ChatAdapter>(() => ({
+    sendMessage: (text: string) => vtSendRef.current(text),
+    subscribe: (cb) => {
+      vtListenersRef.current.add(cb);
+      return () => {
+        vtListenersRef.current.delete(cb);
+      };
+    },
+    getState: () => {
+      const assistantMsgs = vtMessagesRef.current.filter(
+        (m) => m.role === "assistant",
+      );
+      const last = assistantMsgs[assistantMsgs.length - 1];
+      return {
+        isStreaming: vtIsStreamingRef.current,
+        lastAssistantContent: last?.content || "",
+        assistantCount: assistantMsgs.length,
+      };
+    },
+  }), []);
+  const voiceTurn = useVoiceTurnProduction(chatAdapter);
+
   const [input, setInput] = useState("");
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
   const [capabilityConfigs, setCapabilityConfigs] = useState<CapabilityPlaygroundConfigMap>({});
@@ -902,6 +942,7 @@ export default function HomePage() {
           onChangeVisualizeConfig={setVisualizeConfig}
           onChangeResearchConfig={setResearchConfig}
           onToggleResearchCollapsed={() => setResearchPanelCollapsed((prev) => !prev)}
+          voiceTurn={voiceTurn}
         />
       </div>
       <NotebookRecordPicker

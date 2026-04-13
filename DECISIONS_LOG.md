@@ -5,6 +5,59 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Phase 5 slice 4B: real reply→TTS production handoff LANDED (Tier 2 local + hosted CI seam)
+**Decision.** Close the 4A gap by adding a thin production adapter
+that resolves the voice-turn submit promise from the real chat store.
+
+**Signal used.** `useUnifiedChat().isStreaming` transition `true → false`
+combined with `messages[last].role === "assistant"` and a
+monotonically-increased assistant-message count. This is the same
+signal the chat UI already uses (Send button `disabled={isStreaming}`
+and post-turn session refresh) — reusing it avoids any new transport
+layer or event bus.
+
+**Shape.**
+- `web/hooks/useVoiceTurnProduction.ts` (NEW) — takes a `ChatAdapter`
+  `{ sendMessage, subscribe, getState }` and returns the same hook API
+  as `useVoiceTurn`. Timeout 60 s default; rejects with
+  `reply-timeout`. `reply-failed` error code added to the base hook
+  for stream-end-without-assistant cases (not used by the production
+  adapter today because that manifests as timeout; reserved).
+- Workspace page (`(workspace)/page.tsx`) builds the ChatAdapter.
+  **Ref-backed live state** is critical: `chatAdapter.getState()` reads
+  from `useRef` snapshots updated in a state-change `useEffect`, so the
+  submit subscriber's closure always sees fresh data. An early bug
+  where `getState` read stale state via `useMemo` closure caused the
+  reply-capture test to hit the timeout path; fixed with the refs.
+- `ChatComposer.tsx` now accepts `voiceTurn` as a required prop; the
+  4A internal shim is removed.
+- `useVoiceTurn` extended: `cancel()` in `submitting`/`awaiting_assistant`
+  returns to idle without canceling the in-flight chat turn; late
+  submit resolves/rejects are ignored when stateRef has moved on.
+- NEW deterministic harness `/voice-turn-real-harness` drives
+  `useVoiceTurnProduction` through seams (`__wt_test_chat_complete`,
+  `__wt_test_chat_fail`) with a 5 s timeout so reply-timeout assertions
+  run fast.
+
+**Parallel execution.** Three subagents on disjoint files:
+A extended `useVoiceTurn` error union; B wrote
+`useVoiceTurnProduction` + rewired workspace page + composer + harness;
+C wrote 7 Playwright cases + config + CI wiring. Post-merge parent
+fixes: (1) stale-closure bug in both the harness and workspace page
+adapters — switched to ref-backed `getState`; (2) extended the hook's
+`cancel()` to handle submitting/awaiting_assistant per the 4B UX rule.
+
+**Scope.** Narrow: single turn, explicit trigger, one prompt, one
+reply, one TTS playback, return to idle. No wake word, no continuous,
+no duplex, no barge-in, no queueing. Real human-audible mic→LLM→speaker
+end-to-end remains Tier 3 until a human runs it.
+
+**Consequence.** Phase 5 Slice 4A remains the foundation; 4B closes
+the production gap at ~90%. Voice lane ticks up from ~42% to ~48%.
+Whole-product and whole-company percentages unchanged.
+
+---
+
 ## 2026-04-13 — Phase 5 slice 4A: push-to-talk voice conversation foundation LANDED (Tier 2 local + hosted CI seam)
 **Decision.** Implement the narrowest push-to-talk voice-turn foundation
 as a hook-owned state machine that reuses the existing STT and TTS

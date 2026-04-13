@@ -98,5 +98,10 @@ export default defineConfig({
       testMatch: "**/voice-turn.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
+    {
+      name: "voice-turn-real",
+      testMatch: "**/voice-turn-real.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });
