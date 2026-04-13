@@ -113,5 +113,10 @@ export default defineConfig({
       testMatch: "**/family-alpha-screenshots.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
+    {
+      name: "connections",
+      testMatch: "**/connections.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });

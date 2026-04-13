@@ -857,5 +857,10 @@
   "Video Output": "视频输出",
   "Image Output": "图片输出",
   "Fullscreen math animation output": "全屏数学动画输出",
-  "Delete this chat history?": "确定删除此聊天记录吗？"
+  "Delete this chat history?": "确定删除此聊天记录吗？",
+  "Connections": "连接",
+  "Connect Gmail and Google Calendar so WiseTutor can help with messages and schedules. Real connections will land in a future update.": "Connect Gmail and Google Calendar so WiseTutor can help with messages and schedules. Real connections will land in a future update.",
+  "Not available yet": "暂不可用",
+  "Gmail connection is coming soon. No action needed right now.": "Gmail connection is coming soon. No action needed right now.",
+  "Google Calendar connection is coming soon. No action needed right now.": "Google Calendar connection is coming soon. No action needed right now."
 }

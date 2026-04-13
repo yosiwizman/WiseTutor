@@ -8,6 +8,28 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
 `data/memory/_quarantined/`, `data/user/`. Upstream's README was renamed to
 `DEEPTUTOR_UPSTREAM_README.md`.
 
+## Integration connect UX — Slice 1 foundation (2026-04-13)
+
+**Landed:** new `/connections` route with a sidebar entry; two cards (Gmail, Google Calendar) rendering truthful status "Not available yet"; locale strings in en + zh; Playwright project `connections` with 5 cases (sidebar navigation, Gmail card truthful status, Calendar card truthful status, no-fake-button guardrail, no DeepTutor / no pageerror). All green locally and wired into hosted CI.
+
+**NOT landed:**
+- Real Gmail OAuth / auth / token / API code — zero in repo.
+- Real Google Calendar OAuth / API code — zero in repo.
+- Any "Connected" state (there is no truth source yet).
+- Any Inbox or Calendar feature on top of either.
+- WhatsApp, iMessage, or any other integration.
+
+**Truth source for connection status:** does not exist yet. Current UI renders a constant "Not available yet" for both cards. When real OAuth lands (via OpenClaw gateway per the AKIOR bible in CLAUDE.md, or otherwise), the cards will read status from that source and the Connect button will be wired in Slice 2.
+
+**Evidence tiers:**
+- Gmail connection UX surface: **Tier 2 local + hosted CI** — 5 Playwright cases green; no real OAuth.
+- Google Calendar connection UX surface: **Tier 2 local + hosted CI** — same.
+- Real OAuth / auth execution: **Tier 4** — not built.
+
+**Integration connect UX lane: ~10%** (Slice 1 foundation landed; real OAuth + features are the rest).
+
+---
+
 ## Family alpha readiness (2026-04-13)
 
 **Call: FAMILY ALPHA READY** — private family alpha for Yosi, Bella, and immediate

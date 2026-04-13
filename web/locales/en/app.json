@@ -857,5 +857,10 @@
   "Video Output": "Video Output",
   "Image Output": "Image Output",
   "Fullscreen math animation output": "Fullscreen math animation output",
-  "Delete this chat history?": "Delete this chat history?"
+  "Delete this chat history?": "Delete this chat history?",
+  "Connections": "Connections",
+  "Connect Gmail and Google Calendar so WiseTutor can help with messages and schedules. Real connections will land in a future update.": "Connect Gmail and Google Calendar so WiseTutor can help with messages and schedules. Real connections will land in a future update.",
+  "Not available yet": "Not available yet",
+  "Gmail connection is coming soon. No action needed right now.": "Gmail connection is coming soon. No action needed right now.",
+  "Google Calendar connection is coming soon. No action needed right now.": "Google Calendar connection is coming soon. No action needed right now."
 }
