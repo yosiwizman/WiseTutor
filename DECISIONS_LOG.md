@@ -5,6 +5,60 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Phase 5 slice 3B: real Piper runtime installed + backend synth verified (Tier 1 backend-side)
+
+**Decision.** Install `piper-tts` via pip into the repo virtualenv, download
+the `en_US-lessac-low` voice model, and promote the backend synthesis pipeline
+from Tier 3 to Tier 1 (backend-side). Real audible output through speakers
+remains Tier 3 (no human confirmation in this session).
+
+**Install path.**
+- `pip install piper-tts` (version 1.4.2) inside `.venv`.
+- Binary: `/home/ai-desktop/projects/WiseTutor/.venv/bin/piper`.
+- NOT added to `requirements/server.txt` — keeps the base install light;
+  endpoint self-reports `piper_not_installed` with 503 when absent.
+
+**Voice model choice: `en_US-lessac-low`.**
+- Source: `rhasspy/piper-voices` HuggingFace mirror.
+- Rationale: low quality = smallest viable download (63 MB ONNX + 5 KB JSON);
+  CPU-only inference; permissive license; no GPU required on this hardware.
+  Higher-quality models (medium/high) are available but deferred until the
+  audible proof step demands them.
+- ONNX: `/mnt/models/piper/en_US-lessac-low.onnx` — 63 201 294 bytes.
+- Config: `/mnt/models/piper/en_US-lessac-low.onnx.json` — 4 882 bytes.
+
+**Env config (backend restart ~13:12Z 2026-04-13).**
+```
+WISETUTOR_PIPER_BIN=.venv/bin/piper
+WISETUTOR_PIPER_VOICE_PATH=/mnt/models/piper/en_US-lessac-low.onnx
+```
+
+**Exact verification output.**
+- `GET /api/v1/voice/tts-status` →
+  `{"test_mode": false, "bin": ".../piper", "voice_path_set": true, "max_chars": 5000}`
+- `POST /api/v1/voice/synthesize` (text: `"hello world from the real piper backend"`) →
+  HTTP 200 · `x-wt-tts-engine: piper` · `content-type: audio/wav` · 74 284 bytes ·
+  `file` identifies: "RIFF (little-endian) data, WAVE audio, Microsoft PCM, 16 bit, mono 16000 Hz".
+- Pytest `tests/api/test_voice_router.py` = 12 passed in 0.38s (6 STT + 6 TTS).
+- WAV artifact committed at `artifacts/phase5_piper_real_backend/synth_hello_world.wav`.
+
+**Known gap: no audible confirmation.**
+The WAV is structurally valid but a human has not played it through speakers in
+this session. Real audible Piper output remains Tier 3 until a human listens
+and confirms.
+
+**Recovery note.**
+Agent A's voice.py backend additions were included in the Slice 3B design but
+did NOT persist to disk before commit 116b804 — those edits were lost. The
+backend code was re-applied in this task. All current Tier 1 evidence is from
+the re-applied implementation.
+
+**Consequence.**
+Slice 3B backend synthesis promoted to Tier 1 (backend-side). Audible output
+gap documented. Slice 3B bumped to ~95%.
+
+---
+
 ## 2026-04-13 — Phase 5 slice 3B: Piper local TTS fallback LANDED (Tier 2 local)
 
 **Decision.** Implement a Piper-only local TTS fallback for browsers that lack

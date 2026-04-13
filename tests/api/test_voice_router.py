@@ -114,3 +114,84 @@ def test_transcribe_real_mode_without_faster_whisper_returns_503(monkeypatch):
 
     # Restore for any future import uses.
     monkeypatch.setattr(module, "_get_engine", original)
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 Slice 3B — Piper TTS tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def tts_client(monkeypatch):
+    monkeypatch.setenv("WISETUTOR_VOICE_TTS_TEST_MODE", "1")
+    sys.modules.pop("deeptutor.api.routers.voice", None)
+    module = importlib.import_module("deeptutor.api.routers.voice")
+    app = FastAPI()
+    app.include_router(module.router, prefix="/api/v1/voice")
+    with TestClient(app) as c:
+        yield c
+
+
+def test_tts_status_reports_test_mode(tts_client):
+    r = tts_client.get("/api/v1/voice/tts-status")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["test_mode"] is True
+    assert "bin" in body and "voice_path_set" in body and "max_chars" in body
+
+
+def test_synthesize_returns_wav_stub_in_test_mode(tts_client):
+    r = tts_client.post("/api/v1/voice/synthesize", json={"text": "hello"})
+    assert r.status_code == 200
+    assert r.headers.get("content-type", "").startswith("audio/wav")
+    assert r.headers.get("X-WT-TTS-Engine") == "test-stub"
+    assert r.content.startswith(b"RIFF")
+
+
+def test_synthesize_rejects_empty_text(tts_client):
+    r = tts_client.post("/api/v1/voice/synthesize", json={"text": "   "})
+    assert r.status_code == 400
+    assert r.json()["detail"] == "empty_text"
+
+
+def test_synthesize_rejects_too_long_text(monkeypatch, tts_client):
+    monkeypatch.setenv("WISETUTOR_VOICE_TTS_MAX_CHARS", "8")
+    r = tts_client.post(
+        "/api/v1/voice/synthesize", json={"text": "x" * 100}
+    )
+    assert r.status_code == 400
+    assert "text_too_long" in r.json()["detail"]
+
+
+def test_synthesize_real_mode_503_when_piper_missing(monkeypatch):
+    monkeypatch.delenv("WISETUTOR_VOICE_TTS_TEST_MODE", raising=False)
+    sys.modules.pop("deeptutor.api.routers.voice", None)
+    module = importlib.import_module("deeptutor.api.routers.voice")
+    # Force which() to return None → binary not found branch.
+    monkeypatch.setattr(module.shutil, "which", lambda _name: None)
+    app = FastAPI()
+    app.include_router(module.router, prefix="/api/v1/voice")
+    with TestClient(app) as c:
+        r = c.post("/api/v1/voice/synthesize", json={"text": "hello"})
+    assert r.status_code == 503
+    assert "piper_unavailable" in r.json()["detail"]
+
+
+def test_synthesize_real_mode_503_when_voice_path_missing(monkeypatch, tmp_path):
+    monkeypatch.delenv("WISETUTOR_VOICE_TTS_TEST_MODE", raising=False)
+    # Make shutil.which return a valid-looking path so we fall through to
+    # the voice-path check.
+    fake_bin = tmp_path / "piper"
+    fake_bin.write_text("#!/bin/sh\n")
+    fake_bin.chmod(0o755)
+    monkeypatch.setenv("WISETUTOR_PIPER_BIN", str(fake_bin))
+    monkeypatch.delenv("WISETUTOR_PIPER_VOICE_PATH", raising=False)
+    sys.modules.pop("deeptutor.api.routers.voice", None)
+    module = importlib.import_module("deeptutor.api.routers.voice")
+    app = FastAPI()
+    app.include_router(module.router, prefix="/api/v1/voice")
+    with TestClient(app) as c:
+        r = c.post("/api/v1/voice/synthesize", json={"text": "hello"})
+    assert r.status_code == 503
+    assert "piper_unavailable" in r.json()["detail"]
+    assert "voice model" in r.json()["detail"]
