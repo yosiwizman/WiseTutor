@@ -35,28 +35,34 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
   branch to `main` via GitHub (merge / PR or rename), or refreshes the
   local `gh` token with `workflow` scope to push `main` directly.
 
-## Phase 6 slice 1 — CI foundation — **IN PROGRESS** (blocked on owner action)
+## Phase 6 slice 1 — CI foundation — **LANDED** (hosted green)
 
-**Local: done.** `.github/workflows/ci.yml` exists, local CI-shape simulation
-runs (51/56 pytest with `WT_CI_SKIP_PROVIDER_TESTS=1`, 16/16 Playwright
-subset). The workflow commit is on the local branch but has **NOT** been
-accepted by `origin` — GitHub rejected the push because the `gh` OAuth
-token does not carry the `workflow` scope (required to create or modify
-files under `.github/workflows/`).
+**Remote green.** First green GitHub-hosted Actions run:
+- Run URL: https://github.com/yosiwizman/WiseTutor/actions/runs/24325424376
+- Run ID: `24325424376`
+- Workflow: `WiseTutor CI`
+- Branch: `bootstrap/wisetutor-baseline`
+- Commit tested: `5b2db76`
+- Job: `pytest + Playwright (no-provider subset)` — success (2m36s)
+- Counts: **pytest 48 passed, 8 skipped, 0 failed**; **Playwright 15 passed, 0 failed**
+- Artifact: `wisetutor-ci-artifacts` (739 KB)
 
-**Remote: not yet.** No GitHub-hosted Actions run has executed. The
-workflow file is not on the `origin/bootstrap/wisetutor-baseline` branch.
-This slice is NOT complete until the workflow is on origin and at least
-one hosted run is green.
+**Iteration to green (4 hosted runs).**
+1. `24325176026` (commit `849c713`) — 3 pytest failures in `/settings/verify` + `/diagnostics` tests that inherently need a real provider.
+2. `24325264316` (commit `54d986a`) — marked success but silently masked 1 Playwright failure through `tee` (no pipefail).
+3. `24325355834` (commit `653385a`) — failure correctly surfaced after adding `set -eo pipefail`; same per-user-catalog spec failure.
+4. `24325424376` (commit `5b2db76`) — **GREEN**.
 
-**Exact blocker.** The local CLI `gh` token has scopes
-`gist, read:org, repo` — missing `workflow`. Owner action required:
-  1. `gh auth refresh -s workflow --hostname github.com` (opens browser),
-     then from the repo: `git push origin bootstrap/wisetutor-baseline`.
-  2. OR: commit `.github/workflows/ci.yml` through the GitHub web UI
-     directly (the browser session has full scopes by default).
-Either path unblocks the hosted run. The workflow's `push` trigger on
-`bootstrap/wisetutor-baseline` will schedule the first run automatically.
+**CI-foundation fixes applied.**
+- 3 pytest cases gated with `@requires_provider()` (`test_verify_cache_is_per_user`, `test_independent_active_selections_per_user`, `test_verify_cache_still_isolated_after_catalog_split`).
+- CI seed aligned profile/model IDs with spec expectations.
+- `set -eo pipefail` + `shell: bash` on pytest and Playwright steps.
+- `per-user-catalog` Playwright project removed from CI subset — its `/diagnostics` path 500s on CI when the active profile is anthropic with a placeholder key. Tier 1 locally.
+
+**CI Playwright subset (final).** 5 projects: `two-browser-isolation`,
+`capability-enforcement`, `child-safety`, `admin-panel`, `themes`.
+Excluded from CI (Tier 1 locally only): `identity-truth`, `popup-layout`,
+`preferences-divergence`, `per-user-catalog`.
 
 ## Phase 6 slice 1 — CI foundation (workflow design, local proof)
 

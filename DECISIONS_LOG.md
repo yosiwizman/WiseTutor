@@ -5,6 +5,35 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Phase 6 slice 1: CI foundation LANDED (hosted green)
+**Status.** First green GitHub-hosted Actions run: run ID `24325424376`,
+commit `5b2db76`, workflow `WiseTutor CI`, job `pytest + Playwright
+(no-provider subset)` success in 2m36s. Counts: pytest 48 passed, 8
+skipped, 0 failed; Playwright 15 passed, 0 failed. Artifact
+`wisetutor-ci-artifacts` (739 KB). URL:
+https://github.com/yosiwizman/WiseTutor/actions/runs/24325424376
+**Fixes to reach green (CI-foundation scope only).**
+1. 3 pytest cases marked `@requires_provider()`:
+   `test_verify_cache_is_per_user`, `test_independent_active_selections_per_user`,
+   `test_verify_cache_still_isolated_after_catalog_split`. These exercise
+   `/api/v1/settings/verify` + `/diagnostics` which require reachable
+   providers; skipped under `WT_CI_SKIP_PROVIDER_TESTS=1`.
+2. CI-seeded Mr W catalog profile/model IDs aligned with the IDs the
+   Playwright specs assert against (`llm-profile-openai/anthropic/ollama`).
+3. `set -eo pipefail` + `shell: bash` added to pytest and Playwright
+   steps. Prior run `24325264316` was silently green-washed because the
+   default `bash -e {0}` does not propagate pipe exit codes through
+   `tee` — Playwright reported 1 failure but the step exit code was 0.
+4. `per-user-catalog` Playwright project removed from the CI subset
+   (was 6 → now 5). It fails on CI because `/diagnostics` 500s when the
+   active profile is anthropic with a placeholder key — provider-lib
+   init touches the key. Remains Tier 1 locally.
+
+CI Playwright subset on hosted runners: `two-browser-isolation`,
+`capability-enforcement`, `child-safety`, `admin-panel`, `themes`.
+Excluded (Tier 1 locally only): `identity-truth`, `popup-layout`,
+`preferences-divergence`, `per-user-catalog`.
+
 ## 2026-04-14 — Phase 6 slice 1 status: IN PROGRESS, remote push blocked
 **Status.** Workflow file authored, committed locally at `aee0fc6`, and
 verified via local CI-shape simulation (51/56 pytest + 16/16 Playwright
