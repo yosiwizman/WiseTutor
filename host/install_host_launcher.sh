@@ -7,7 +7,6 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOST_DIR="${REPO_DIR}/host"
 
 DESKTOP_FILE="${HOST_DIR}/wisetutor.desktop"
-STOP_DESKTOP_FILE="${HOST_DIR}/wisetutor-stop.desktop"
 SERVICE_FILE="${HOST_DIR}/wisetutor.service"
 
 DESKTOP_DEST="${HOME}/Desktop"
@@ -16,10 +15,18 @@ SYSTEMD_DEST="${HOME}/.config/systemd/user"
 
 echo "=== WiseTutor Host Launcher Installer ==="
 
-# --- Desktop icons ---
+# --- Clean any prior stop-launcher install from family-facing surfaces ---
+# The WiseTutor host is a persistent service while the user session is
+# active; stopping it is an admin/maintenance action, not a daily-use
+# icon. Remove the stop launcher from the Desktop and app grid if a
+# previous installer run put it there.
+rm -f "${DESKTOP_DEST}/wisetutor-stop.desktop" 2>/dev/null || true
+rm -f "${APP_DEST}/wisetutor-stop.desktop" 2>/dev/null || true
+
+# --- Primary Desktop icon (WiseTutor only) ---
 mkdir -p "${DESKTOP_DEST}" "${APP_DEST}"
 
-for src in "${DESKTOP_FILE}" "${STOP_DESKTOP_FILE}"; do
+for src in "${DESKTOP_FILE}"; do
     fname="$(basename "${src}")"
 
     cp "${src}" "${DESKTOP_DEST}/${fname}"
@@ -64,3 +71,10 @@ echo "NOTE: To start WiseTutor NOW, run:"
 echo "  systemctl --user start wisetutor.service"
 echo "  -- or --"
 echo "  Double-click the 'WiseTutor' icon on the Desktop"
+echo ""
+echo "To STOP the WiseTutor host (admin / maintenance only — not daily use):"
+echo "  bash ${REPO_DIR}/scripts_local/wt_stop.sh"
+echo "  -- or --"
+echo "  systemctl --user stop wisetutor.service"
+echo ""
+echo "Closing the browser tab does NOT stop the host (by design)."

@@ -95,6 +95,20 @@ scripts under `scripts_local/wt_*.sh`. Operator runbook at
 is deferred (requires `sudo loginctl enable-linger`). `bash host/install_host_launcher.sh`
 is the one-command install.
 
+**Host-UX cleanup (2026-04-13):** only a single "WiseTutor" launcher
+remains on the Desktop and in the app grid. The previous "WiseTutor —
+Stop" launcher was removed from both surfaces because (a) browser-close
+does NOT and cannot stop the host — backend + frontend run as detached
+session leaders (PPID=1, separate SID) and Chrome is not in their
+process tree — so the Stop icon was a user-confusion hazard; (b) the
+host is a persistent service for the user session, not a browser-tab-
+scoped process. Intentional stop remains available via
+`scripts_local/wt_stop.sh` or `systemctl --user stop wisetutor.service`
+(maintenance/admin only). `host/install_host_launcher.sh` was patched
+so future re-runs do not re-install the Stop launcher to family
+surfaces; the `host/wisetutor-stop.desktop` source file is preserved
+in the repo for admin-side hand-install if ever needed.
+
 **Family client launchers (2026-04-13):**
 - Windows: `dist/wisetutor-windows-launcher.zip` — zipped .bat + .url +
   PowerShell installer + README. Built on Linux host; **Gate B partial**

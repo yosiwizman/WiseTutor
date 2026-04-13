@@ -130,8 +130,19 @@ systemd unit so the app starts automatically when you log in.
 
 **Daily use:** double-click the "WiseTutor" icon on the Desktop. It calls
 `scripts_local/wt_launch.sh` under the hood, which starts the app and opens
-Chrome in app mode pointing at http://192.168.1.133:3782. A "WiseTutor — Stop"
-icon is placed alongside it to stop the app without a terminal.
+Chrome in app mode pointing at http://192.168.1.133:3782. **Closing the
+browser window closes your view only — the WiseTutor host keeps running
+in the background so you can reopen it instantly.** No Stop icon is placed
+on the Desktop; stopping the host is a maintenance action (see below),
+not a daily-use click.
+
+**How to intentionally stop WiseTutor (maintenance only):**
+- `bash /home/ai-desktop/projects/WiseTutor/scripts_local/wt_stop.sh`
+- or `systemctl --user stop wisetutor.service`
+
+Daily family use never needs this. You only stop WiseTutor if you are
+updating the app, restoring a backup, rolling back a commit, or
+troubleshooting.
 
 **Auto-start on login:** ENABLED (user systemd unit `wisetutor.service`).
 The app starts automatically each time you log in to ai-desktop.

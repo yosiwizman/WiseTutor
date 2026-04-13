@@ -1,0 +1,5 @@
+total 16
+drwxr-xr-x  2 ai-desktop ai-desktop 4096 Apr 13 19:31 .
+drwxr-x--- 43 ai-desktop ai-desktop 4096 Apr 13 19:13 ..
+-rwxrwxr-x  1 ai-desktop ai-desktop  301 Apr  9 09:02 Paperclip.desktop
+-rwxrwxr-x  1 ai-desktop ai-desktop  328 Apr 13 19:32 wisetutor.desktop

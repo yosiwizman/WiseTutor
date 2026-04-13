@@ -5,6 +5,55 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Host-UX cleanup: remove Stop launcher from family surface
+
+**Decision.** The "WiseTutor — Stop" launcher is removed from both
+family-facing surfaces (the Ubuntu Desktop and the `~/.local/share/
+applications/` app grid). Stopping the host is reclassified as an
+admin/maintenance action invoked via `scripts_local/wt_stop.sh` or
+`systemctl --user stop wisetutor.service`.
+
+**Rationale.** The host lifecycle is already architecturally decoupled
+from the browser: `wt_start.sh` launches backend + frontend with
+`setsid nohup`, so they become their own session leaders with PPID=1
+and no parent/child relationship to any Chrome process. Browser-close
+literally cannot kill the host. Proof captured this session:
+  - backend PID 2607479: PPID=3149, SID=2607479
+  - frontend PID 2607481: PPID=3149, SID=2607481
+  - `pgrep -a "google-chrome.*--app=http"` → zero WiseTutor-app
+    Chrome processes
+  - `curl http://localhost:3782/` → 200 (frontend alive with no
+    browser attached)
+
+Given that, a daily-use Stop icon on the Desktop was a user-confusion
+hazard: it implied stopping was part of the normal flow, when in fact
+closing the Chrome window is the expected "done for now" gesture and
+the host should persist.
+
+**Action taken.**
+- `~/Desktop/wisetutor-stop.desktop` moved to
+  `~/Documents/WiseTutor_Desktop_Archive/20260413T231047Z/` (archive-
+  first, nothing deleted, fully reversible).
+- `~/.local/share/applications/wisetutor-stop.desktop` moved to the
+  same archive dir.
+- `host/install_host_launcher.sh` patched: no longer installs the
+  stop .desktop to Desktop or app grid on re-run; actively removes
+  any stale copies from those two surfaces; final echo now documents
+  the admin stop path + "closing the browser does NOT stop the host".
+- `host/wisetutor-stop.desktop` source file preserved in the repo
+  for admin-side hand-install if ever needed (not referenced by the
+  installer).
+- `OPERATOR_RUNBOOK.md` updated: daily-use section now states that
+  closing the browser closes the view only; added an intentional-
+  stop subsection labeled "maintenance only".
+
+**No change to server lifecycle or any product code.**
+
+**Percentages.** Unchanged (cosmetic UX). Phase 5 voice lane ~52%.
+Whole WiseTutor product ~73%. Whole company vision ~11%.
+
+---
+
 ## 2026-04-13 — Tailscale + Ubuntu click-launch slice
 
 **Tailscale: BLOCKED (irreducible founder action required).**
