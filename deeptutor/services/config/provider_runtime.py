@@ -286,10 +286,17 @@ def resolve_llm_runtime_config(
     *,
     env_store: EnvStore | None = None,
     service: ModelCatalogService | None = None,
+    user_id: str | None = None,
 ) -> ResolvedLLMConfig:
-    """Resolve active LLM config with TutorBot-style provider matching."""
+    """Resolve active LLM config for a specific user.
+
+    Prefer passing `service` (already-scoped ModelCatalogService) OR `user_id`.
+    Passing neither falls back to the legacy shared catalog — that fallback
+    is retained only for out-of-band tests; authenticated routers always
+    thread `user_id`.
+    """
     env = env_store or get_env_store()
-    catalog_service = service or get_model_catalog_service()
+    catalog_service = service or get_model_catalog_service(user_id=user_id)
     loaded = _load_catalog(catalog)
 
     profile, model = _active_profile_and_model(loaded, catalog_service, "llm")
@@ -437,10 +444,11 @@ def resolve_embedding_runtime_config(
     *,
     env_store: EnvStore | None = None,
     service: ModelCatalogService | None = None,
+    user_id: str | None = None,
 ) -> ResolvedEmbeddingConfig:
     """Resolve active embedding config using provider-runtime normalization."""
     env = env_store or get_env_store()
-    catalog_service = service or get_model_catalog_service()
+    catalog_service = service or get_model_catalog_service(user_id=user_id)
     loaded = _load_catalog(catalog)
     profile, model = _active_profile_and_model(loaded, catalog_service, "embedding")
     summary = env.as_summary()

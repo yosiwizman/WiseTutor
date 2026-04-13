@@ -8,13 +8,13 @@ const API = process.env.DEEPTUTOR_API || "http://localhost:8001";
 const APP = process.env.DEEPTUTOR_APP || "http://localhost:3782";
 const EVID = process.env.EVIDENCE_DIR || path.resolve(__dirname, "../../../artifacts/fix_evidence/latest");
 
-async function setActive(profile_id: string, model_id: string) {
-  const r = await fetch(`${API}/api/v1/settings/active`, {
-    method: "POST",
+async function setActive(page: Page, profile_id: string, model_id: string) {
+  await ensureSignedIn(page, API);
+  const r = await page.context().request.post(`${API}/api/v1/settings/active`, {
+    data: { service: "llm", profile_id, model_id },
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ service: "llm", profile_id, model_id }),
   });
-  if (!r.ok) throw new Error(`setActive failed: ${r.status}`);
+  if (!r.ok()) throw new Error(`setActive failed: ${r.status()}`);
 }
 
 async function askIdentity(page: Page, question: string): Promise<string> {
@@ -71,7 +71,7 @@ const cases: { file: string; label: string; profile: string; model: string; expe
 
 for (const c of cases) {
   test(`identity reply matches runtime for ${c.label}`, async ({ page }) => {
-    await setActive(c.profile, c.model);
+    await setActive(page, c.profile, c.model);
     await ensureSignedIn(page, API); await page.goto(APP);
     await page.waitForLoadState("networkidle");
     const body = await askIdentity(page, "What AI model and provider are you?");

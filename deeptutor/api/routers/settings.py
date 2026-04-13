@@ -148,18 +148,29 @@ def _provider_choices() -> dict[str, list[dict[str, str]]]:
     return {"llm": llm, "embedding": llm, "search": search}
 
 
+def _require_uid(request: Request) -> str:
+    from fastapi import HTTPException
+    uid = _resolve_uid_from_request(request)
+    if not uid:
+        raise HTTPException(status_code=401, detail="no_user")
+    return uid
+
+
 @router.get("")
-async def get_settings():
+async def get_settings(request: Request):
+    uid = _require_uid(request)
     return {
         "ui": load_ui_settings(),
-        "catalog": get_model_catalog_service().load(),
+        "catalog": get_model_catalog_service(user_id=uid).load(),
         "providers": _provider_choices(),
+        "user_id": uid,
     }
 
 
 @router.get("/catalog")
-async def get_catalog():
-    return {"catalog": get_model_catalog_service().load()}
+async def get_catalog(request: Request):
+    uid = _require_uid(request)
+    return {"catalog": get_model_catalog_service(user_id=uid).load(), "user_id": uid}
 
 
 class ActiveSelection(BaseModel):
@@ -175,14 +186,15 @@ class VerifyRequest(BaseModel):
 
 
 @router.post("/active")
-async def set_active_selection(payload: ActiveSelection):
-    """Switch the active profile/model. Used by the composer picker."""
-    svc = get_model_catalog_service()
+async def set_active_selection(payload: ActiveSelection, request: Request):
+    """Switch the active profile/model for the request's user."""
+    uid = _require_uid(request)
+    svc = get_model_catalog_service(user_id=uid)
     catalog = svc.load()
     _set_active(catalog, payload.service, payload.profile_id, payload.model_id)
     catalog = svc.save(catalog)
     _invalidate_runtime_caches()
-    return {"catalog": catalog}
+    return {"catalog": catalog, "user_id": uid}
 
 
 @router.post("/verify")
@@ -193,7 +205,8 @@ async def verify_selection(payload: VerifyRequest, request: Request):
         resolve_llm_runtime_config,
     )
 
-    svc = get_model_catalog_service()
+    uid = _require_uid(request)
+    svc = get_model_catalog_service(user_id=uid)
     catalog = svc.load()
     if payload.profile_id and payload.model_id:
         catalog = svc.save(_set_active(catalog, payload.service, payload.profile_id, payload.model_id))
@@ -210,7 +223,7 @@ async def verify_selection(payload: VerifyRequest, request: Request):
         if payload.service == "llm":
             from deeptutor.services.llm.factory import complete as llm_complete
 
-            resolved = resolve_llm_runtime_config(catalog=catalog)
+            resolved = resolve_llm_runtime_config(catalog=catalog, user_id=uid)
             snippet = await llm_complete(
                 prompt="Reply with the single word OK.",
                 system_prompt="Reply briefly.",
@@ -226,7 +239,7 @@ async def verify_selection(payload: VerifyRequest, request: Request):
             from deeptutor.services.embedding.client import EmbeddingClient
             from deeptutor.services.embedding.config import EmbeddingConfig
 
-            r = resolve_embedding_runtime_config(catalog=catalog)
+            r = resolve_embedding_runtime_config(catalog=catalog, user_id=uid)
             cfg = EmbeddingConfig(
                 model=r.model, api_key=r.api_key, base_url=r.base_url,
                 effective_url=r.effective_url, binding=r.binding,
@@ -258,9 +271,10 @@ async def get_diagnostics(request: Request):
         resolve_llm_runtime_config,
     )
 
-    catalog = get_model_catalog_service().load()
+    uid = _require_uid(request)
+    catalog = get_model_catalog_service(user_id=uid).load()
     try:
-        llm = resolve_llm_runtime_config(catalog=catalog)
+        llm = resolve_llm_runtime_config(catalog=catalog, user_id=uid)
         llm_info = {
             "model": llm.model,
             "binding": llm.binding,
@@ -272,7 +286,7 @@ async def get_diagnostics(request: Request):
     except Exception as exc:  # noqa: BLE001
         llm_info = {"error": str(exc)}
     try:
-        emb = resolve_embedding_runtime_config(catalog=catalog)
+        emb = resolve_embedding_runtime_config(catalog=catalog, user_id=uid)
         emb_info = {
             "model": emb.model,
             "binding": emb.binding,
@@ -344,21 +358,26 @@ async def quarantine_memory():
 
 
 @router.put("/catalog")
-async def update_catalog(payload: CatalogPayload):
-    catalog = get_model_catalog_service().save(payload.catalog)
+async def update_catalog(payload: CatalogPayload, request: Request):
+    uid = _require_uid(request)
+    svc = get_model_catalog_service(user_id=uid)
+    catalog = svc.save(payload.catalog)
     _invalidate_runtime_caches()
-    return {"catalog": catalog}
+    return {"catalog": catalog, "user_id": uid}
 
 
 @router.post("/apply")
-async def apply_catalog(payload: CatalogPayload | None = None):
-    catalog = payload.catalog if payload is not None else get_model_catalog_service().load()
-    rendered = get_model_catalog_service().apply(catalog)
+async def apply_catalog(request: Request, payload: CatalogPayload | None = None):
+    uid = _require_uid(request)
+    svc = get_model_catalog_service(user_id=uid)
+    catalog = payload.catalog if payload is not None else svc.load()
+    rendered = svc.apply(catalog)
     _invalidate_runtime_caches()
     return {
-        "message": "Catalog applied to the active .env configuration.",
-        "catalog": get_model_catalog_service().load(),
+        "message": "Catalog applied to the active configuration.",
+        "catalog": svc.load(),
         "env": rendered,
+        "user_id": uid,
     }
 
 
@@ -490,9 +509,11 @@ class TourCompletePayload(BaseModel):
 
 
 @router.post("/tour/complete")
-async def complete_tour(payload: TourCompletePayload | None = None):
-    catalog = payload.catalog if payload and payload.catalog else get_model_catalog_service().load()
-    rendered = get_model_catalog_service().apply(catalog)
+async def complete_tour(request: Request, payload: TourCompletePayload | None = None):
+    uid = _require_uid(request)
+    svc = get_model_catalog_service(user_id=uid)
+    catalog = payload.catalog if payload and payload.catalog else svc.load()
+    rendered = svc.apply(catalog)
     _invalidate_runtime_caches()
     now = int(time.time())
     launch_at = now + 3

@@ -43,5 +43,10 @@ export default defineConfig({
       testMatch: "**/two-browser-isolation.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
+    {
+      name: "per-user-catalog",
+      testMatch: "**/per-user-catalog.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });

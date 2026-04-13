@@ -507,6 +507,7 @@ class TurnRuntimeManager:
                     "notebook_references": notebook_references,
                     "history_references": history_references,
                     "memory_context": memory_context,
+                    "_wt_user_id": _wt_user_id,
                 },
             )
 

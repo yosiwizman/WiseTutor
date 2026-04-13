@@ -67,6 +67,15 @@ def _default_catalog() -> dict[str, Any]:
 
 
 class ModelCatalogService:
+    """Per-user model catalog service. `path` must be the user's catalog file.
+
+    The legacy class-level `_instance` is RETAINED only for backward-compat
+    and is NEVER used by live paths — the module-level
+    `get_model_catalog_service(user_id=...)` factory below constructs a
+    per-user instance keyed by user id. Live paths raise if no user_id is
+    provided.
+    """
+
     _instance: "ModelCatalogService | None" = None
 
     def __init__(self, path: Path | None = None):
@@ -74,6 +83,7 @@ class ModelCatalogService:
 
     @classmethod
     def get_instance(cls, path: Path | None = None) -> "ModelCatalogService":
+        # Legacy — kept for import-compat. Do NOT use in live paths.
         if cls._instance is None:
             cls._instance = cls(path)
         return cls._instance
@@ -452,8 +462,48 @@ class ModelCatalogService:
         return models[0] if models else None
 
 
-def get_model_catalog_service() -> ModelCatalogService:
+# Per-user catalog service cache. No process-global singleton on live paths.
+_CATALOG_SERVICES: dict[str, ModelCatalogService] = {}
+
+
+def get_model_catalog_service(user_id: str | None = None) -> ModelCatalogService:
+    """Return the ModelCatalogService for an explicit user_id.
+
+    Live HTTP/WS paths MUST pass user_id. Legacy/test-only callers can pass
+    None to get the shared-path instance — this is preserved ONLY so imports
+    don't break during migration; it is never reachable from an authenticated
+    router path.
+    """
+    if user_id:
+        inst = _CATALOG_SERVICES.get(user_id)
+        if inst is not None:
+            return inst
+        from deeptutor.services.users import get_user_service
+
+        user_dir = get_user_service().user_dir(user_id)
+        settings_dir = user_dir / "settings"
+        settings_dir.mkdir(parents=True, exist_ok=True)
+        path = settings_dir / "model_catalog.json"
+        inst = ModelCatalogService(path=path)
+        _CATALOG_SERVICES[user_id] = inst
+        return inst
+    # Legacy fallback — must never be reached from authenticated live paths.
+    # We deliberately do NOT raise here because some out-of-band scripts still
+    # use `get_model_catalog_service()` with no args; the router-level guards
+    # (401 on anon) keep this off the live path.
     return ModelCatalogService.get_instance()
 
 
-__all__ = ["CATALOG_PATH", "ModelCatalogService", "get_model_catalog_service"]
+def reset_model_catalog_service(user_id: str | None = None) -> None:
+    if user_id is None:
+        _CATALOG_SERVICES.clear()
+    else:
+        _CATALOG_SERVICES.pop(user_id, None)
+
+
+__all__ = [
+    "CATALOG_PATH",
+    "ModelCatalogService",
+    "get_model_catalog_service",
+    "reset_model_catalog_service",
+]

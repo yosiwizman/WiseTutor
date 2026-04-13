@@ -35,6 +35,21 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
   branch to `main` via GitHub (merge / PR or rename), or refreshes the
   local `gh` token with `workflow` scope to push `main` directly.
 
+## Phase 3 slice 1 — per-user catalog — PROVEN Tier 1
+
+- Provider/model catalog is now per-user at `data/users/<id>/settings/model_catalog.json`.
+- `get_model_catalog_service(user_id)` returns a per-user instance.
+- `/api/v1/settings/*` endpoints resolve user from cookie; 401 anon.
+- Legacy shared `data/user/settings/model_catalog.json` archived under
+  `data/users/_legacy/<ts>/user/settings/`; Mr W inherited the shared
+  catalog as legacy owner (option (a)); Bella starts with a clean default.
+- `resolve_llm_runtime_config(user_id=...)`, `resolve_embedding_runtime_config(user_id=...)`,
+  and `get_llm_config(user_id)` are per-user. `AgenticChatPipeline` takes
+  `user_id` from `UnifiedContext.metadata['_wt_user_id']`.
+- Proven: Mr W on Anthropic/claude-opus-4-6 while Bella stays on Ollama/qwen2.5:7b
+  simultaneously; neither can mutate the other's catalog bytes.
+- 13 pytest pass, 13 Playwright pass across four projects.
+
 ## Phase 2 closed (slice 3) — PROVEN Tier 1
 
 - `get_memory_service` / `get_sqlite_session_store` / `get_turn_runtime_manager`

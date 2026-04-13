@@ -57,9 +57,10 @@ class ToolTrace:
 class AgenticChatPipeline:
     """Run chat as a 4-stage agentic pipeline."""
 
-    def __init__(self, language: str = "en") -> None:
+    def __init__(self, language: str = "en", user_id: str | None = None) -> None:
         self.language = "zh" if language.lower().startswith("zh") else "en"
-        self.llm_config = get_llm_config()
+        self.user_id = user_id
+        self.llm_config = get_llm_config(user_id=user_id)
         self.binding = getattr(self.llm_config, "binding", None) or "openai"
         self.model = getattr(self.llm_config, "model", None)
         self.api_key = getattr(self.llm_config, "api_key", None)

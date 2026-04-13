@@ -70,7 +70,21 @@ decision.
 
 **Phase 2 exit criteria all met.**
 
-## Phase 3 — Bella / Mr W profile specialization (NEXT)
+## Phase 3 — Bella / Mr W profile specialization
+
+### Slice 1 — per-user provider/model catalog (LANDED 2026-04-13)
+- [x] `data/users/<id>/settings/model_catalog.json` is the live path
+- [x] `get_model_catalog_service(user_id)` + resolvers threaded
+- [x] `/api/v1/settings/*` auth-gated (401 anon)
+- [x] Legacy shared catalog migrated: Mr W inherits, shared dir archived
+- [x] `AgenticChatPipeline(user_id=…)` wired via UnifiedContext.metadata
+- [x] 13 pytest + 13 Playwright cases green
+
+### Slice 2 — Bella/Mr W profile preferences + prompt identity (NEXT)
+- [ ] Per-user preferences (tone, response length, allowed capabilities)
+- [ ] Safety presets per profile (child vs owner)
+- [ ] Chat system-prompt injects "you are talking to <display_name>"
+- [ ] Profile-scoped theme selection wired (reuse `User.theme`)
 
 **Exit criteria (phase).** Two distinct users can chat with no memory
 crossover, verify caches scoped per user, and initial PINs replaced.

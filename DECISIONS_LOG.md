@@ -5,6 +5,26 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Phase 3 slice 1: per-user provider/model catalog
+**Decision.** The provider/model catalog is now per-user. Live path is
+`data/users/<id>/settings/model_catalog.json`. `get_model_catalog_service(user_id)`
+returns a per-user instance; `resolve_llm_runtime_config(user_id=...)` and
+`resolve_embedding_runtime_config(user_id=...)` thread it through. `get_llm_config(user_id)`
+caches LLMConfig per user. `/api/v1/settings/*` endpoints resolve the user
+from the signed cookie and return 401 when absent.
+**Migration policy.** Option (a) — existing shared
+`data/user/settings/model_catalog.json` was copied to Mr W as legacy
+owner, then the shared dir was archived under `data/users/_legacy/<ts>/`.
+Bella starts with a clean default catalog.
+**Reason.** Shared catalog was the last user-visible shared-state surface
+touching runtime behavior; letting Bella and Mr W share provider/key
+setup was structurally wrong for multi-user.
+**Consequence.** One user's provider switch cannot alter the other's;
+verified by on-disk byte-level byte-equality tests plus live diagnostics
+round-trip. 13 pytest + 13 Playwright cases pass, including a dedicated
+`per-user-catalog` two-context spec that captures both users' diagnostics
+and asserts independence.
+
 ## 2026-04-13 — Phase 2 closed (slice 3)
 **Decision.** Phase 2 is CLOSED. The per-user factories
 (`get_memory_service`, `get_sqlite_session_store`, `get_turn_runtime_manager`)

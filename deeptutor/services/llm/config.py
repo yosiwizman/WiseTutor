@@ -182,9 +182,9 @@ def _get_llm_config_from_env() -> LLMConfig:
     )
 
 
-def _get_llm_config_from_resolver() -> LLMConfig:
+def _get_llm_config_from_resolver(user_id: str | None = None) -> LLMConfig:
     """Resolve LLM config from the TutorBot-style runtime adapter."""
-    resolved = resolve_llm_runtime_config()
+    resolved = resolve_llm_runtime_config(user_id=user_id)
     if not resolved.model:
         raise LLMConfigError(
             "No active LLM model is configured. Please set it in Settings > Catalog."
@@ -207,21 +207,36 @@ def _get_llm_config_from_resolver() -> LLMConfig:
     )
 
 
-def get_llm_config() -> LLMConfig:
-    """
-    Load LLM configuration.
+# Per-user LLM config cache. No shared cache across users — a process-global
+# cache would silently leak one user's provider selection into another user's
+# chat turn.
+_LLM_CONFIG_BY_USER: dict[str, LLMConfig] = {}
 
-    Returns:
-        LLMConfig: Configuration dataclass
 
-    Raises:
-        LLMConfigError: If required configuration is missing
+def get_llm_config(user_id: str | None = None) -> LLMConfig:
+    """Load LLM configuration for a specific user.
+
+    user_id is required on live paths. Passing None uses the legacy env
+    fallback (kept only for out-of-band tests / CLI).
     """
+    if user_id:
+        inst = _LLM_CONFIG_BY_USER.get(user_id)
+        if inst is not None:
+            return inst
+        try:
+            inst = _get_llm_config_from_resolver(user_id=user_id)
+        except Exception as exc:
+            logger.warning(
+                "LLM runtime resolver failed for user_id=%s, falling back: %s",
+                user_id, exc,
+            )
+            inst = _get_llm_config_from_env()
+        _LLM_CONFIG_BY_USER[user_id] = inst
+        return inst
+    # Legacy/no-user path — never used by authenticated routers.
     global _LLM_CONFIG_CACHE
-
     if _LLM_CONFIG_CACHE is not None:
         return _LLM_CONFIG_CACHE
-
     try:
         _LLM_CONFIG_CACHE = _get_llm_config_from_resolver()
     except Exception as exc:
@@ -245,7 +260,16 @@ async def get_llm_config_async() -> LLMConfig:
     return get_llm_config()
 
 
-def clear_llm_config_cache() -> None:
+def clear_llm_config_cache(user_id: str | None = None) -> None:
+    """Invalidate cached LLMConfig for a user, or all if user_id is None."""
+    if user_id:
+        _LLM_CONFIG_BY_USER.pop(user_id, None)
+        return
+    _LLM_CONFIG_BY_USER.clear()
+    _clear_shared_llm_config_cache()
+
+
+def _clear_shared_llm_config_cache() -> None:
     """Clear cached LLM configuration."""
     global _LLM_CONFIG_CACHE
 

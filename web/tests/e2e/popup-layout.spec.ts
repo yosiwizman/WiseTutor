@@ -10,13 +10,13 @@ const EVID = process.env.EVIDENCE_DIR || path.resolve(__dirname, "../../../artif
 
 fs.mkdirSync(EVID, { recursive: true });
 
-async function setActive(profile_id: string, model_id: string) {
-  const r = await fetch(`${API}/api/v1/settings/active`, {
-    method: "POST",
+async function setActive(page: Page, profile_id: string, model_id: string) {
+  await ensureSignedIn(page, API);
+  const r = await page.context().request.post(`${API}/api/v1/settings/active`, {
+    data: { service: "llm", profile_id, model_id },
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ service: "llm", profile_id, model_id }),
   });
-  if (!r.ok) throw new Error(`setActive ${r.status}`);
+  if (!r.ok()) throw new Error(`setActive ${r.status()}`);
 }
 
 async function openPopup(page: Page) {
@@ -54,7 +54,7 @@ const providerCases = [
 for (const c of providerCases) {
   test(`popup fits viewport — provider=${c.label}`, async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await setActive(c.profile, c.model);
+    await setActive(page, c.profile, c.model);
     await ensureSignedIn(page, API); await page.goto(APP);
     await page.waitForLoadState("networkidle");
     await openPopup(page);
@@ -72,7 +72,7 @@ const sizeCases = [
 for (const s of sizeCases) {
   test(`popup fits viewport — size=${s.width}x${s.height}`, async ({ page }) => {
     await page.setViewportSize({ width: s.width, height: s.height });
-    await setActive("llm-profile-openai", "llm-model-openai-gpt54");
+    await setActive(page, "llm-profile-openai", "llm-model-openai-gpt54");
     await ensureSignedIn(page, API); await page.goto(APP);
     await page.waitForLoadState("networkidle");
     await openPopup(page);

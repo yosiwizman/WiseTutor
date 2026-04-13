@@ -20,5 +20,6 @@ class ChatCapability(BaseCapability):
     )
 
     async def run(self, context: UnifiedContext, stream: StreamBus) -> None:
-        pipeline = AgenticChatPipeline(language=context.language)
+        uid = (context.metadata or {}).get("_wt_user_id") if context.metadata else None
+        pipeline = AgenticChatPipeline(language=context.language, user_id=uid)
         await pipeline.run(context, stream)

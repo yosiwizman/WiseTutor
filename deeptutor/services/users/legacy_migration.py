@@ -34,13 +34,42 @@ def run_legacy_migration(data_root: Path) -> dict[str, str]:
         data_root / "sessions",               # legacy dir
         data_root / "user" / "chat_history.db",
     ]
-    any_work = any(p.exists() for p in candidates)
+    shared_settings_dir = data_root / "user" / "settings"
+
+    any_work = any(p.exists() for p in candidates) or shared_settings_dir.is_dir()
     if not any_work:
         return moved
 
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     dest = legacy_root / ts
     dest.mkdir(parents=True, exist_ok=True)
+
+    # Phase 3 slice 1: shared model catalog at data/user/settings/ was the
+    # last user-visible shared-state surface. Policy: ASSIGN to Mr W as
+    # legacy owner state (option (a)), preserving his existing provider/model
+    # setup. Bella starts with an empty (default) catalog.
+    if shared_settings_dir.is_dir():
+        mrw_settings = data_root / "users" / "mrw" / "settings"
+        mrw_settings.mkdir(parents=True, exist_ok=True)
+        for fname in ("model_catalog.json",):
+            src = shared_settings_dir / fname
+            dst_mrw = mrw_settings / fname
+            if src.exists() and not dst_mrw.exists():
+                try:
+                    shutil.copy2(str(src), str(dst_mrw))
+                    moved[f"user/settings/{fname}->users/mrw/settings/{fname}"] = str(dst_mrw)
+                    logger.warning(
+                        "legacy_migration: copied shared %s to users/mrw/settings/%s", fname, fname,
+                    )
+                except Exception as exc:
+                    logger.error("legacy_migration: failed to copy %s: %s", src, exc)
+        try:
+            archive_target = dest / "user" / "settings"
+            archive_target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(shared_settings_dir), str(archive_target))
+            moved["user/settings"] = str(archive_target)
+        except Exception as exc:
+            logger.error("legacy_migration: could not archive user/settings: %s", exc)
 
     for src in candidates:
         if not src.exists():
