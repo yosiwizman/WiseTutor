@@ -5,6 +5,41 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-14 — Phase 6 slice 1 status: IN PROGRESS, remote push blocked
+**Status.** Workflow file authored, committed locally at `aee0fc6`, and
+verified via local CI-shape simulation (51/56 pytest + 16/16 Playwright
+subset). **The workflow file is not on origin** because the local `gh`
+OAuth token scopes are `gist, read:org, repo` — `workflow` is required
+to create or modify `.github/workflows/*` and is missing. GitHub returns
+`HTTP 404` from the Contents API PUT on workflow paths (confirmed: a
+PUT of a non-workflow file succeeded against the same token under the
+same auth — proving the 404 is scope enforcement, not permission denial).
+**Owner action to unblock.** Run
+`gh auth refresh -s workflow --hostname github.com` (opens a browser),
+then `git push origin bootstrap/wisetutor-baseline`. OR: commit
+`.github/workflows/ci.yml` via the GitHub web UI.
+**Until then**, this slice is NOT closed. CURRENT_STATE and ROADMAP now
+reflect that truthfully.
+
+## 2026-04-14 — Phase 6 slice 1: CI foundation (workflow design)
+**Decision.** `.github/workflows/ci.yml` runs pytest + Playwright on a
+clean Ubuntu 24.04 runner for every push/PR to `bootstrap/wisetutor-baseline`.
+Test seams: `WT_CI_SKIP_PROVIDER_TESTS=1` skips the 5 pytest cases and 3
+Playwright projects that require a live OpenAI/Anthropic/Ollama.
+`WISETUTOR_TEST_MODE=1` enables the output-gate injection seam already
+shipped in Phase 3 slice 5. `WISETUTOR_REPO` lets the integration
+conftest resolve paths from `github.workspace` instead of the owner's
+desktop path.
+**Why the partition.** Live-provider tests on GH runners would require
+publishing API keys as secrets + tolerating non-deterministic provider
+behavior + running Ollama on the runner (no supported build). A
+foundation slice keeps the CI promise verifiable and cheap; full Tier 1
+across all tests continues locally. Excluded surface is named explicitly
+in the workflow header and in this entry.
+**Consequence.** 51 pytest + 6 Playwright projects (20 cases) will run
+in CI. Locally the full 56 pytest + 9 Playwright projects (28 cases)
+remain Tier 1.
+
 ## 2026-04-14 — Phase 4 slice 1: themes foundation
 **Decision.** `User.theme` becomes a real per-user product feature end-to-end.
 Finite enum `{light, dark, bella}`. Validation routed through
