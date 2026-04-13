@@ -173,14 +173,19 @@ visual-diffs lock the look.
 
 ## Phase 5 — Voice STT/TTS
 
-### Slice 1 — STT foundation (LANDED 2026-04-13, Tier 1 local)
-- [x] Browser Web Speech API adapter (`web/lib/speech-recognition.ts`)
-- [x] Deterministic test seam (`window.__wt_test_speech`) for Playwright
-- [x] MicButton in composer: idle / listening / permission / unsupported states
-- [x] Final transcripts append to draft; interim shown in status chip only
-- [x] Cleanup on unmount + `wt:user-switched` (no zombie listeners)
-- [x] 7 Playwright cases green locally (project `voice-stt`); 48 pytest passed / 8 skipped
-- [ ] Add `voice-stt` project to hosted CI (follow-up after local proof settles)
+### Slice 1 — STT foundation (2026-04-13, implementation closed)
+- [x] Browser Web Speech API adapter (`web/lib/speech-recognition.ts`) — code wired; real-capture path is **Tier 3** (not independently executed from this agent; needs a human+mic to promote).
+- [x] Deterministic test seam (`window.__wt_test_speech`) — **Tier 2** sandbox proof of UI/state wiring.
+- [x] MicButton in composer: idle / listening / permission / unsupported states.
+- [x] Final transcripts append to draft; interim shown in status chip only.
+- [x] Cleanup on unmount + `wt:user-switched`.
+- [x] 7 Playwright cases green locally (project `voice-stt`); 48 pytest passed / 8 skipped.
+
+### Slice 1A — STT proof hardening + hosted CI gate (LANDED 2026-04-13)
+- [x] `voice-stt` Playwright project added to hosted CI workflow.
+- [x] Hosted green run includes voice-stt (7 deterministic cases).
+- [x] Docs corrected: adapter seam is **Tier 2** (not Tier 1); real-browser-native path is **Tier 3** (not Tier 1 "designed/manually verified").
+- [ ] Real-browser mic capture Tier 1 proof — owner action required (human + Chrome + mic).
 
 ### Slice 2 — Whisper local fallback (NEXT)
 - [ ] Local Whisper pipeline for browsers without Web Speech API

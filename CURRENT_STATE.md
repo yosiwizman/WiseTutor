@@ -35,15 +35,26 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
   branch to `main` via GitHub (merge / PR or rename), or refreshes the
   local `gh` token with `workflow` scope to push `main` directly.
 
-## Phase 5 slice 1 — Voice STT foundation — **LANDED Tier 1 (local)**
+## Phase 5 slice 1 — Voice STT foundation — **IMPLEMENTATION CLOSED, real-browser path Tier 3**
 
-- `web/lib/speech-recognition.ts` — thin adapter over `window.SpeechRecognition` / `webkitSpeechRecognition`. Returns `supported: false` in browsers that lack it. Production code path is unchanged for real users.
-- Deterministic automation seam: when `window.__wt_test_speech` is present (set via Playwright `addInitScript`), the adapter swaps to a fake that exposes `window.__wt_test_speech_driver` with `emitStart/emitInterim/emitFinal/emitEnd/emitPermissionDenied/emitGenericError`. The seam never activates for real users because the global is never set.
-- `web/components/chat/home/MicButton.tsx` renders next to the composer send button. States (exposed via `data-state`): `idle`, `listening`, `error-permission`, `error-unsupported`, `error-generic`. Interim transcripts appear in a small inline status badge (`chat-composer-mic-status`) and are **never** written to the input. Final transcripts are **appended** to the existing draft with a single-space separator. Stop/cancel leaves the composer exactly as it was pre-listen (no promotion of interim to final).
-- Cleanup: adapter.stop() runs on component unmount and on `wt:user-switched`, preventing zombie listeners across user switches.
-- Send semantics unchanged — mic does NOT auto-send; it only fills the draft.
-- 7 new Playwright cases under `web/tests/e2e/voice-stt.spec.ts` (project `voice-stt`): Mr W insert, draft preservation + append, Bella insert, two-context non-leak, permission-denied, unsupported-browser, mid-listen stop. **All green locally.** Pytest regression: 48 passed / 8 skipped (CI shape, unchanged).
-- Out of scope for this slice (deferred): TTS, full voice conversation, wake word, server-side STT, transcript history, waveform visualizer.
+**What is built (code):**
+- `web/lib/speech-recognition.ts` — thin adapter over `window.SpeechRecognition` / `webkitSpeechRecognition`. Returns `supported: false` in browsers that lack it.
+- Deterministic automation seam: when `window.__wt_test_speech` is present (set via Playwright `addInitScript`), the adapter swaps to a fake that exposes `window.__wt_test_speech_driver` with `emitStart/emitInterim/emitFinal/emitEnd/emitPermissionDenied/emitGenericError`. The seam is never set in production code — only by tests.
+- `web/components/chat/home/MicButton.tsx` renders next to the composer send button. States (exposed via `data-state`): `idle`, `listening`, `error-permission`, `error-unsupported`, `error-generic`. Interim transcripts appear only in `chat-composer-mic-status` and are never written to the input. Final transcripts are appended to the existing draft with a single-space separator. Stop/cancel never promotes interim to final.
+- Cleanup: adapter.stop() runs on component unmount AND on `wt:user-switched` event — no zombie listeners across user switches.
+- Send semantics unchanged — mic fills the draft; does NOT auto-send.
+
+**Evidence tiers (honest, per CLAUDE.md grid):**
+- Deterministic adapter seam (`__wt_test_speech`): **Tier 2** — proven by sandbox Playwright against the fake adapter. This is test-path code, not the real product runtime. It proves UI wiring, state transitions, append semantics, cleanup, and two-context isolation.
+- Local Playwright `voice-stt` proof: **Tier 2** — 7 cases green locally + on hosted CI, driving the deterministic seam. Same classification as above.
+- Real browser-native microphone path (`window.SpeechRecognition` capturing actual audio): **Tier 3** — designed and wired, not independently executed. This agent runs in a headless environment with no browser session, no mic device, and no way to honestly execute the real capture path. Earlier docs used "Tier 1 designed / manually verified" — that phrasing is rejected; no manual verification was ever done in this session.
+- Hosted CI proof of voice-stt: **Tier 2** (sandbox), now wired into the hosted CI Playwright projects list and proven remotely.
+
+**Test summary.** 7 new Playwright cases under `web/tests/e2e/voice-stt.spec.ts` (project `voice-stt`): Mr W insert, draft preservation + append, Bella insert, two-context non-leak, permission-denied, unsupported-browser, mid-listen stop — all green locally and on hosted CI. Pytest regression: 48 passed / 8 skipped (CI shape, unchanged).
+
+**What is NOT yet proven:** real audio capture in a real browser with a real microphone produces transcript text in the composer. That requires a human with a browser and a mic; no agent-only session can honestly prove it. It stays Tier 3 until a human runs it.
+
+**Out of scope for this slice (deferred):** TTS, full voice conversation, wake word, server-side STT, transcript history, waveform visualizer.
 
 ## Phase 6 slice 1 — CI foundation — **LANDED** (hosted green)
 

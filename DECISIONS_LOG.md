@@ -25,16 +25,36 @@ mic insert (Mr W), append-to-draft, mic insert (Bella), two-context
 isolation, permission-denied, unsupported-browser, mid-listen stop.
 Pytest regression green: 48 passed / 8 skipped in CI shape.
 
-**Tier classification.**
-- Tier 1 locally: the deterministic adapter path (the real product path
-  that runs for Playwright and under test-mode inspection).
-- Tier 1 (designed but NOT automated): the real Web Speech API path —
-  verified manually; Playwright cannot drive a real microphone
-  headlessly, so the real-browser path is not in the automated proof
-  set. This is honest: the automated proof only covers the adapter +
-  UI wiring, not live audio capture.
-- Not added to hosted CI in this slice. Will be added to CI in a
-  follow-up once the voice-stt project has proven itself locally.
+**Tier classification (corrected 2026-04-13, post-audit).**
+- Deterministic adapter seam (`__wt_test_speech` fake): **Tier 2**. It is
+  a sandbox proof of the UI wiring, state machine, append semantics,
+  cleanup, and two-context isolation. It is NOT proof of real audio
+  capture.
+- Local Playwright `voice-stt` proof: **Tier 2** — drives the seam above.
+- Hosted CI proof: **Tier 2** — `voice-stt` added to the hosted CI
+  Playwright project list in slice 1A; remote green run recorded.
+- Real browser-native microphone path (`window.SpeechRecognition`
+  capturing actual audio into the composer): **Tier 3**. Designed and
+  wired. Not independently executed from this agent session — the
+  session has no browser and no mic. Earlier "Tier 1 designed /
+  manually verified" phrasing is rejected as dishonest; no manual
+  verification happened. Promotes to Tier 1 only when a human runs
+  it in a real browser and records the evidence.
+
+## 2026-04-13 — Phase 5 slice 1A: STT proof hardening + hosted CI gate
+**What this slice does.**
+1. Adds `--project=voice-stt` to `.github/workflows/ci.yml` so the 7
+   deterministic STT cases run on every push. The seam is hardware-free
+   and deterministic — legitimate for hosted CI.
+2. Corrects CURRENT_STATE.md and the prior decision entry to stop
+   calling the seam "Tier 1 designed / manually verified". Under the
+   founder's evidence grid that phrasing is nonsense; the seam is Tier 2
+   and the real-mic path is Tier 3 until a human proves it.
+3. No new product features, no Whisper, no TTS, no rebrand.
+
+**Why the prior slice was not fully closed.** Code was ahead of proof:
+real-browser path was over-claimed and voice-stt was not in hosted CI.
+Fixing both without inflating evidence.
 
 **Out of scope (deferred).** TTS, full voice conversation orchestration,
 wake word, transcript history, waveform visualizer, server-side STT.
