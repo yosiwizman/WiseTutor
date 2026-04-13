@@ -5,6 +5,26 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Phase 5 slice 1: live no-auto-send audit (narrow claim only)
+**Decision.** Narrow no-auto-send claim proven by live observability audit:
+founder drove the mic in real Chrome as Mr W, dictated "audit one do not
+send", and held the draft without pressing Send for ~5 minutes. Backend
+`logs/backend.log` delta in that window contained only GET-only polling
+(32 lines, zero POSTs, zero new WS accepts, zero session-refresh clusters).
+After explicit Send, a distinct submit burst appeared: `GET /api/v1/users/ws-token`,
+new `WebSocket /api/v1/ws` accept, and 3× `GET /api/v1/sessions` refresh.
+
+**Scope.** Proves only the narrow backend-observable claim that mic capture
+does not auto-submit. Does NOT prove end-to-end real-browser STT; the real
+browser-native microphone capture path remains **Tier 3** until a human
+proof pack (`artifacts/phase5_stt_real_browser/RESULT_*.md` with screenshots)
+is filed. Phase 5 slice 1 percentages unchanged by this audit.
+
+**Consequence.** CURRENT_STATE.md evidence-tiers section updated with the
+narrow claim. ROADMAP percentages not changed.
+
+---
+
 ## 2026-04-13 — Phase 5 slice 1: Voice STT foundation LANDED (Tier 1 local)
 **Decision.** Use the browser-native Web Speech API for STT v1. No
 server-side transcription in this slice. A narrow deterministic seam
