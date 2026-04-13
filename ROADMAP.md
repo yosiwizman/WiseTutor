@@ -97,10 +97,19 @@ decision.
 - [x] `turn_runtime._run_turn` safety net rejects crafted disallowed turns
 - [x] 7 pytest + 3 Playwright new cases, all green (29 + 18 total)
 
-### Slice 4 — child safety reinforcement + owner PIN rotation tooling (NEXT)
-- [ ] Extra server-side content filter for `safety_profile=child`
-- [ ] Reject or redact responses that still leak disallowed topics
-- [ ] Owner admin UI to rotate other users' PINs under approval
+### Slice 4 — child safety reinforcement (LANDED 2026-04-14)
+- [x] `deeptutor/services/safety/child_policy.py` — rule-based categories
+- [x] Input gate in `unified_ws` for `safety_profile=child`
+- [x] Output gate in `turn_runtime._run_turn`
+- [x] Child-safe redirect + structured audit log
+- [x] Mr W (standard profile) unaffected
+- [x] 11 new pytest + 3 new Playwright, all green (40 + 21 total)
+
+### Slice 5 — owner admin tooling (NEXT)
+- [ ] `POST /api/v1/users/{id}/pin` owner-override path (owner's PIN resets target's PIN)
+- [ ] Owner-only Admin section in Settings listing other users with Reset-PIN button
+- [ ] Owner-only endpoint to flip `allowed_capabilities` / `safety_profile` on Bella
+- [ ] Audit log on owner administrative actions
 
 **Exit criteria (phase).** Two distinct users can chat with no memory
 crossover, verify caches scoped per user, and initial PINs replaced.

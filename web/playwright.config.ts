@@ -58,5 +58,10 @@ export default defineConfig({
       testMatch: "**/capability-enforcement.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
+    {
+      name: "child-safety",
+      testMatch: "**/child-safety.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });

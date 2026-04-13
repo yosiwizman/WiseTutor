@@ -5,6 +5,22 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-14 — Phase 3 slice 4: child safety reinforcement
+**Decision.** Users whose effective `safety_profile == "child"` are now
+gated server-side by an explicit rule-based policy module at
+`deeptutor/services/safety/child_policy.py`. Two enforcement points:
+(a) input gate in `unified_ws` before model execution, (b) output gate in
+`turn_runtime._run_turn` before assistant content is persisted. Blocked
+turns emit explicit `safety_filter_input` / `safety_filter_output`
+terminal events. A child-safe redirect message is substituted; raw
+blocked text is never echoed back and never logged.
+**Reason.** Prompt-level hints are not a boundary.
+**Scope limits.** Conservative first layer; six categories (sexual,
+self_harm, weapons, drugs, wrongdoing, violence). Future slices may widen.
+**Consequence.** 40 pytest + 21 Playwright green against the WiseTutor
+runtime. Live rejection payload in
+`artifacts/phase3_safety/<ts>/bella_unsafe_rejection.json`.
+
 ## 2026-04-14 — Phase 3 slice 3: capability enforcement
 **Decision.** `preferences.allowed_capabilities` is now enforced at three
 layers: the composer picker (UX filter), the WebSocket boundary

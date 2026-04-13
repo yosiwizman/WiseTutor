@@ -35,6 +35,22 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
   branch to `main` via GitHub (merge / PR or rename), or refreshes the
   local `gh` token with `workflow` scope to push `main` directly.
 
+## Phase 3 slice 4 — child safety reinforcement — PROVEN Tier 1 (input) / Tier 2 (output)
+
+- `deeptutor/services/safety/child_policy.py` — conservative rule-based
+  categories: sexual, self_harm, weapons, drugs, wrongdoing, violence.
+  `screen_input`, `screen_output`, `safe_child_redirect`, `log_safety_event`.
+- Input gate: `unified_ws` screens requests for users with
+  `safety_profile=child`. Blocked → terminal event `{reason: "safety_filter_input",
+  category, user_id, safety_profile}` + child-safe redirect content event.
+- Output gate: `turn_runtime._run_turn` screens assembled `assistant_content`
+  before persist. Blocked → terminal `safety_filter_output` event and the
+  stored content is replaced with the redirect (conversation history stays safe).
+- Structured audit on logger `wisetutor.safety` — raw user text is not logged.
+- Safe educational prompts are not blocked (verified live for Bella).
+- Mr W (`safety_profile=standard`) is never routed through the child gate.
+- 40 pytest + 21 Playwright pass, 0 skipped.
+
 ## Phase 3 slice 3 — capability enforcement — PROVEN Tier 1
 
 - Frontend composer picker is filtered by `preferences.allowed_capabilities`

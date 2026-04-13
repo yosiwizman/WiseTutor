@@ -553,6 +553,50 @@ class TurnRuntimeManager:
                 if _should_capture_assistant_content(event):
                     assistant_content += event.content
 
+            # Post-generation child-safety gate. For users with
+            # safety_profile=child, inspect the assembled assistant content;
+            # if it matches a blocked category, replace with a child-safe
+            # redirect and emit an explicit terminal safety event.
+            _prefs_post = payload.get("_wt_preferences") or {}
+            _safety_post = _prefs_post.get("safety_profile") or "standard"
+            if _safety_post == "child" and assistant_content:
+                from deeptutor.services.safety import (
+                    screen_output, safe_child_redirect, log_safety_event,
+                )
+                _out = screen_output(assistant_content)
+                if not _out.ok:
+                    log_safety_event(
+                        path="output",
+                        category=_out.category,
+                        user_id=payload.get("_wt_user_id") or "",
+                        safety_profile=_safety_post,
+                        turn_id=turn_id,
+                        matched_pattern=_out.matched_pattern,
+                    )
+                    safe_msg = safe_child_redirect(_out.category)
+                    await self._persist_and_publish(
+                        execution,
+                        StreamEvent(
+                            type=StreamEventType.ERROR,
+                            source="safety",
+                            content="safety_filter_output",
+                            metadata={
+                                "turn_terminal": True,
+                                "status": "rejected",
+                                "reason": "safety_filter_output",
+                                "category": _out.category,
+                                "user_id": payload.get("_wt_user_id") or "",
+                                "safety_profile": _safety_post,
+                                "redacted_message": safe_msg,
+                            },
+                        ),
+                    )
+                    assistant_content = safe_msg
+                    assistant_events.append({
+                        "type": "safety_filter_output",
+                        "category": _out.category,
+                    })
+
             await self.store.add_message(
                 session_id=session_id,
                 role="assistant",

@@ -142,6 +142,44 @@ async def unified_websocket(ws: WebSocket) -> None:
                     })
                     continue
 
+                # Child safety input gate (Phase 3 slice 4). If the active
+                # user's safety_profile is "child", the request text is
+                # screened against conservative rule-based categories before
+                # the model ever sees it. Unsafe requests are rejected with
+                # an explicit terminal event.
+                _prefs_for_ws = (_user.effective_preferences() or {}) if _user else {}
+                _safety_profile = _prefs_for_ws.get("safety_profile") or "standard"
+                if _safety_profile == "child":
+                    from deeptutor.services.safety import (
+                        screen_input, safe_child_redirect, log_safety_event,
+                    )
+                    _decision = screen_input(str(msg.get("content") or ""))
+                    if not _decision.ok:
+                        log_safety_event(
+                            path="input",
+                            category=_decision.category,
+                            user_id=ws_uid,
+                            safety_profile=_safety_profile,
+                            matched_pattern=_decision.matched_pattern,
+                        )
+                        await safe_send({
+                            "type": "content", "source": "safety",
+                            "content": safe_child_redirect(_decision.category),
+                            "metadata": {"redacted": True, "safety_profile": _safety_profile},
+                        })
+                        await safe_send({
+                            "type": "error", "source": "safety",
+                            "content": "safety_filter_input",
+                            "metadata": {
+                                "turn_terminal": True, "status": "rejected",
+                                "reason": "safety_filter_input",
+                                "category": _decision.category,
+                                "user_id": ws_uid,
+                                "safety_profile": _safety_profile,
+                            },
+                        })
+                        continue
+
                 runtime = get_turn_runtime_manager(user_id=ws_uid)
                 # Stamp the user id into the payload so turn_runtime and the
                 # chat pipeline can read it without going through any global.
