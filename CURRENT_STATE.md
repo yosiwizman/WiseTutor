@@ -108,6 +108,27 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
 
 **What this does NOT prove:** real audible TTS output through speakers; that is Tier 3 until a human independently plays the WAV and confirms it sounds correct.
 
+## Phase 5 slice 4A — Push-to-talk voice conversation foundation — **LANDED (Tier 2 local + hosted CI seam)**
+
+**What is built (code):**
+- `web/hooks/useVoiceTurn.ts` — one-shot state machine: `idle | listening | submitting | awaiting_assistant | speaking | error`. Reuses existing STT (`createSpeechAdapter`) and TTS (`createTtsAdapter`) adapters — no duplication. API: `useVoiceTurn({submit}) → {state, errorReason, lastTranscript, lastReply, start, cancel, reset}`. `start()` cancels any active TTS + STT first (single-active guarantee). `start()` while not-idle is a no-op. `cancel()` is meaningful only in `listening`/`speaking`. Unmount and `wt:user-switched` both cancel cleanly.
+- `web/app/(workspace)/voice-turn-harness/page.tsx` — deterministic harness driving the hook via a submit seam (`window.__wt_test_voice_turn_submit = {mode: "ok"|"fail"|"empty", reply}`). Exposes `[data-testid=vt-state / vt-error-reason / vt-last-transcript / vt-last-reply / vt-start / vt-cancel / vt-reset]`.
+- `web/components/chat/home/ChatComposer.tsx` — tiny `Headphones` PTT button next to the mic. Click: idle → `start()`, listening/speaking → `cancel()`, error → `reset()`. Exposes `data-voice-turn-state` + `data-voice-turn-error`. Disabled while `isStreaming`.
+- `web/tests/e2e/voice-turn.spec.ts` — 8 Playwright cases (new `voice-turn` project): happy path, cancel-while-listening, cancel-while-speaking, STT failure, submit failure, empty reply, TTS failure, start-while-not-idle no-op + no-autoplay. Wired into hosted CI.
+
+**Error semantics (exact):**
+- STT error → `state="error"`, `errorReason="stt-failed"` → user clicks again to reset.
+- Submit rejects → `state="error"`, `errorReason="submit-failed"`.
+- Submit resolves with empty/whitespace reply → `state="error"`, `errorReason="empty-reply"`.
+- TTS error → `state="idle"` gracefully; `lastReply` stays visible.
+
+**Evidence tiers:**
+- Orchestration state machine (harness-proven): **Tier 2 local + hosted CI** — 8/8 voice-turn cases + 28/28 regression on the four existing voice suites.
+- STT/TTS adapter integration: **Tier 2** (reused existing adapters; no duplicate code paths).
+- **Real-chat reply→TTS production integration: Tier 3** — in production the PTT submit leg currently resolves with empty reply (hook lands in `error/empty-reply`). Subscribing `sendMessage` → next-assistant-message for TTS handoff is Slice 4B. The PTT button correctly runs the real STT path and correctly triggers the existing send flow; only the assistant-reply-capture leg is unproven in production until 4B.
+
+**What this does NOT prove:** full human-audible real conversation end-to-end (real mic → LLM → real speakers). That requires 4B plus a human check.
+
 ## Phase 5 slice 2 — Whisper local fallback — **LANDED (local Tier 2)**
 
 **What is built (code):**

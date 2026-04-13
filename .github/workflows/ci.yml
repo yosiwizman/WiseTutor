@@ -231,6 +231,7 @@ jobs:
             --project=voice-stt \
             --project=tts \
             --project=tts-fallback \
+            --project=voice-turn \
             --reporter=list \
             2>&1 | tee ../artifacts/playwright.log
 

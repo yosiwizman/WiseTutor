@@ -9,14 +9,17 @@ import {
   BookOpen,
   ChevronDown,
   FilePlus2,
+  Headphones,
   Loader2,
   MessageSquare,
   Paperclip,
+  RotateCcw,
   Sparkles,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useVoiceTurn } from "@/hooks/useVoiceTurn";
 import type { SelectedHistorySession } from "@/components/chat/HistorySessionPicker";
 import AtMentionPopup from "@/components/chat/AtMentionPopup";
 import type { SelectedRecord } from "@/app/(workspace)/guide/types";
@@ -216,6 +219,32 @@ export default function ChatComposer({
   onToggleResearchCollapsed: () => void;
 }) {
   const { t } = useTranslation();
+  // 4A: harness-proven orchestration; real reply→TTS integration in 4B.
+  // In production the submit leg routes the transcript through the existing
+  // onInputChange + onSend path and resolves with empty reply, which the
+  // hook maps to state="error" / errorReason="empty-reply". Agent A's
+  // harness proves the full state machine deterministically.
+  const voiceTurn = useVoiceTurn({
+    submit: async (text: string) => {
+      onInputChange(text, text.length);
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      onSend();
+      return { reply: "" };
+    },
+  });
+  const vtState = voiceTurn.state;
+  const vtActive = vtState === "listening" || vtState === "speaking";
+  const vtError = vtState === "error";
+  const vtLabel = vtError
+    ? t("Retry voice turn")
+    : vtActive
+      ? t("Cancel voice turn")
+      : t("Push-to-talk voice turn");
+  const onVoiceTurnClick = () => {
+    if (vtState === "idle") voiceTurn.start();
+    else if (vtActive) voiceTurn.cancel();
+    else if (vtError) voiceTurn.reset();
+  };
   const CapIcon = activeCap.icon;
 
   return (
@@ -531,6 +560,30 @@ export default function ChatComposer({
                   onInputChange={onInputChange}
                   disabled={isStreaming}
                 />
+
+                <button
+                  type="button"
+                  data-testid="chat-composer-voice-turn"
+                  data-voice-turn-state={vtState}
+                  data-voice-turn-error={voiceTurn.errorReason ?? ""}
+                  onClick={onVoiceTurnClick}
+                  disabled={isStreaming}
+                  aria-label={vtLabel}
+                  title={vtLabel}
+                  className={`flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${
+                    vtActive
+                      ? "border-[var(--primary)] bg-[var(--primary)] text-white animate-pulse"
+                      : vtError
+                        ? "border-[var(--destructive,#c2410c)] bg-transparent text-[var(--destructive,#c2410c)]"
+                        : "border-[var(--border)] bg-transparent text-[var(--muted-foreground)] hover:bg-[var(--muted)] disabled:opacity-35"
+                  }`}
+                >
+                  {vtError ? (
+                    <RotateCcw size={14} strokeWidth={2} />
+                  ) : (
+                    <Headphones size={14} strokeWidth={vtActive ? 2.2 : 2} />
+                  )}
+                </button>
 
                 <button
                   data-testid="chat-composer-send"

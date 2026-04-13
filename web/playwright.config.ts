@@ -93,5 +93,10 @@ export default defineConfig({
       testMatch: "**/tts-fallback.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
+    {
+      name: "voice-turn",
+      testMatch: "**/voice-turn.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });

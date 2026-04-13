@@ -216,8 +216,15 @@ visual-diffs lock the look.
 - [x] **Tier 1 (real audible with human + speakers) 2026-04-13:** founder ran `aplay artifacts/phase5_piper_real_backend/synth_hello_world.wav` on ai-desktop; confirmed audible. `aplay` reported "Signed 16 bit Little Endian, Rate 16000 Hz, Mono".
 - [ ] Profile-scoped voice choice (deferred to a future slice).
 
-### Slice 4 — Voice conversation orchestration
-- [ ] Push-to-talk and continuous modes.
+### Slice 4A — Push-to-talk voice conversation foundation (LANDED 2026-04-13, Tier 2 local + hosted CI seam)
+- [x] `useVoiceTurn` hook (`web/hooks/useVoiceTurn.ts`): one-shot state machine (`idle|listening|submitting|awaiting_assistant|speaking|error`) reusing existing STT and TTS adapters. Single-active guarantee: `start()` cancels any active TTS and STT first. Unmount + `wt:user-switched` cancel cleanly.
+- [x] Deterministic harness page (`/voice-turn-harness`) with seam-driven submit (`__wt_test_voice_turn_submit = {mode, reply}`) exposing `data-testid` attributes for state / error / transcript / reply.
+- [x] `ChatComposer.tsx` integration: small `Headphones` PTT button next to the existing mic. Click maps by state: idle→start, listening/speaking→cancel, error→reset. Exposes `data-voice-turn-state` + `data-voice-turn-error`. Disabled while `isStreaming`.
+- [x] 8 Playwright cases under `voice-turn` project (happy path, cancel-listening, cancel-speaking, STT failure, submit failure, empty reply, TTS failure, start-while-not-idle no-op + no-autoplay). All green. Wired into hosted CI (`--project=voice-turn`).
+- [x] Cross-suite regression: 36/36 (voice-stt 7 + voice-stt-fallback 9 + tts 5 + tts-fallback 7 + voice-turn 8).
+- [ ] **Slice 4B:** real reply→TTS wiring. In production the PTT submit leg currently resolves with empty reply (hook lands in `error/empty-reply`), because 4A does not subscribe to the chat store for the assistant response. Subscribing `sendMessage`→next-assistant-message is the 4B scope.
+- [ ] Continuous / duplex / barge-in modes (not planned for 4).
+- [ ] Wake word (out of scope for Phase 5).
 
 **Exit criteria.** End-to-end voice conversation with Bella and Mr W
 profiles using at least one local voice path; latency budget documented.

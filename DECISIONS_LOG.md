@@ -5,6 +5,48 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Phase 5 slice 4A: push-to-talk voice conversation foundation LANDED (Tier 2 local + hosted CI seam)
+**Decision.** Implement the narrowest push-to-talk voice-turn foundation
+as a hook-owned state machine that reuses the existing STT and TTS
+adapters. Out of scope: wake word, continuous/duplex/barge-in, queueing,
+profile voice selection, any UI redesign, and real chat-store
+subscription for the reply→TTS handoff (that's Slice 4B).
+
+**Shape.**
+- `useVoiceTurn` hook owns all orchestration. States:
+  `idle | listening | submitting | awaiting_assistant | speaking | error`.
+  Transitions are fully enumerated in CURRENT_STATE.md. Single-active
+  guarantee: `start()` cancels any active TTS + STT first. `start()`
+  while not-idle is a no-op (no queueing, no barge-in).
+- Dependency-injected `submit: (text) => Promise<{reply}>` so the
+  hook stays pure orchestration. Production wires submit to the
+  existing `onInputChange` + `onSend` path (transcript into composer,
+  then click Send). In 4A that production path resolves with empty
+  reply → the hook deterministically lands in `error/empty-reply`.
+  That is acceptable and honest for a foundation slice; 4B will
+  subscribe to the chat store to capture the real assistant reply.
+- Deterministic harness + submit seam (`__wt_test_voice_turn_submit`)
+  lets Playwright prove all transitions end-to-end without a real LLM.
+
+**Parallel execution.** Three subagents ran concurrently on disjoint
+file sets after contract lock: Agent A (hook + harness), Agent B (UI
+integration — initially stopped because it raced Agent A's hook
+delivery; parent completed the UI integration once A landed), Agent C
+(Playwright spec + config + CI wiring). 36/36 Playwright green after a
+targeted typecheck cleanup on the spec + harness declare-global blocks
+that collided with the canonical declarations in `web/lib/tts.ts` and
+`web/lib/speech-recognition.ts`.
+
+**Scope boundary.** Narrow: single machine, harness-proven orchestration
++ real STT leg + real submit leg in production; reply→TTS leg stays
+Tier 3 until 4B. No claim of full human-audible real conversation.
+
+**Consequence.** Phase 5 Slice 4A lands at ~85%; Slice 4B gap documented.
+Voice lane ticks up modestly. Whole-product / whole-company percentages
+unchanged.
+
+---
+
 ## 2026-04-13 — Phase 5 slice 3B: audible Tier 1 confirmed — CLOSED at 100%
 **Decision.** Promote the "real audible Piper TTS output" claim from
 Tier 3 to **Tier 1**. Founder ran
