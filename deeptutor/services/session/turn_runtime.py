@@ -336,6 +336,36 @@ class TurnRuntimeManager:
         assistant_events: list[dict[str, Any]] = []
         assistant_content = ""
 
+        # Server-side capability-allowlist safety net. The WS boundary also
+        # enforces this; we re-check here so that any future code path that
+        # constructs a turn (CLI, internal scheduler) cannot bypass it. Only
+        # enforced when a user id is stamped — CLI/test paths without a user
+        # remain unaffected.
+        _stamped_uid = payload.get("_wt_user_id")
+        if _stamped_uid:
+            _prefs = payload.get("_wt_preferences") or {}
+            _allowed = set(_prefs.get("allowed_capabilities") or [])
+            if _allowed and capability_name not in _allowed:
+                await self._persist_and_publish(
+                    execution,
+                    StreamEvent(
+                        type=StreamEventType.ERROR,
+                        source=capability_name or "chat",
+                        content="capability_not_allowed",
+                        metadata={
+                            "turn_terminal": True, "status": "rejected",
+                            "reason": "capability_not_allowed",
+                            "requested_capability": capability_name,
+                            "allowed_capabilities": sorted(_allowed),
+                            "user_id": _stamped_uid,
+                        },
+                    ),
+                )
+                await self.store.update_turn_status(
+                    turn_id, "rejected", "capability_not_allowed",
+                )
+                return
+
         try:
             from deeptutor.core.context import Attachment, UnifiedContext
             from deeptutor.runtime.orchestrator import ChatOrchestrator

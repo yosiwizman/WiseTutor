@@ -246,6 +246,40 @@ export default function HomePage() {
   const refMenuRef = useRef<HTMLDivElement>(null);
   const refBtnRef = useRef<HTMLButtonElement>(null);
 
+  // Fetch the active user's allowed_capabilities and filter the picker.
+  // Backend also enforces this at the WS + runtime boundary; the filter here
+  // is the UX layer, not the security layer.
+  const [allowedCaps, setAllowedCaps] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      try {
+        const r = await fetch("/api/v1/users/active", { credentials: "include" });
+        if (!r.ok) { if (!cancel) setAllowedCaps(null); return; }
+        const u = await r.json();
+        const caps: string[] = (u?.preferences?.allowed_capabilities ?? []) as string[];
+        if (!cancel) setAllowedCaps(new Set(caps));
+      } catch { if (!cancel) setAllowedCaps(null); }
+    })();
+    return () => { cancel = true; };
+  }, []);
+  const visibleCapabilities = useMemo(() => {
+    if (!allowedCaps) return CAPABILITIES;  // pre-load → show all until we know
+    return CAPABILITIES.filter((c) => {
+      const key = c.value || "chat";
+      return allowedCaps.has(key);
+    });
+  }, [allowedCaps]);
+  // If the active capability is no longer allowed (e.g. after user switch),
+  // snap back to plain chat — the backend would reject it anyway.
+  useEffect(() => {
+    if (!allowedCaps) return;
+    const current = state.activeCapability || "chat";
+    if (!allowedCaps.has(current)) {
+      setCapability(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowedCaps]);
   const activeCap = useMemo(() => getCapability(state.activeCapability), [state.activeCapability]);
   const isQuizMode = activeCap.value === "deep_question";
   const isMathAnimatorMode = activeCap.value === "math_animator";
@@ -815,7 +849,7 @@ export default function HomePage() {
           researchConfig={researchConfig}
           researchValidationErrors={researchValidation.errors}
           researchPanelCollapsed={researchPanelCollapsed}
-          capabilities={CAPABILITIES}
+          capabilities={visibleCapabilities}
           researchSources={RESEARCH_SOURCES}
           onSetCapMenuOpen={setCapMenuOpen}
           onSetToolMenuOpen={setToolMenuOpen}

@@ -239,6 +239,7 @@ export default function ChatComposer({
                 return (
                   <button
                     key={cap.value}
+                    data-testid={`composer-cap-${cap.value || "chat"}`}
                     onClick={() => onSelectCapability(cap.value)}
                     className={`flex w-full items-center gap-3 px-3.5 py-2 text-left transition-colors ${
                       selected ? "bg-[var(--muted)]" : "hover:bg-[var(--muted)]/50"
@@ -368,6 +369,7 @@ export default function ChatComposer({
           <div className="border-t border-[var(--border)]/35 px-3 py-2">
             <div className="flex items-center gap-2 flex-wrap">
                 <button
+                data-testid="composer-cap-trigger"
                 ref={capBtnRef}
                 onClick={() => onSetCapMenuOpen((v) => !v)}
                 className={`inline-flex shrink-0 items-center gap-1.5 py-1.5 px-1 text-[12px] transition-colors ${

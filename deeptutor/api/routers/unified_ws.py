@@ -121,6 +121,27 @@ async def unified_websocket(ws: WebSocket) -> None:
                     })
                     continue
 
+                # Capability enforcement. Reject any turn whose requested
+                # capability is not in the active user's allowlist.
+                _requested_cap = str(msg.get("capability") or "chat")
+                _allowed_caps = set(
+                    ((_user.effective_preferences() or {}).get("allowed_capabilities") or [])
+                    if _user else []
+                )
+                if _requested_cap not in _allowed_caps:
+                    await safe_send({
+                        "type": "error", "source": "unified_ws",
+                        "content": "capability_not_allowed",
+                        "metadata": {
+                            "turn_terminal": True, "status": "rejected",
+                            "reason": "capability_not_allowed",
+                            "requested_capability": _requested_cap,
+                            "allowed_capabilities": sorted(_allowed_caps),
+                            "user_id": ws_uid,
+                        },
+                    })
+                    continue
+
                 runtime = get_turn_runtime_manager(user_id=ws_uid)
                 # Stamp the user id into the payload so turn_runtime and the
                 # chat pipeline can read it without going through any global.

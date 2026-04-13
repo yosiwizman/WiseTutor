@@ -5,6 +5,18 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-14 — Phase 3 slice 3: capability enforcement
+**Decision.** `preferences.allowed_capabilities` is now enforced at three
+layers: the composer picker (UX filter), the WebSocket boundary
+(terminal-event rejection with explicit payload), and `turn_runtime._run_turn`
+(server-side safety net that refuses to execute even if the WS is bypassed).
+**Reason.** Prompt-level hints alone do not constitute a boundary. A child
+profile must be bounded in product behavior, not in the model's goodwill.
+**Consequence.** Bella cannot select or submit `deep_research` /
+`deep_solve` / `visualize`; a crafted WS frame returns
+`{reason: "capability_not_allowed", allowed_capabilities: [...]}` in
+meta. Mr W retains full capability access. 29 pytest + 18 Playwright green.
+
 ## 2026-04-14 — Phase 3 slice 2: per-user preferences + prompt identity
 **Decision.** `User` gains a per-user `preferences` dict (tone,
 response_length, allowed_capabilities, safety_profile,

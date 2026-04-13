@@ -35,6 +35,19 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
   branch to `main` via GitHub (merge / PR or rename), or refreshes the
   local `gh` token with `workflow` scope to push `main` directly.
 
+## Phase 3 slice 3 — capability enforcement — PROVEN Tier 1
+
+- Frontend composer picker is filtered by `preferences.allowed_capabilities`
+  from the active user. Disallowed capabilities do not render; the current
+  selection is snapped to plain chat on user switch.
+- WebSocket boundary (unified_ws) rejects turns with unlisted capability via
+  an explicit terminal event `{reason: "capability_not_allowed", requested_capability, allowed_capabilities, user_id}`.
+- Runtime safety net in `turn_runtime._run_turn` rejects stamped-user turns
+  whose capability is not in their allowlist, even if the WS is bypassed.
+- Mr W default allowlist covers all 6 capabilities; Bella is restricted to
+  `chat`, `deep_question`, `math_animator`. Verified live.
+- 29 pytest + 18 Playwright pass, 0 skipped.
+
 ## Phase 3 slice 2 — per-user preferences + prompt identity — PROVEN Tier 1
 
 - `User.preferences` merged with role defaults (`owner` / `user` / `child`).

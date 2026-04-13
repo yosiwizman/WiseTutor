@@ -90,11 +90,17 @@ decision.
 - [x] 22 pytest + 15 Playwright, 0 skipped
 - [x] Divergence proof: same prompt, different bytes, shorter child reply
 
-### Slice 3 — capability gating (NEXT)
-- [ ] `allowed_capabilities` actually filters the composer's mode picker
-- [ ] unified_ws rejects turns for capabilities not in the user's allowlist
-- [ ] `UnifiedContext.enabled_tools` intersected with `_wt_preferences.allowed_capabilities`
-- [ ] Per-role defaults for `User.theme` wired (Phase 4 dependency)
+### Slice 3 — capability enforcement (LANDED 2026-04-14)
+- [x] Composer picker filtered by `allowed_capabilities`
+- [x] Active capability snaps back to chat on user switch if disallowed
+- [x] WS boundary rejects disallowed capability with explicit terminal payload
+- [x] `turn_runtime._run_turn` safety net rejects crafted disallowed turns
+- [x] 7 pytest + 3 Playwright new cases, all green (29 + 18 total)
+
+### Slice 4 — child safety reinforcement + owner PIN rotation tooling (NEXT)
+- [ ] Extra server-side content filter for `safety_profile=child`
+- [ ] Reject or redact responses that still leak disallowed topics
+- [ ] Owner admin UI to rotate other users' PINs under approval
 
 **Exit criteria (phase).** Two distinct users can chat with no memory
 crossover, verify caches scoped per user, and initial PINs replaced.
