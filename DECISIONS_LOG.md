@@ -5,6 +5,18 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Scope correction: Connections/Gmail/Calendar lane reverted as out-of-scope drift
+
+**Decision.** Revert commit `6b1fae0` ("Integration connect UX: Connections surface, Gmail, Calendar" slice) in full. Revert commit: `dcd7b5e`.
+
+**Reason.** The Connections/Gmail/Calendar lane was never approved for WiseTutor. WiseTutor is a tutoring product in family-alpha; no messaging, calendar, or OAuth integration lane is in scope. The commit introduced UI surface, routing, and doc changes that were not in any approved slice, roadmap phase, or intake.
+
+**Consequence.** All code and doc additions from `6b1fae0` are removed. No Gmail, Google Calendar, WhatsApp, or OAuth integration lane is approved for WiseTutor. Canonical carry-forward percentages per CTO baseline: **voice lane ~52%, whole WiseTutor product ~66%, whole company vision ~11%**. Any lower whole-product figure recorded in prior entries (e.g. "~54%") was a lane-local aggregate, not the canonical product baseline and is superseded by this entry.
+
+**Explicit affirmation.** No OAuth, Gmail, Google Calendar, WhatsApp, or `/connections` lane is approved for WiseTutor at any phase.
+
+---
+
 ## 2026-04-13 — Family alpha readiness pass: white-label cleanup + smoke validation
 
 **Decision.** Declare WiseTutor **FAMILY ALPHA READY** for private rollout to Yosi,
