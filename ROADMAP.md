@@ -247,6 +247,16 @@ Full readiness report: `artifacts/family_alpha_readiness/READINESS_20260413.md`.
 This is NOT commercial readiness. No architectural changes were made. This slice
 exists to close rollout debt before family members first use the product.
 
+## Tutoring UX
+
+### Slice — Quiz Score Summary (LANDED 2026-04-13, Tier 2 local + hosted CI)
+- [x] Completion branch in QuizViewer: score badge, per-question review, dismiss button.
+- [x] Test-only harness at `/quiz-summary-harness`.
+- [x] 4 Playwright cases under `quiz-summary` project; wired into hosted CI.
+- [ ] Wrong-answers-only review mode (future polish).
+- [ ] Historical score trend per learner (deferred).
+- [ ] i18n locale strings (deferred to i18n polish pass).
+
 ## Phase 6 — Evidence-driven polish + hardening
 
 - CI on push (pytest + Playwright headless).

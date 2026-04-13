@@ -8,6 +8,42 @@ directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
 `data/memory/_quarantined/`, `data/user/`. Upstream's README was renamed to
 `DEEPTUTOR_UPSTREAM_README.md`.
 
+## Quiz Score Summary (2026-04-13) — tutoring UX slice
+
+**Landed:** end-of-quiz completion summary UI in QuizViewer. When all
+questions are submitted, the viewer now shows a score badge
+(correct/total + %), per-question review with ✓/✗ + correct answer on
+misses, and a "Review questions" button that returns the learner to Q1
+to revisit answers. Closes the prior dead-state defect where the
+viewer kept showing the last answered question with no completion
+cue.
+
+**No backend change.** `submittedResults` + `completedCount` + `total`
+are all already computed in `QuizViewer.tsx`; the UI branch is the
+only thing that was missing.
+
+**Proof:**
+- `web/tests/e2e/quiz-summary.spec.ts` — **4/4 Playwright cases green** in
+  the new `quiz-summary` project (100% path, 2/3 path, review-button
+  dismiss, no-DeepTutor + no-pageerror); wired into hosted CI.
+- Screenshot artifacts under `artifacts/quiz_summary/`:
+  `quiz-summary-100.png`, `quiz-summary-67.png`.
+- No console pageerror on the completion flow.
+- No "DeepTutor" text visible.
+
+**Evidence tiers:**
+- Summary UI (completion branch, score badge, review list, dismiss
+  button): **Tier 2 local + hosted CI** — deterministic harness
+  drives the flow end-to-end.
+- Per-question review truthfulness (correct/incorrect tally matches
+  `submittedResults` source of truth): **Tier 2**.
+- Real-LLM-seeded quiz end-to-end completion: **Tier 3** — not
+  exercised by this slice (the harness injects known questions; the
+  real-quiz path already works through the existing chat capability).
+- Learning efficacy / pedagogy claims: not made.
+
+---
+
 ## Family alpha readiness (2026-04-13)
 
 **Call: FAMILY ALPHA READY** — private family alpha for Yosi, Bella, and immediate

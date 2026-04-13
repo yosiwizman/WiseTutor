@@ -80,7 +80,9 @@ export default function QuizViewer({
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<number, AnswerState>>({});
   const [threads, setThreads] = useState<Record<string, FollowupThreadState>>({});
+  const [showSummary, setShowSummary] = useState(false);
   const lastReportedSignatureRef = useRef("");
+  const summaryShownRef = useRef(false);
   const threadsRef = useRef<Record<string, FollowupThreadState>>({});
   const threadRunnersRef = useRef<
     Map<string, { questionKey: string; client: UnifiedWSClient }>
@@ -292,6 +294,13 @@ export default function QuizViewer({
   );
 
   useEffect(() => {
+    if (completedCount === total && total > 0 && !summaryShownRef.current) {
+      summaryShownRef.current = true;
+      setShowSummary(true);
+    }
+  }, [completedCount, total]);
+
+  useEffect(() => {
     if (!sessionId || total === 0 || completedCount !== total) return;
     const signature = JSON.stringify(submittedResults);
     if (!signature || signature === lastReportedSignatureRef.current) return;
@@ -364,6 +373,87 @@ export default function QuizViewer({
       config: followupConfig,
     });
   }, [answers, idx, language, q, sendThroughThreadRunner, sessionId, updateThread]);
+
+  const correctCount = submittedResults.filter((r) => r.is_correct).length;
+  const scorePct = total ? Math.round((correctCount / total) * 100) : 0;
+
+  if (showSummary && completedCount === total && total > 0) {
+    return (
+      <div
+        data-testid="quiz-summary"
+        className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)]"
+      >
+        <div className="border-b border-[var(--border)] px-4 py-3">
+          <h3 className="text-sm font-semibold">Quiz complete</h3>
+        </div>
+        <div className="px-4 py-4 space-y-3">
+          <div className="flex items-baseline gap-2">
+            <span
+              data-testid="quiz-summary-score"
+              data-correct={String(correctCount)}
+              data-total={String(total)}
+              data-percent={String(scorePct)}
+              className="text-2xl font-semibold"
+            >
+              {correctCount}/{total}
+            </span>
+            <span className="text-sm text-[var(--muted-foreground)]">
+              {scorePct}% correct
+            </span>
+          </div>
+          <p className="text-sm text-[var(--muted-foreground)]">
+            {correctCount === total
+              ? "Great job — you got them all."
+              : correctCount === 0
+                ? "Review the answers below and try the quiz again."
+                : "Nice work. Review the ones you missed below."}
+          </p>
+          <div className="space-y-2" data-testid="quiz-summary-review">
+            {submittedResults.map((r, i) => (
+              <div
+                key={r.question_id || i}
+                data-testid={`quiz-summary-item-${i}`}
+                data-is-correct={String(r.is_correct)}
+                className={`rounded-md border px-3 py-2 text-xs ${
+                  r.is_correct
+                    ? "border-green-200 bg-green-50 dark:bg-green-950/20"
+                    : "border-red-200 bg-red-50 dark:bg-red-950/20"
+                }`}
+              >
+                <div className="flex items-center gap-2 font-medium">
+                  <span className={r.is_correct ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}>
+                    {r.is_correct ? "✓" : "✗"}
+                  </span>
+                  <span className="line-clamp-2">{r.question}</span>
+                </div>
+                <div className="mt-1 text-[var(--muted-foreground)]">
+                  Your answer: <span className="font-mono">{r.user_answer || "(blank)"}</span>
+                </div>
+                {!r.is_correct && (
+                  <div className="text-[var(--muted-foreground)]">
+                    Correct: <span className="font-mono">{r.correct_answer}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              data-testid="quiz-summary-review-button"
+              onClick={() => {
+                setShowSummary(false);
+                setIdx(0);
+              }}
+              className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--muted)]"
+            >
+              Review questions
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!q) return null;
 

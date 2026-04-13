@@ -5,6 +5,43 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Quiz Score Summary UI slice
+
+**Decision.** Add a completion-state branch to `QuizViewer.tsx` that renders
+a score badge, per-question review list (✓/✗ + correct answer on misses), and
+a dismiss button when `completedCount === total`. Reuse the three fields
+already computed in the component (`submittedResults`, `completedCount`,
+`total`, `isAnswerCorrect`). No new backend endpoint, no new state machine, no
+new locale strings (deferred to future i18n polish pass).
+
+**Why the harness page.** Real quiz seeding requires an LLM turn, making
+Playwright tests non-deterministic and slow. The `/quiz-summary-harness` test
+page inverts the dependency: it injects known questions and submitted answers
+directly, so the completion branch is exercised deterministically without any
+provider dependency. This is a test-only route; it does not appear in the
+production nav.
+
+**Scope boundary.** UI completion state only.
+- Not in scope: spaced-repetition, wrong-answers-only review mode,
+  share-score feature, historical score trend per learner.
+- Deferred: i18n locale strings (FUTURE POLISH).
+
+**Percentage impact.**
+- Phase 5 voice lane: **52%** (unrelated — unchanged).
+- Whole WiseTutor product: **~66% → ~67%** (narrow justified bump — the
+  learner's primary quiz flow now has a complete success state; prior dead-state
+  defect closed).
+- Whole company vision: **11%** (unchanged).
+  Canonical baseline per 2026-04-13 scope-correction entry: voice ~52%,
+  product ~66%, company vision ~11%.
+
+**Evidence.** 4/4 Playwright cases green under `quiz-summary` project
+(100% path, 2/3 path, review-button dismiss, no-DeepTutor + no-pageerror);
+wired into hosted CI. Screenshot artifacts: `artifacts/quiz_summary/quiz-summary-100.png`
+and `quiz-summary-67.png`.
+
+---
+
 ## 2026-04-13 — Scope correction: Connections/Gmail/Calendar lane reverted as out-of-scope drift
 
 **Decision.** Revert commit `6b1fae0` ("Integration connect UX: Connections surface, Gmail, Calendar" slice) in full. Revert commit: `dcd7b5e`.
