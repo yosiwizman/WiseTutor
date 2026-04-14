@@ -2,6 +2,17 @@
 
 Snapshot of reality at baseline bootstrap. Updated after every meaningful change.
 
+## Frontend runtime (2026-04-14) — production, not dev
+
+The frontend serves from Next.js production standalone
+(`.next/standalone/server.js`) on port 3782, launched by
+`scripts_local/wt_start.sh`. `next build` runs automatically on first
+start and when sources are newer than `.next/BUILD_ID`
+(`WT_SKIP_BUILD=1` to skip). Result: no floating Next.js dev badge in
+the UI, HTML is prerendered (`x-nextjs-prerender: 1`). `next dev` is
+no longer used for the family-facing path. See
+DECISIONS_LOG 2026-04-14: "Frontend runtime hardened to production".
+
 Source baseline: imported from the working `/home/ai-desktop/projects/DeepTutor`
 directory on 2026-04-12. Copied via `rsync`, excluding `.git`, `.venv`,
 `node_modules`, `.next`, `__pycache__`, `logs/`, `artifacts/`,

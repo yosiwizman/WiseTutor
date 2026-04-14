@@ -32,24 +32,53 @@ else
   (cd "$REPO" && start_backend)
 fi
 
-# --- Frontend ---
-# Invoke the next binary directly instead of `npm run dev`. npm wraps
-# the node child and the child does not always survive the parent
-# shell exiting — calling node+next directly puts the Next.js server
-# itself at the head of the new session created by setsid.
+# --- Frontend (production runtime) ---
+# Serve the family-facing UI via Next.js standalone production server,
+# not `next dev`. Production mode removes the floating dev indicator /
+# DevTools badge and is the correct runtime for real users. A build is
+# produced on first launch (and re-produced if sources are newer than
+# the cached BUILD_ID); set WT_SKIP_BUILD=1 to skip.
+build_frontend_if_needed() {
+  local build_id=".next/BUILD_ID"
+  local needs_build=0
+  if [[ "${WT_SKIP_BUILD:-0}" = "1" ]]; then
+    return 0
+  fi
+  if [[ ! -f "$build_id" ]] || [[ ! -f ".next/standalone/server.js" ]]; then
+    needs_build=1
+  else
+    # Rebuild if any tracked source file is newer than BUILD_ID.
+    if [[ -n "$(find app components lib context hooks next.config.js package.json -newer "$build_id" -print -quit 2>/dev/null)" ]]; then
+      needs_build=1
+    fi
+  fi
+  if (( needs_build )); then
+    echo "Building frontend (next build)..."
+    node ./node_modules/next/dist/bin/next build > "$LOGS/frontend-build.log" 2>&1 || {
+      echo "FAIL: next build (see logs/frontend-build.log)" >&2
+      return 1
+    }
+  fi
+  # Standalone output needs .next/static and public copied in.
+  rm -rf .next/standalone/.next/static .next/standalone/public
+  cp -r .next/static .next/standalone/.next/static
+  [[ -d public ]] && cp -r public .next/standalone/public
+}
+
 start_frontend() {
-  setsid nohup node ./node_modules/next/dist/bin/next dev --port 3782 \
+  setsid nohup env PORT=3782 HOSTNAME=0.0.0.0 \
+    node .next/standalone/server.js \
     > "$LOGS/frontend.log" 2>&1 < /dev/null &
   local pid=$!
   disown "$pid" 2>/dev/null || disown || true
   echo "$pid" > "$LOGS/frontend.pid"
-  echo "Frontend started (PID $pid)"
+  echo "Frontend started (PID $pid, production)"
 }
 
 if [[ -f "$LOGS/frontend.pid" ]] && kill -0 "$(cat "$LOGS/frontend.pid")" 2>/dev/null; then
   echo "Frontend already running (PID $(cat "$LOGS/frontend.pid"))"
 else
-  (cd "$REPO/web" && start_frontend)
+  (cd "$REPO/web" && build_frontend_if_needed && start_frontend)
 fi
 
 # --- Poll for readiness ---

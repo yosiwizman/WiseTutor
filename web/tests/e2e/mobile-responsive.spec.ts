@@ -289,3 +289,28 @@ test("mobile: drawer Settings link sits within viewport when drawer is open", as
     await browser.close();
   }
 });
+
+test("mobile: no Next.js dev indicator (production runtime)", async () => {
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ ...devices["iPhone 14"] });
+  try {
+    await signInAsMrW(ctx, API);
+    const page = await ctx.newPage();
+    await page.goto(APP);
+    await page.getByTestId("chat-composer-input").waitFor({ state: "visible", timeout: 30000 });
+    const hits = await page.evaluate(() => {
+      const selectors = [
+        "nextjs-portal",
+        "[data-nextjs-dev-overlay]",
+        "#__next-build-watcher",
+        "[data-next-mark]",
+        "[data-nextjs-toast]",
+      ];
+      return selectors.reduce((n, s) => n + document.querySelectorAll(s).length, 0);
+    });
+    expect(hits).toBe(0);
+  } finally {
+    await ctx.close();
+    await browser.close();
+  }
+});

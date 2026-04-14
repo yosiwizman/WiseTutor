@@ -5,6 +5,41 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-14 — Frontend runtime hardened to production (remove Next dev badge)
+
+**Decision.** The family-facing frontend now serves via Next.js
+production standalone (`.next/standalone/server.js`) instead of
+`next dev`. This removes the floating Next.js dev indicator / DevTools
+badge from the real UI.
+
+**Changes.**
+- `scripts_local/wt_start.sh` — runs `next build` when `.next/BUILD_ID`
+  is missing or sources are newer, copies `.next/static` + `public` into
+  `.next/standalone`, then launches the standalone server with
+  `PORT=3782 HOSTNAME=0.0.0.0`. `WT_SKIP_BUILD=1` skips rebuild.
+- `web/tsconfig.json` — excludes `tests/`, `playwright-report/`,
+  `test-results/` from the Next TypeScript build (test-only ambient
+  Window declarations collided with `lib/speech-recognition.ts`).
+- `web/tests/e2e/mobile-responsive.spec.ts` — added assertion that
+  known Next dev-overlay selectors (`nextjs-portal`,
+  `[data-nextjs-dev-overlay]`, `#__next-build-watcher`,
+  `[data-next-mark]`, `[data-nextjs-toast]`) render zero matches.
+
+**Proof (Tier 2 local, ai-desktop).**
+- `next build` succeeds (13.7 s, 14 routes prerendered).
+- `curl -I http://localhost:3782/` returns `200` with
+  `x-nextjs-prerender: 1` (production path, not dev).
+- Grep of page HTML for `next-dev|devIndicator|__next_devtools|build-watcher`
+  returns 0 matches.
+- Playwright `mobile-responsive`: **10/10 green**, including the new
+  no-dev-indicator case and all prior h-dvh / safe-area invariants —
+  mobile fixes intact.
+
+**Not proven by this change.** Real-iPhone-over-Tailscale re-execution
+and fresh hosted CI run — to be confirmed in the next founder loop.
+Until then the real-device absence of the badge is Tier 3 (designed,
+not re-verified on physical iOS).
+
 ## 2026-04-14 — Real iPhone re-test: composer + settings confirmed (Tier 1)
 
 **Evidence.** Founder re-tested WiseTutor on the real iPhone over
