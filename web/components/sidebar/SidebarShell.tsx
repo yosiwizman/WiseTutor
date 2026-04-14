@@ -51,6 +51,13 @@ interface SidebarShellProps {
   onRenameSession?: (sessionId: string, title: string) => void | Promise<void>;
   onDeleteSession?: (sessionId: string) => void | Promise<void>;
   footerSlot?: ReactNode;
+  /**
+   * Mobile drawer state. On md+ viewports the sidebar is always visible
+   * and these are ignored. On <md viewports the sidebar renders as a
+   * fixed left drawer whose visibility tracks `mobileOpen`.
+   */
+  mobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export function SidebarShell({
@@ -64,6 +71,8 @@ export function SidebarShell({
   onRenameSession,
   onDeleteSession,
   footerSlot,
+  mobileOpen = false,
+  onCloseMobile,
 }: SidebarShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -78,13 +87,30 @@ export function SidebarShell({
     router.push("/");
   };
 
-  /* ---- Collapsed state ---- */
+  // Shared mobile-drawer positioning: on <md, sidebar is fixed off-canvas
+  // by default and slides in when mobileOpen. On md+, the sidebar is part
+  // of the normal flex flow and `mobileOpen` has no effect.
+  const mobileDrawerClasses = `fixed inset-y-0 left-0 z-40 transform transition-transform duration-200 ${
+    mobileOpen ? "translate-x-0" : "-translate-x-full"
+  } md:static md:translate-x-0 md:transition-none`;
+
+  /* ---- Collapsed state (desktop-only visual; mobile ignores collapse) ---- */
   if (collapsed) {
     return (
-      <aside className="flex w-[56px] h-screen shrink-0 flex-col items-center bg-[var(--secondary)] py-3 transition-all duration-200">
+      <aside
+        data-mobile-open={String(mobileOpen)}
+        className={`flex w-[260px] md:w-[56px] h-screen shrink-0 flex-col items-center bg-[var(--secondary)] py-3 ${mobileDrawerClasses}`}
+      >
+        <button
+          onClick={() => (onCloseMobile ? onCloseMobile() : setCollapsed(false))}
+          className="mb-4 rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] md:hidden"
+          aria-label={t("Close navigation")}
+        >
+          <PanelLeftOpen size={15} />
+        </button>
         <button
           onClick={() => setCollapsed(false)}
-          className="mb-4 rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+          className="mb-4 hidden rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] md:inline-flex"
           aria-label={t("Expand sidebar")}
         >
           <PanelLeftOpen size={15} />
@@ -146,8 +172,11 @@ export function SidebarShell({
 
   /* ---- Expanded state ---- */
   return (
-    <aside className="flex w-[220px] h-screen shrink-0 flex-col bg-[var(--secondary)] transition-all duration-200">
-      {/* Header: logo + collapse toggle */}
+    <aside
+      data-mobile-open={String(mobileOpen)}
+      className={`flex w-[260px] md:w-[220px] h-screen shrink-0 flex-col bg-[var(--secondary)] ${mobileDrawerClasses}`}
+    >
+      {/* Header: logo + collapse/close toggle */}
       <div className="flex h-12 items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2">
           <Image src="/logo-ver2.png" alt="WiseTutor" width={20} height={20} />
@@ -155,9 +184,17 @@ export function SidebarShell({
             WiseTutor
           </span>
         </Link>
+        {/* Mobile: close the drawer. Desktop: collapse to 56px. */}
+        <button
+          onClick={onCloseMobile}
+          className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] md:hidden"
+          aria-label={t("Close navigation")}
+        >
+          <PanelLeftClose size={15} />
+        </button>
         <button
           onClick={() => setCollapsed(true)}
-          className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+          className="hidden rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] md:inline-flex"
           aria-label={t("Collapse sidebar")}
         >
           <PanelLeftClose size={15} />

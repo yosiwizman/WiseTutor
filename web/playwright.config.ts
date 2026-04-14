@@ -130,5 +130,10 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
       timeout: 120_000,
     },
+    {
+      name: "mobile-responsive",
+      testMatch: "**/mobile-responsive.spec.ts",
+      use: { ...devices["iPhone 14"] },
+    },
   ],
 });

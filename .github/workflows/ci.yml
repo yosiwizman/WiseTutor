@@ -231,6 +231,7 @@ jobs:
             --project=voice-stt \
             --project=tts \
             --project=tts-fallback \
+            --project=mobile-responsive \
             --project=quiz-summary \
             --project=voice-turn \
             --project=voice-turn-real \

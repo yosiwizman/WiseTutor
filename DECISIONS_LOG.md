@@ -5,6 +5,59 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-14 — Mobile-responsive workspace (iPhone usability fix)
+
+**Problem.** Founder opened WiseTutor on iPhone over Tailscale; remote
+reach worked, but the layout was cut off: the 220 px fixed sidebar
+left < 170 px for the main content at iPhone 14 width (390 px).
+
+**Root cause.** `app/(workspace)/layout.tsx` was `flex h-screen
+overflow-hidden` with a non-collapsing `<WorkspaceSidebar>` taking
+220 px. There was a manual collapse toggle (220 ↔ 56 px) but no
+mobile drawer and no auto-collapse.
+
+**Fix.** Narrow responsive layout correction, no behavior change for
+desktop:
+- `app/(workspace)/layout.tsx` becomes a client component that owns a
+  `mobileOpen` boolean; renders a `md:hidden` hamburger button
+  (`data-testid="mobile-nav-toggle"`) at `main`'s top-left and a
+  `md:hidden` backdrop (`data-testid="mobile-nav-backdrop"`) when the
+  drawer is open. Backdrop is positioned `left-[260px]` on mobile so
+  its clickable center is never occluded by the sidebar (Playwright
+  actionability requires the click point to be the topmost node).
+- `components/sidebar/WorkspaceSidebar.tsx` forwards `mobileOpen` +
+  `onCloseMobile` to the shell.
+- `components/sidebar/SidebarShell.tsx` adds a shared
+  `mobileDrawerClasses` string: `fixed inset-y-0 left-0 z-40`
+  + `translate-x-0` / `-translate-x-full` based on `mobileOpen`
+  + `md:static md:translate-x-0 md:transition-none`. Applied to both
+  the expanded and collapsed `<aside>` returns. Mobile ignores the
+  desktop-only collapse state (always renders the full drawer at
+  260 px on mobile). Both asides gain `data-mobile-open={String(...)}`.
+
+**Proof.** New `mobile-responsive` Playwright project at iPhone 14
+viewport: 6/6 cases green — no horizontal overflow, sidebar
+off-canvas by default, toggle + backdrop cycle works, composer
+tappable + fillable, settings route reachable, no DeepTutor text / no
+pageerror. Full cross-suite regression: 61/61 green
+(mobile-responsive 6 + family-alpha-smoke 5 + family-alpha-
+screenshots 3 + quiz-summary 4 + voice-stt 7 + voice-stt-fallback 9 +
+tts 5 + tts-fallback 7 + voice-turn 8 + voice-turn-real 7).
+
+**Tier movement.** Mobile workspace usability: Tier 4 → Tier 1
+(Playwright-proven at iPhone 14 viewport). Desktop usability: Tier 1
+unchanged (regressions green).
+
+**Wired into hosted CI:** `mobile-responsive` added to
+`.github/workflows/ci.yml` in the Playwright projects line.
+
+**Percentages.** Whole WiseTutor product: ~76% → ~78% (the phone is
+now actually usable for family alpha; remote reach + usable mobile UI
+together are the biggest practical unlock since Slice 4B closed).
+Voice lane ~52% unchanged. Company vision ~11% unchanged.
+
+---
+
 ## 2026-04-14 — Tailscale live + launchers migrated to MagicDNS (Stage C complete)
 
 **Tailscale installed + authenticated** on ai-desktop:

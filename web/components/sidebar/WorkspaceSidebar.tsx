@@ -12,7 +12,15 @@ import {
   type SessionSummary,
 } from "@/lib/session-api";
 
-export default function WorkspaceSidebar() {
+interface WorkspaceSidebarProps {
+  mobileOpen?: boolean;
+  onCloseMobile?: () => void;
+}
+
+export default function WorkspaceSidebar({
+  mobileOpen = false,
+  onCloseMobile,
+}: WorkspaceSidebarProps = {}) {
   const { t } = useTranslation();
   const pathname = usePathname();
   const router = useRouter();
@@ -109,6 +117,8 @@ export default function WorkspaceSidebar() {
       onSelectSession={handleSelectSession}
       onRenameSession={handleRenameSession}
       onDeleteSession={handleDeleteSession}
+      mobileOpen={mobileOpen}
+      onCloseMobile={onCloseMobile}
     />
   );
 }

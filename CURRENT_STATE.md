@@ -81,6 +81,8 @@ scripts under `scripts_local/wt_*.sh`. Operator runbook at
 - `wt_restore.sh` — moves live `data/` + `.env` aside, extracts backup; supports `--dry-run`.
 - `wt_rollback.sh` — `git checkout <ref>` with clean-tree precondition; supports `--dry-run`.
 
+**Mobile-responsive workspace (2026-04-14):** at viewports narrower than 768 px (`md`), the workspace sidebar becomes a fixed-position slide-out drawer (`w-[260px]`, `-translate-x-full` when closed, `translate-x-0` when open) instead of taking a 220 px flex column. A `data-testid="mobile-nav-toggle"` hamburger appears at the top-left of `<main>`, and a `data-testid="mobile-nav-backdrop"` positioned to the right of the drawer closes it on tap. Desktop behavior unchanged via `md:static md:translate-x-0 md:transition-none` + `md:w-[220px]`. Proof: 6/6 new `mobile-responsive` Playwright cases at iPhone-14 viewport (no horizontal overflow, sidebar off-canvas by default, toggle+backdrop, composer tappable, settings reachable, no DeepTutor / no pageerror); full cross-suite regression 61/61 green. **Mobile responsiveness tier: Tier 1 local.**
+
 **Evidence tiers:**
 - Packaged startup scripts exist + basic sanity: **Tier 2 local** — Agent A ran wt_status + wt_health against live services.
 - Backup created + restore/rollback dry-runs: **Tier 2 local** — Agent B live-ran wt_backup and dry-ran restore + rollback.
