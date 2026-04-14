@@ -5,6 +5,55 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-14 — Canonical remote URL: Tailscale HTTPS FQDN (supersedes IP)
+
+**Decision.** Canonical family URL promoted from
+`http://100.109.173.59:3782/` (direct IP, plain HTTP) to
+**`https://ai-desktop-system-product-name.tail1f13f5.ts.net/`**
+(Tailscale MagicDNS FQDN over HTTPS, port 443).
+
+**How.** One terminal command on the host:
+```
+sudo tailscale serve --bg --https=443 http://localhost:3782
+```
+Tailscale's built-in TLS proxy (`tailscaled`) terminates HTTPS on
+:443 with a real Let's Encrypt cert issued for the tailnet FQDN and
+forwards plain HTTP to our app on :3782. No change to our Next.js
+server, no self-signed cert, no reverse proxy config to maintain.
+
+**Why.** The iPhone retest at `http://100.109.173.59:3782/` worked
+but is IP-shaped and brittle (changes if tailnet device is replaced).
+Safari on iOS also prefers / auto-upgrades to HTTPS for typed
+hostnames. A real HTTPS URL with a valid cert is the correct
+long-term canonical for a family-facing product.
+
+**Proof (Tier 1, founder-device).**
+- Host: `curl -sI https://ai-desktop-system-product-name.tail1f13f5.ts.net/`
+  → `HTTP/2 200`.
+- Cert: `subject=CN=ai-desktop-system-product-name.tail1f13f5.ts.net`,
+  `issuer=Let's Encrypt`, valid 2026-04-14 → 2026-07-13.
+- Dev-badge grep over HTTPS: 0 matches (production runtime intact).
+- Founder verbatim on real iPhone: "I CAN CONFIRM THIS URL WORKS".
+
+**Pre-reqs (one-time, founder-completed 2026-04-14).**
+1. Tailnet admin → DNS → "HTTPS Certificates" enabled.
+2. `sudo tailscale serve --bg --https=443 http://localhost:3782`
+   run once on ai-desktop. `--bg` persists through reboot via
+   tailscaled's stored serve config.
+
+**Fallback (retained, not canonical).** `http://100.109.173.59:3782/`
+remains reachable and is documented as the backup if HTTPS is ever
+unavailable. Short-hostname URL (`ai-desktop-system-product-name`
+without the tailnet suffix) still not promoted — FQDN is strictly
+more portable.
+
+**Changes.**
+- Source URLs in `scripts_local/wt_launch.sh`, `clients/windows/*`,
+  `clients/macos/*` all updated to the HTTPS FQDN.
+- `.github/workflows/launcher-validate.yml` assertions updated.
+- Docs (`CURRENT_STATE.md`, this log) updated.
+- New launcher release `launchers-v1.3-2026-04-14` supersedes v1.2.
+
 ## 2026-04-14 — Canonical remote URL: Tailscale IP, not MagicDNS short hostname
 
 **Decision.** The family canonical remote URL is now
