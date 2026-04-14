@@ -61,11 +61,49 @@ def _reset_user_preferences():
         pass
 
 
+_MRW_CI_SEED_CATALOG = {
+    "version": 1,
+    "services": {
+        "llm": {
+            "active_profile_id": "llm-profile-openai",
+            "active_model_id": "llm-model-openai-4o-mini",
+            "profiles": [
+                {
+                    "id": "llm-profile-openai", "name": "OpenAI", "binding": "openai",
+                    "base_url": "https://api.openai.com/v1",
+                    "api_key": "ci-placeholder", "api_version": "", "extra_headers": {},
+                    "models": [{"id": "llm-model-openai-4o-mini", "name": "gpt-4o-mini", "model": "gpt-4o-mini"}],
+                },
+                {
+                    "id": "llm-profile-ci-fallback", "name": "Local Ollama", "binding": "ollama",
+                    "base_url": "http://localhost:11434/v1",
+                    "api_key": "ollama-local", "api_version": "", "extra_headers": {},
+                    "models": [{"id": "llm-model-ci-qwen", "name": "qwen2.5:72b", "model": "qwen2.5:72b"}],
+                },
+            ],
+        },
+        "embedding": {"active_profile_id": None, "active_model_id": None, "profiles": []},
+        "search": {"active_profile_id": None, "profiles": []},
+    },
+}
+
+
 @pytest.fixture(autouse=True)
 def _restore_user_catalogs_before_each_test():
+    """Restore Mr W's catalog before each test so any prior test's incidental
+    catalog-load (which can wipe profiles when env keys aren't materialized,
+    e.g. on CI with placeholder keys) does not bleed into the legacy-shared
+    catalog assertion downstream. Uses _legacy snapshot when present, else
+    the CI-seeded shape, so both local + CI runs have a stable baseline."""
+    import json as _json
+
     snap = _pick_mrw_snapshot()
     if snap and MRW_CATALOG.exists():
         shutil.copy2(str(snap), str(MRW_CATALOG))
+    elif MRW_CATALOG.parent.exists():
+        # No legacy snapshot: re-seed from the CI shape so the assertion
+        # in test_legacy_shared_catalog_is_off_the_live_path still holds.
+        MRW_CATALOG.write_text(_json.dumps(_MRW_CI_SEED_CATALOG, indent=2))
     # Bella's catalog gets reset to a Bella-specific default shape so the
     # tests have a stable starting point.
     if BELLA_CATALOG.exists():
