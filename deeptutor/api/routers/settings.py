@@ -399,13 +399,13 @@ async def apply_catalog(request: Request, payload: CatalogPayload | None = None)
     }
 
 
-@router.put("/theme")
-async def update_theme(update: ThemeUpdate, request: Request):
-    _require_owner(request)
-    current_ui = load_ui_settings()
-    current_ui["theme"] = update.theme
-    save_ui_settings(current_ui)
-    return {"theme": update.theme}
+# NOTE: PUT /api/v1/settings/theme removed in theme-boot-isolation v1.
+# The route wrote to the shared `data/user/settings/interface.json`
+# global file that no live render path ever read. Zero callers existed
+# in the frontend or backend at the time of removal. Per-user theme is
+# now entirely owned by User.theme + PUT /api/v1/users/me/theme +
+# the wt_theme boot cookie. If a future feature needs a global theme
+# override it must come back with a DECISIONS_LOG entry.
 
 
 @router.put("/language")

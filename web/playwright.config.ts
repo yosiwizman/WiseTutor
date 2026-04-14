@@ -160,5 +160,10 @@ export default defineConfig({
       testMatch: "**/theme-isolation-v1.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
+    {
+      name: "theme-boot-isolation-v1",
+      testMatch: "**/theme-boot-isolation-v1.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });

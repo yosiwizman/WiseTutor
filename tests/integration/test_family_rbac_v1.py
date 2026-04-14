@@ -82,15 +82,27 @@ def test_anon_cannot_upsert_user():
 
 
 def test_child_cannot_change_global_theme():
+    """Historical check for RBAC v1: a child must not be able to mutate
+    a global-for-household setting. The theme half of that assertion is
+    superseded by theme-boot-isolation v1 — the orphan
+    `PUT /api/v1/settings/theme` route has been removed entirely (zero
+    callers; replaced by the per-user `PUT /api/v1/users/me/theme`), so
+    no 403 exists because no route exists: we accept 404/405 from the
+    removed path. The language half still enforces owner-only."""
     bella, _ = _client()
     code, _ = _switch(bella, "bella", BELLA_PIN)
     assert code == 200
-    for path, payload in (
-        ("/api/v1/settings/theme", {"theme": "dark"}),
-        ("/api/v1/settings/language", {"language": "zh"}),
-    ):
-        code, body = _req(bella, "PUT", path, payload)
-        assert code == 403, f"child must NOT mutate global setting {path}; got {code} {body}"
+    # Language endpoint still exists and is owner-gated -> 403.
+    code, body = _req(bella, "PUT", "/api/v1/settings/language", {"language": "zh"})
+    assert code == 403, f"child must NOT mutate /language; got {code} {body}"
+    # Removed theme endpoint -> 404/405 (absence of route, not a deny
+    # response). Either way there is no path through which a child can
+    # change a global theme.
+    code, _ = _req(bella, "PUT", "/api/v1/settings/theme", {"theme": "dark"})
+    assert code in (404, 405), (
+        f"orphan /settings/theme must not respond; got {code}. "
+        "See DECISIONS_LOG: theme-boot-isolation-v1 removed this route."
+    )
 
 
 # Owner-can-write happy-path is intentionally NOT asserted here:

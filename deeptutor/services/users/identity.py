@@ -119,3 +119,29 @@ def set_user_cookie(response: Response, user_id: str) -> None:
 
 def clear_user_cookie(response: Response) -> None:
     response.delete_cookie(COOKIE_NAME, path="/")
+    response.delete_cookie(THEME_COOKIE_NAME, path="/")
+
+
+# Boot-theme cookie. Carries the active user's theme so the inline
+# ThemeScript can paint the correct theme on first paint without relying
+# on the shared-across-users localStorage key (which bled theme across
+# users until ThemeProvider hydrated). Not httpOnly by design — the
+# inline boot script runs in the browser and must be able to read it.
+# Value space: "light" | "dark" | "bella". Reset on switch / /me/theme
+# writes; cleared on logout.
+THEME_COOKIE_NAME = "wt_theme"
+_ALLOWED_THEMES = {"light", "dark", "bella"}
+
+
+def set_theme_cookie(response: Response, theme: str) -> None:
+    if theme not in _ALLOWED_THEMES:
+        return
+    response.set_cookie(
+        key=THEME_COOKIE_NAME,
+        value=theme,
+        max_age=_COOKIE_MAX_AGE,
+        httponly=False,
+        samesite="lax",
+        secure=False,
+        path="/",
+    )

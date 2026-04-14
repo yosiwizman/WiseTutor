@@ -23,6 +23,7 @@ from deeptutor.services.users import get_user_service
 from deeptutor.services.users.identity import (
     clear_user_cookie,
     resolve_request_user,
+    set_theme_cookie,
     set_user_cookie,
 )
 
@@ -107,6 +108,10 @@ async def switch_user(req: SwitchRequest, response: Response):
     # Identity is carried by the signed cookie from here on. Only this request's
     # client gains the new identity; other browser contexts are unaffected.
     set_user_cookie(response, u.id)
+    # Boot-theme cookie: lets the inline <ThemeScript> paint the correct
+    # theme on first paint of the next page load without cross-user
+    # localStorage bleed.
+    set_theme_cookie(response, u.theme or "light")
     return {"active_user_id": u.id, "user": u.public()}
 
 
@@ -188,15 +193,12 @@ class SelfThemeRequest(BaseModel):
 
 
 @router.put("/me/theme")
-async def set_my_theme(req: SelfThemeRequest, request: Request):
+async def set_my_theme(req: SelfThemeRequest, request: Request, response: Response):
     """Persist the caller's own theme (per-user). Self-only.
 
-    Previously the UI's theme toggle only wrote to a shared
-    localStorage key, which (a) bled across users in the same browser
-    and (b) never persisted on the server — so a user's preferred
-    theme reverted on next sign-in. This endpoint writes the top-level
-    `User.theme` field, which is the existing per-user source of truth
-    surfaced by GET /users/active."""
+    Also refreshes the `wt_theme` boot cookie so the next page load
+    paints the correct theme from first paint without consulting the
+    cross-user-shared localStorage key."""
     caller_id = resolve_request_user(request)
     if not caller_id:
         raise HTTPException(status_code=401, detail="no_user")
@@ -204,6 +206,7 @@ async def set_my_theme(req: SelfThemeRequest, request: Request):
         updated = get_user_service().update_preferences(caller_id, {"theme": req.theme})
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    set_theme_cookie(response, req.theme)
     return {"user_id": caller_id, "theme": req.theme, "preferences": updated}
 
 
