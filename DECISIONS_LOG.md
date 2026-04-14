@@ -5,6 +5,48 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-14 — Tailscale live + launchers migrated to MagicDNS (Stage C complete)
+
+**Tailscale installed + authenticated** on ai-desktop:
+- Version 1.96.4. Identity `100.109.173.59` / `ai-desktop-system-product-name`.
+- Tailnet `tail1f13f5.ts.net`, MagicDNS enabled.
+- `curl http://100.109.173.59:3782/` → 200 (WiseTutor reachable over tailnet).
+- Founder's phone `yosi-iphone` (100.106.210.127) already online in the
+  tailnet — remote phone access went live the moment auth completed.
+
+**Stage C migration executed in the same turn:**
+- Patched 5 launcher URL sites from `http://192.168.1.133:3782` →
+  `http://ai-desktop-system-product-name:3782`:
+  `scripts_local/wt_launch.sh`,
+  `clients/macos/WiseTutor.app/Contents/MacOS/WiseTutor`,
+  `clients/macos/WiseTutor.command`,
+  `clients/windows/WiseTutor.bat`,
+  `clients/windows/WiseTutor.url`.
+  Commit `bef41a5`.
+- Rebuilt both zips via `clients/{windows,macos}/build-zip.sh`
+  (1808 B + 1993 B).
+- Updated `.github/workflows/launcher-validate.yml` URL assertion to
+  the MagicDNS hostname. Commit `4cbc0de`.
+- Published GitHub Release `launchers-v1.1-2026-04-14` with the
+  rebuilt zips. `launchers-v1.0-2026-04-13` (LAN-only) is superseded.
+- Re-ran `launcher-validate` workflow on the new zips — run
+  `24377893467` → 3/3 green.
+
+**Tier movement:**
+- Stable private URL: Tier 4 → **Tier 1**.
+- Tailscale install/login: Tier 4 → **Tier 1**.
+
+**Remaining Tier-3 items (unchanged by this turn):**
+- One real Windows click-through of the v1.1 launcher.
+- One real macOS click-through (Gatekeeper right-click → Open first time).
+
+**Percentages.** Whole WiseTutor product: ~73% → ~76% (remote phone
+access + router-reservation-free stable URL is the biggest practical
+unlock since the launchers went live). Voice lane ~52% unchanged.
+Company vision ~11% unchanged.
+
+---
+
 ## 2026-04-13 — Launcher artifacts published to GitHub + hosted validation
 
 **Pushed.** Branch `bootstrap/wisetutor-baseline` pushed to
