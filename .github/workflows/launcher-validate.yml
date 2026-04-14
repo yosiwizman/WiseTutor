@@ -1,0 +1,105 @@
+name: launcher-validate
+
+on:
+  push:
+    branches: [ "**" ]
+  workflow_dispatch:
+
+jobs:
+  build-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Windows launcher zip
+        run: bash clients/windows/build-zip.sh
+
+      - name: Build macOS launcher zip
+        run: bash clients/macos/build-zip.sh
+
+      - name: Verify zip sizes
+        run: |
+          set -euo pipefail
+          for f in dist/wisetutor-windows-launcher.zip dist/wisetutor-macos-launcher.zip; do
+            [ -f "$f" ] || { echo "missing: $f"; exit 1; }
+            sz=$(stat -c%s "$f")
+            echo "$f $sz bytes"
+            [ "$sz" -ge 500 ] || { echo "zip too small: $f"; exit 1; }
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wisetutor-launchers
+          path: dist/*.zip
+          retention-days: 30
+
+  validate-windows:
+    runs-on: windows-latest
+    needs: build-ubuntu
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wisetutor-launchers
+          path: dist
+
+      - name: Extract windows zip
+        shell: bash
+        run: unzip -o dist/wisetutor-windows-launcher.zip -d win
+
+      - name: Assert required files
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in win/WiseTutor.bat win/WiseTutor.url win/install-wisetutor.ps1 win/README.txt; do
+            [ -f "$f" ] || { echo "missing: $f"; exit 1; }
+          done
+          echo "OK all 4 Windows files present"
+
+      - name: Verify hardcoded URL
+        shell: bash
+        run: |
+          grep -q "http://192.168.1.133:3782" win/WiseTutor.bat
+          echo "URL ok in WiseTutor.bat"
+
+      - name: PowerShell syntax check
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $content = Get-Content -Raw .\win\install-wisetutor.ps1
+          $null = [System.Management.Automation.PSParser]::Tokenize($content, [ref]$null)
+          Write-Host 'ps1 syntax ok'
+
+  validate-macos:
+    runs-on: macos-latest
+    needs: build-ubuntu
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wisetutor-launchers
+          path: dist
+
+      - name: Extract macOS zip
+        run: unzip -o dist/wisetutor-macos-launcher.zip -d mac
+
+      - name: Assert bundle structure
+        run: |
+          set -euo pipefail
+          for f in \
+            "mac/WiseTutor.app/Contents/Info.plist" \
+            "mac/WiseTutor.app/Contents/MacOS/WiseTutor" \
+            "mac/WiseTutor.command" \
+            "mac/README.txt"; do
+            [ -f "$f" ] || { echo "missing: $f"; exit 1; }
+          done
+          echo "OK bundle structure intact"
+
+      - name: Verify hardcoded URL
+        run: |
+          grep -q "http://192.168.1.133:3782" "mac/WiseTutor.app/Contents/MacOS/WiseTutor"
+          echo "URL ok in MacOS/WiseTutor"
+
+      - name: Verify exec bit on MacOS/WiseTutor
+        run: test -x "mac/WiseTutor.app/Contents/MacOS/WiseTutor"
+
+      - name: Verify Info.plist well-formed
+        run: plutil -lint "mac/WiseTutor.app/Contents/Info.plist"
