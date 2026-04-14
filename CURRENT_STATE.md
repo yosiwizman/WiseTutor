@@ -117,9 +117,8 @@ in the repo for admin-side hand-install if ever needed.
   bundle + `WiseTutor.command` fallback + README. Built on Linux host;
   **Gate C partial** — never installed on real macOS this session;
   Gatekeeper may require right-click → Open on first launch.
-- Both launchers open `http://192.168.1.133:3782` in Chrome app mode.
-  Zero backend on client machines.
-- **Published to GitHub (2026-04-13):** Branch `bootstrap/wisetutor-baseline` pushed to `origin` (HEAD `185f0b3`). GitHub Release `launchers-v1.0-2026-04-13` created with both launcher zips attached. New workflow `.github/workflows/launcher-validate.yml` runs Ubuntu-build + Windows-verify + macOS-verify on every push; structural-only, does NOT prove real click-through install.
+- Both launchers open `http://ai-desktop-system-product-name:3782` in Chrome app mode (Tailscale MagicDNS; migrated 2026-04-14). Zero backend on client machines.
+- **Published to GitHub (2026-04-13, updated 2026-04-14):** Branch `bootstrap/wisetutor-baseline` pushed to `origin`. Initial Release `launchers-v1.0-2026-04-13` (LAN IP) superseded by `launchers-v1.1-2026-04-14` (Tailscale MagicDNS) — latter has both rebuilt zips. Workflow `.github/workflows/launcher-validate.yml` runs Ubuntu-build + Windows-verify + macOS-verify on every push; asserts the MagicDNS URL; 3/3 green on run 24377893467.
 
 **Evidence tiers:**
 - Host no-terminal launch (icon + wt_launch.sh + user systemd unit):
@@ -129,9 +128,7 @@ in the repo for admin-side hand-install if ever needed.
 - Windows launcher verified on real Windows: **Tier 3** (unverified).
 - macOS launcher zip built: **Tier 2 local + Tier 2 hosted (macOS-runner structural check) — real macOS click-through remains Tier 3**
 - macOS launcher verified on real macOS: **Tier 3** (unverified).
-- Stable URL: **Tier 2 local** — LAN IP works on the home network;
-  assumes DHCP reservation at the router.
-- **Tailscale/MagicDNS:** Tier 4 — install + login both need sudo and founder SSO; one-time founder action pending (see `docs/TAILSCALE_SETUP.md`). LAN IP is still the canonical launcher URL.
+- **Stable private URL (Tailscale MagicDNS):** **Tier 1 (2026-04-14)** — Tailscale v1.96.4 installed and authenticated on ai-desktop. Identity: `100.109.173.59` / `ai-desktop-system-product-name` in tailnet `tail1f13f5.ts.net` (MagicDNS enabled). App reachable: `curl http://100.109.173.59:3782/` → 200. Launchers migrated off the LAN IP; zips rebuilt and re-released as `launchers-v1.1-2026-04-14`; `launcher-validate` workflow re-ran green on the rebuilt zips.
 - **Ubuntu host-launcher click-launch:** **Tier 1 local (2026-04-13)** — `web/tests/e2e/ubuntu-launcher.spec.ts` (new `ubuntu-launcher` Playwright project, 1/1 passed in 1.5 s) invokes the exact Exec= target of the installed Desktop `.desktop` file (`scripts_local/wt_launch.sh` with `WT_LAUNCH_SKIP_BROWSER=1` to skip the GUI Chrome spawn), asserts the LAN URL renders with correct branding, zero pageerror, no "DeepTutor" text. Full-page screenshot at `artifacts/ubuntu_launcher/launcher-proof.png` (20 761 B). `wt_launch.sh` gained a 3-line `WT_LAUNCH_SKIP_BROWSER` test seam; production behavior unchanged when the env var is unset.
 
 ---

@@ -4,7 +4,7 @@
 
 The launcher zips live on the WiseTutor GitHub Release page:
 
-https://github.com/yosiwizman/WiseTutor/releases/tag/launchers-v1.0-2026-04-13
+https://github.com/yosiwizman/WiseTutor/releases/tag/launchers-v1.1-2026-04-14
 
 Download the file for your OS:
 - Windows: `wisetutor-windows-launcher.zip`
