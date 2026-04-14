@@ -869,6 +869,48 @@ async def upload_files(
         uploaded_files, uploaded_file_paths = _save_uploaded_files(
             files, raw_dir, allowed_extensions=allowed_extensions
         )
+
+        # PDF preflight: classify each uploaded .pdf BEFORE queuing the
+        # background pipeline so we can reject encrypted / image-only /
+        # malformed PDFs with a truthful error shape instead of silently
+        # indexing an empty document. Removes the staged file on reject
+        # so the KB doesn't carry a rejected artifact forward.
+        from deeptutor.services.ingestion.pdf_preflight import classify_pdf
+
+        _PDF_REJECT_CODE_TO_STATUS = {
+            "encrypted": (400, "encrypted_pdf_unsupported"),
+            "no_extractable_text": (415, "pdf_no_extractable_text"),
+            "malformed": (400, "malformed_pdf"),
+        }
+        for staged_path_str in list(uploaded_file_paths):
+            staged_path = Path(staged_path_str)
+            if staged_path.suffix.lower() != ".pdf":
+                continue
+            result = classify_pdf(staged_path)
+            if result.kind == "text_ok":
+                continue
+            status_tuple = _PDF_REJECT_CODE_TO_STATUS.get(result.kind)
+            if status_tuple is None:
+                continue
+            # Remove the staged file so the KB doesn't keep rejected junk.
+            try:
+                staged_path.unlink()
+            except Exception:
+                pass
+            uploaded_file_paths.remove(staged_path_str)
+            uploaded_files = [f for f in uploaded_files if f != staged_path.name]
+            status, code = status_tuple
+            raise HTTPException(
+                status_code=status,
+                detail={
+                    "code": code,
+                    "message": result.message,
+                    "filename": staged_path.name,
+                    "page_count": result.page_count,
+                    "extracted_char_count": result.extracted_char_count,
+                },
+            )
+
         task_id = _build_unique_task_id("kb_upload", kb_name, owner_user_id=uid)
         get_task_stream_manager().ensure_task(task_id)
 
