@@ -370,6 +370,43 @@ class UserService:
             self._save()
             return u
 
+    def delete(self, user_id: str) -> None:
+        """Permanently remove a user and purge their local data.
+
+        Purge surface (under the current repo storage model):
+          - `data/users.json`: remove the user entry.
+          - `data/users/<uid>/`: recursive delete (memory, sessions.db,
+            settings, model_catalog, interface prefs).
+          - `data/knowledge_bases/<uid>/`: recursive delete (per-user
+            KB manager + per-user kb_config.json + all KB data).
+          - In-process caches (model_catalog, kb_manager, kb_config
+            service) — evicted by the router after this call so a
+            future request for this uid cannot return a stale handle.
+
+        The router is the authority for permission checks (owner role,
+        no-self-delete). This method only performs the storage write."""
+        import shutil
+
+        with self._lock:
+            u = self._users.get(user_id)
+            if u is None:
+                raise KeyError(user_id)
+            del self._users[user_id]
+            if self._active_id == user_id:
+                # _active_id is a last-used hint only, not live identity —
+                # but clear it so diagnostics don't point at a ghost.
+                self._active_id = None
+            self._save()
+
+        # Purge on-disk data AFTER releasing the lock so a slow I/O pass
+        # does not hold up other requests.
+        user_root = self._users_dir / user_id
+        if user_root.exists():
+            shutil.rmtree(user_root, ignore_errors=True)
+        kb_root = self._data_root / "knowledge_bases" / user_id
+        if kb_root.exists():
+            shutil.rmtree(kb_root, ignore_errors=True)
+
     def set_disabled(self, user_id: str, value: bool) -> User:
         """Owner-only lifecycle toggle. The router enforces the owner check
         and the no-self-disable rule; this is the storage write."""

@@ -366,3 +366,46 @@ async def enable_user(user_id: str, request: Request):
         _caller.id, user_id,
     )
     return u.public()
+
+
+@router.delete("/{user_id}")
+async def delete_user(user_id: str, request: Request):
+    """Owner-only permanent delete of a non-owner profile.
+
+    Reuses the _require_owner_for_lifecycle guard (owner check, no
+    self-delete, no delete-of-another-owner). After the registry write
+    + on-disk purge, evicts every per-user cache the router layer
+    holds, so a subsequent request for the deleted uid lands on a
+    fresh empty state — not a ghost that still answers."""
+    caller, target = _require_owner_for_lifecycle(request, user_id, "user_delete")
+    svc = get_user_service()
+    try:
+        svc.delete(user_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    # Evict in-process caches so nothing ghosts the deleted user.
+    try:
+        from deeptutor.services.config.model_catalog import _CATALOG_SERVICES
+
+        _CATALOG_SERVICES.pop(user_id, None)
+    except Exception:
+        pass
+    try:
+        from deeptutor.services.config.knowledge_base_config import _PER_USER_INSTANCES
+
+        _PER_USER_INSTANCES.pop(user_id, None)
+    except Exception:
+        pass
+    try:
+        from deeptutor.api.routers.knowledge import _kb_manager_cache
+
+        _kb_manager_cache.pop(user_id, None)
+    except Exception:
+        pass
+
+    _admin_log.warning(
+        "admin_action ok action=user_delete actor=%s target=%s",
+        caller.id, user_id,
+    )
+    return {"ok": True, "user_id": user_id}

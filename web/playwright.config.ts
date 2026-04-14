@@ -165,5 +165,10 @@ export default defineConfig({
       testMatch: "**/theme-boot-isolation-v1.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
+    {
+      name: "profile-hard-delete",
+      testMatch: "**/profile-hard-delete.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ShieldAlert, KeyRound, Save, RefreshCw, UserMinus, UserPlus } from "lucide-react";
+import { ShieldAlert, KeyRound, Save, RefreshCw, UserMinus, UserPlus, Trash2 } from "lucide-react";
 
 const API_BASE =
   typeof window !== "undefined"
@@ -162,6 +162,34 @@ export function AdminPanel() {
     }
   }
 
+  async function deleteUser(targetId: string, displayName: string) {
+    const prompt = `Permanently delete ${displayName}? This removes the profile AND all of their local data (memory, sessions, knowledge bases). This cannot be undone.`;
+    if (!window.confirm(prompt)) return;
+    const confirm2 = window.prompt(`Type the profile id "${targetId}" to confirm.`);
+    if (confirm2 !== targetId) {
+      setErr("Delete cancelled (id did not match).");
+      setTimeout(() => setErr(null), 3000);
+      return;
+    }
+    setBusy(`delete:${targetId}`);
+    setErr(null);
+    try {
+      const r = await fetch(`${API_BASE}/api/v1/users/${targetId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!r.ok) {
+        setErr(`delete failed (HTTP ${r.status})`);
+        return;
+      }
+      setFlash(`Deleted ${targetId}`);
+      setTimeout(() => setFlash(null), 2500);
+      await load();
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function toggleDisable(targetId: string, currentlyDisabled: boolean) {
     const action = currentlyDisabled ? "enable" : "disable";
     if (!currentlyDisabled) {
@@ -264,6 +292,15 @@ export function AdminPanel() {
             >
               {u.disabled ? <UserPlus size={12} /> : <UserMinus size={12} />}
               {u.disabled ? "Re-enable" : "Disable"}
+            </button>
+            <button
+              data-testid={`admin-delete-${u.id}`}
+              onClick={() => deleteUser(u.id, u.display_name)}
+              disabled={busy === `delete:${u.id}`}
+              className="inline-flex items-center gap-1.5 rounded-md border border-rose-500/60 px-2 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/30 disabled:opacity-40"
+              title="Permanently delete this profile and all their local data"
+            >
+              <Trash2 size={12} /> Delete
             </button>
           </div>
 
