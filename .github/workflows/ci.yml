@@ -232,6 +232,7 @@ jobs:
             --project=tts \
             --project=tts-fallback \
             --project=mobile-responsive \
+            --project=rbac-foundation \
             --project=quiz-summary \
             --project=voice-turn \
             --project=voice-turn-real \

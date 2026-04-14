@@ -18,6 +18,7 @@ from fastapi import (
     File,
     Form,
     HTTPException,
+    Request,
     UploadFile,
     WebSocket,
     WebSocketDisconnect,
@@ -62,18 +63,45 @@ def format_bytes_human_readable(size_bytes: int) -> str:
         return f"{size_bytes} bytes"
 
 
-_kb_base_dir = PROJECT_ROOT / "data" / "knowledge_bases"
+# RBAC v1: per-user KB root. List / read / upload / create paths gate on a
+# session uid and receive a manager rooted at <root>/<uid>/ so one user's KBs
+# cannot be observed by another. Operational endpoints that have always run
+# against the root (linked-folder management, websocket progress) still call
+# get_kb_manager() with no uid and fall through to the legacy root-scoped
+# manager — they do not enumerate KBs by name, so they are gated by the KB
+# names that the tenant-scoped endpoints expose.
+_kb_base_root = PROJECT_ROOT / "data" / "knowledge_bases"
+_kb_base_dir = _kb_base_root  # legacy alias used by a few operational paths
 
-# Lazy initialization
-kb_manager = None
+_kb_manager_cache: dict[str, KnowledgeBaseManager] = {}
 
 
-def get_kb_manager():
-    """Get KnowledgeBaseManager instance (lazy init)"""
-    global kb_manager
-    if kb_manager is None:
-        kb_manager = KnowledgeBaseManager(base_dir=str(_kb_base_dir))
-    return kb_manager
+def _kb_base_dir_for_user(user_id: str):
+    d = _kb_base_root / user_id
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def get_kb_manager(user_id: str | None = None):
+    """Return a KnowledgeBaseManager. If user_id is given the manager is
+    rooted under that user's subdir; otherwise the root-scoped legacy
+    manager is returned for operational paths that predate tenant scoping."""
+    key = user_id or "__root__"
+    m = _kb_manager_cache.get(key)
+    if m is None:
+        base = _kb_base_dir_for_user(user_id) if user_id else _kb_base_root
+        m = KnowledgeBaseManager(base_dir=str(base))
+        _kb_manager_cache[key] = m
+    return m
+
+
+def _require_uid(request: Request) -> str:
+    from deeptutor.services.users.identity import resolve_request_user
+
+    uid = resolve_request_user(request)
+    if not uid:
+        raise HTTPException(status_code=401, detail="no_user")
+    return uid
 
 
 class KnowledgeBaseInfo(BaseModel):
@@ -483,10 +511,11 @@ async def sync_configs_from_metadata():
 
 
 @router.get("/default")
-async def get_default_kb():
-    """Get the default knowledge base."""
+async def get_default_kb(request: Request):
+    """Get the current user's default knowledge base."""
+    uid = _require_uid(request)
     try:
-        manager = get_kb_manager()
+        manager = get_kb_manager(uid)
         default_kb = manager.get_default()
         return {"default_kb": default_kb}
     except Exception as e:
@@ -495,10 +524,11 @@ async def get_default_kb():
 
 
 @router.put("/default/{kb_name}")
-async def set_default_kb(kb_name: str):
-    """Set the default knowledge base."""
+async def set_default_kb(kb_name: str, request: Request):
+    """Set the current user's default knowledge base."""
+    uid = _require_uid(request)
     try:
-        manager = get_kb_manager()
+        manager = get_kb_manager(uid)
 
         # Verify KB exists
         if kb_name not in manager.list_knowledge_bases():
@@ -514,10 +544,11 @@ async def set_default_kb(kb_name: str):
 
 
 @router.get("/list", response_model=list[KnowledgeBaseInfo])
-async def list_knowledge_bases():
-    """List all available knowledge bases with their details."""
+async def list_knowledge_bases(request: Request):
+    """List the current user's knowledge bases."""
+    uid = _require_uid(request)
     try:
-        manager = get_kb_manager()
+        manager = get_kb_manager(uid)
         kb_names = manager.list_knowledge_bases()
 
         logger.debug(f"Found {len(kb_names)} knowledge bases: {kb_names}")
@@ -588,10 +619,11 @@ async def list_knowledge_bases():
 
 
 @router.get("/{kb_name}")
-async def get_knowledge_base_details(kb_name: str):
-    """Get detailed info for a specific KB."""
+async def get_knowledge_base_details(kb_name: str, request: Request):
+    """Get detailed info for a specific KB owned by the current user."""
+    uid = _require_uid(request)
     try:
-        manager = get_kb_manager()
+        manager = get_kb_manager(uid)
         return manager.get_info(kb_name)
     except ValueError:
         raise HTTPException(status_code=404, detail=f"Knowledge base '{kb_name}' not found")
@@ -600,10 +632,11 @@ async def get_knowledge_base_details(kb_name: str):
 
 
 @router.delete("/{kb_name}")
-async def delete_knowledge_base(kb_name: str):
-    """Delete a knowledge base."""
+async def delete_knowledge_base(kb_name: str, request: Request):
+    """Delete one of the current user's knowledge bases."""
+    uid = _require_uid(request)
     try:
-        manager = get_kb_manager()
+        manager = get_kb_manager(uid)
         success = manager.delete_knowledge_base(kb_name, confirm=True)
         if not success:
             raise HTTPException(status_code=400, detail="Failed to delete knowledge base")
@@ -630,13 +663,15 @@ async def stream_task_logs(task_id: str):
 @router.post("/{kb_name}/upload")
 async def upload_files(
     kb_name: str,
+    request: Request,
     background_tasks: BackgroundTasks,
     files: list[UploadFile] = File(...),
     rag_provider: str = Form(None),
 ):
     """Upload files to a knowledge base and process them in background."""
+    uid = _require_uid(request)
     try:
-        manager = get_kb_manager()
+        manager = get_kb_manager(uid)
         kb_path = manager.get_knowledge_base_path(kb_name)
         raw_dir = kb_path / "raw"
         raw_dir.mkdir(parents=True, exist_ok=True)
@@ -668,7 +703,7 @@ async def upload_files(
         background_tasks.add_task(
             run_upload_processing_task,
             kb_name=kb_name,
-            base_dir=str(_kb_base_dir),
+            base_dir=str(manager.base_dir),
             uploaded_file_paths=uploaded_file_paths,
             task_id=task_id,
             rag_provider=kb_provider,
@@ -691,14 +726,17 @@ async def upload_files(
 
 @router.post("/create")
 async def create_knowledge_base(
+    request: Request,
     background_tasks: BackgroundTasks,
     name: str = Form(...),
     files: list[UploadFile] = File(...),
     rag_provider: str = Form(DEFAULT_PROVIDER),
 ):
-    """Create a new knowledge base and initialize it with files."""
+    """Create a new knowledge base owned by the current user."""
+    uid = _require_uid(request)
+    user_base_dir = _kb_base_dir_for_user(uid)
     try:
-        manager = get_kb_manager()
+        manager = get_kb_manager(uid)
         if name in manager.list_knowledge_bases():
             raise HTTPException(status_code=400, detail=f"Knowledge base '{name}' already exists")
 
@@ -729,11 +767,11 @@ async def create_knowledge_base(
             manager.config["knowledge_bases"][name]["needs_reindex"] = False
             manager._save_config()
 
-        progress_tracker = ProgressTracker(name, _kb_base_dir)
+        progress_tracker = ProgressTracker(name, user_base_dir)
 
         initializer = KnowledgeBaseInitializer(
             kb_name=name,
-            base_dir=str(_kb_base_dir),
+            base_dir=str(user_base_dir),
             progress_tracker=progress_tracker,
             rag_provider=rag_provider,
         )
@@ -741,7 +779,7 @@ async def create_knowledge_base(
         initializer.create_directory_structure()
         progress_tracker.task_id = task_id
 
-        manager = get_kb_manager()
+        manager = get_kb_manager(uid)
         if name not in manager.list_knowledge_bases():
             logger.warning(f"KB {name} not found in config, registering manually")
             initializer._register_to_config()

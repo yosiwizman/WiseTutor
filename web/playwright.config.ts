@@ -135,5 +135,10 @@ export default defineConfig({
       testMatch: "**/mobile-responsive.spec.ts",
       use: { ...devices["iPhone 14"] },
     },
+    {
+      name: "rbac-foundation",
+      testMatch: "**/rbac-foundation.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });

@@ -219,8 +219,25 @@ async def change_pin(user_id: str, req: ChangePinRequest, request: Request):
 
 
 @router.post("")
-async def upsert(req: UpsertRequest):
+async def upsert(req: UpsertRequest, request: Request):
+    """Create or update a profile. Owner-only.
+
+    Without this gate, any signed-in user (including a child) could create
+    a new profile or escalate any existing user's role to "owner" simply by
+    posting to this endpoint. The role enum is also constrained so a caller
+    cannot smuggle an unknown role string through.
+    """
+    caller_id = resolve_request_user(request)
+    if not caller_id:
+        raise HTTPException(status_code=401, detail="no_user")
     svc = get_user_service()
+    caller = svc.get(caller_id)
+    if caller is None or caller.role != "owner":
+        _admin_log.warning(
+            "admin_action denied action=user_upsert actor=%s target=%s reason=not_owner",
+            caller_id, req.user_id,
+        )
+        raise HTTPException(status_code=403, detail="forbidden")
     try:
         u = svc.upsert(
             user_id=req.user_id,
@@ -232,4 +249,8 @@ async def upsert(req: UpsertRequest):
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    _admin_log.warning(
+        "admin_action ok action=user_upsert actor=%s target=%s role=%s",
+        caller_id, req.user_id, req.role,
+    )
     return u.public()

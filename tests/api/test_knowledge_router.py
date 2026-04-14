@@ -95,7 +95,9 @@ def test_rag_providers_returns_llamaindex_only() -> None:
 
 def test_create_kb_does_not_require_llm_precheck(monkeypatch, tmp_path: Path) -> None:
     manager = _FakeKBManager(tmp_path / "knowledge_bases")
-    monkeypatch.setattr(knowledge_router_module, "get_kb_manager", lambda: manager)
+    monkeypatch.setattr(knowledge_router_module, "get_kb_manager", lambda *_a, **_k: manager)
+    monkeypatch.setattr(knowledge_router_module, "_require_uid", lambda *_a, **_k: "test-uid")
+    monkeypatch.setattr(knowledge_router_module, "_kb_base_dir_for_user", lambda *_a, **_k: manager.base_dir)
     monkeypatch.setattr(knowledge_router_module, "KnowledgeBaseInitializer", _FakeInitializer)
     monkeypatch.setattr(knowledge_router_module, "get_llm_config", lambda: (_ for _ in ()).throw(RuntimeError("should not be called")), raising=False)
 
@@ -122,7 +124,9 @@ def test_create_kb_does_not_require_llm_precheck(monkeypatch, tmp_path: Path) ->
 
 def test_create_rejects_unregistered_provider(monkeypatch, tmp_path: Path) -> None:
     manager = _FakeKBManager(tmp_path / "knowledge_bases")
-    monkeypatch.setattr(knowledge_router_module, "get_kb_manager", lambda: manager)
+    monkeypatch.setattr(knowledge_router_module, "get_kb_manager", lambda *_a, **_k: manager)
+    monkeypatch.setattr(knowledge_router_module, "_require_uid", lambda *_a, **_k: "test-uid")
+    monkeypatch.setattr(knowledge_router_module, "_kb_base_dir_for_user", lambda *_a, **_k: manager.base_dir)
     monkeypatch.setattr(knowledge_router_module, "_kb_base_dir", tmp_path / "knowledge_bases")
 
     with TestClient(_build_app()) as client:
@@ -144,7 +148,9 @@ def test_upload_returns_409_when_kb_needs_reindex(monkeypatch, tmp_path: Path) -
         "needs_reindex": True,
         "status": "needs_reindex",
     }
-    monkeypatch.setattr(knowledge_router_module, "get_kb_manager", lambda: manager)
+    monkeypatch.setattr(knowledge_router_module, "get_kb_manager", lambda *_a, **_k: manager)
+    monkeypatch.setattr(knowledge_router_module, "_require_uid", lambda *_a, **_k: "test-uid")
+    monkeypatch.setattr(knowledge_router_module, "_kb_base_dir_for_user", lambda *_a, **_k: manager.base_dir)
 
     with TestClient(_build_app()) as client:
         response = client.post("/api/v1/knowledge/legacy-kb/upload", files=_upload_payload())
@@ -161,7 +167,9 @@ def test_upload_ready_kb_returns_task_id(monkeypatch, tmp_path: Path) -> None:
         "needs_reindex": False,
         "status": "ready",
     }
-    monkeypatch.setattr(knowledge_router_module, "get_kb_manager", lambda: manager)
+    monkeypatch.setattr(knowledge_router_module, "get_kb_manager", lambda *_a, **_k: manager)
+    monkeypatch.setattr(knowledge_router_module, "_require_uid", lambda *_a, **_k: "test-uid")
+    monkeypatch.setattr(knowledge_router_module, "_kb_base_dir_for_user", lambda *_a, **_k: manager.base_dir)
     monkeypatch.setattr(knowledge_router_module, "_kb_base_dir", tmp_path / "knowledge_bases")
 
     async def _noop_upload_task(*_args, **_kwargs):

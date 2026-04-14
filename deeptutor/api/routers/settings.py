@@ -156,6 +156,24 @@ def _require_uid(request: Request) -> str:
     return uid
 
 
+def _require_owner(request: Request) -> str:
+    """Only role=owner callers may mutate global UI settings.
+
+    theme / language / reset / sidebar writes land in a global settings
+    file. A child account flipping the tutor into dark mode for everyone
+    (or worse, resetting preferences) would be a cross-user effect, so
+    these mutations are owner-only. Reads stay open."""
+    from fastapi import HTTPException
+
+    uid = _require_uid(request)
+    from deeptutor.services.users import get_user_service
+
+    u = get_user_service().get(uid)
+    if u is None or u.role != "owner":
+        raise HTTPException(status_code=403, detail="forbidden")
+    return uid
+
+
 @router.get("")
 async def get_settings(request: Request):
     uid = _require_uid(request)
@@ -382,7 +400,8 @@ async def apply_catalog(request: Request, payload: CatalogPayload | None = None)
 
 
 @router.put("/theme")
-async def update_theme(update: ThemeUpdate):
+async def update_theme(update: ThemeUpdate, request: Request):
+    _require_owner(request)
     current_ui = load_ui_settings()
     current_ui["theme"] = update.theme
     save_ui_settings(current_ui)
@@ -390,7 +409,8 @@ async def update_theme(update: ThemeUpdate):
 
 
 @router.put("/language")
-async def update_language(update: LanguageUpdate):
+async def update_language(update: LanguageUpdate, request: Request):
+    _require_owner(request)
     current_ui = load_ui_settings()
     current_ui["language"] = update.language
     save_ui_settings(current_ui)
@@ -398,7 +418,8 @@ async def update_language(update: LanguageUpdate):
 
 
 @router.put("/ui")
-async def update_ui_settings(update: UISettings):
+async def update_ui_settings(update: UISettings, request: Request):
+    _require_owner(request)
     current_ui = load_ui_settings()
     current_ui.update(update.model_dump(exclude_none=True))
     save_ui_settings(current_ui)
@@ -406,7 +427,8 @@ async def update_ui_settings(update: UISettings):
 
 
 @router.post("/reset")
-async def reset_settings():
+async def reset_settings(request: Request):
+    _require_owner(request)
     save_ui_settings(DEFAULT_UI_SETTINGS)
     return DEFAULT_UI_SETTINGS
 

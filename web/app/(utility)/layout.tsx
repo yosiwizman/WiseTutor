@@ -1,4 +1,5 @@
 import UtilitySidebar from "@/components/sidebar/UtilitySidebar";
+import { ActiveProfileBadge } from "@/components/ActiveProfileBadge";
 
 export default function UtilityLayout({
   children,
@@ -16,6 +17,7 @@ export default function UtilityLayout({
         <UtilitySidebar />
       </div>
       <main className="flex-1 overflow-y-auto bg-[var(--background)] pb-[env(safe-area-inset-bottom)]">
+        <ActiveProfileBadge />
         {children}
       </main>
     </div>
