@@ -290,7 +290,16 @@ test("mobile: drawer Settings link sits within viewport when drawer is open", as
   }
 });
 
+/* Guards the "no dev badge in front of family users" invariant for the
+ * PRODUCTION server path. CI runs `next dev` by design (fast turnaround
+ * without a build step), where the badge is expected; the assertion is
+ * only meaningful against a production runtime. Gate on WT_ASSERT_PROD=1
+ * so local prod-mode runs and a future prod-mode CI job can opt in. */
 test("mobile: no Next.js dev indicator (production runtime)", async () => {
+  test.skip(
+    process.env.WT_ASSERT_PROD !== "1",
+    "prod-runtime assertion; set WT_ASSERT_PROD=1 when the app is served via next start / standalone",
+  );
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ ...devices["iPhone 14"] });
   try {
