@@ -1,5 +1,21 @@
 # Installing WiseTutor on your computer
 
+## Where to download (updated 2026-04-13)
+
+The launcher zips live on the WiseTutor GitHub Release page:
+
+https://github.com/yosiwizman/WiseTutor/releases/tag/launchers-v1.0-2026-04-13
+
+Download the file for your OS:
+- Windows: `wisetutor-windows-launcher.zip`
+- Mac:     `wisetutor-macos-launcher.zip`
+
+Then follow the OS-specific steps below.
+
+If the release page later shows a newer tag (e.g. `launchers-v1.1-...`), grab that one instead — the release notes always say which URL it points to.
+
+---
+
 WiseTutor runs on Mr W's ai-desktop computer at home. This is a small
 launcher that opens the app in your browser, like a bookmark that
 looks like an app. Nothing is installed on your computer except the

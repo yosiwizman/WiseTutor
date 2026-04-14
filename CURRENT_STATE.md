@@ -119,14 +119,15 @@ in the repo for admin-side hand-install if ever needed.
   Gatekeeper may require right-click → Open on first launch.
 - Both launchers open `http://192.168.1.133:3782` in Chrome app mode.
   Zero backend on client machines.
+- **Published to GitHub (2026-04-13):** Branch `bootstrap/wisetutor-baseline` pushed to `origin` (HEAD `185f0b3`). GitHub Release `launchers-v1.0-2026-04-13` created with both launcher zips attached. New workflow `.github/workflows/launcher-validate.yml` runs Ubuntu-build + Windows-verify + macOS-verify on every push; structural-only, does NOT prove real click-through install.
 
 **Evidence tiers:**
 - Host no-terminal launch (icon + wt_launch.sh + user systemd unit):
   **Tier 2 local** — syntax-checked and tested for service bring-up
   (systemctl --user enable is reversible).
-- Windows launcher zip built: **Tier 2 local** (on Linux host).
+- Windows launcher zip built: **Tier 2 local + Tier 2 hosted (Windows-runner structural check) — real Windows click-through remains Tier 3**
 - Windows launcher verified on real Windows: **Tier 3** (unverified).
-- macOS launcher zip built: **Tier 2 local** (on Linux host).
+- macOS launcher zip built: **Tier 2 local + Tier 2 hosted (macOS-runner structural check) — real macOS click-through remains Tier 3**
 - macOS launcher verified on real macOS: **Tier 3** (unverified).
 - Stable URL: **Tier 2 local** — LAN IP works on the home network;
   assumes DHCP reservation at the router.

@@ -209,3 +209,21 @@ Remote access requires a one-time Tailscale setup. See
 - Family devices on home Wi-Fi: use the launcher zips or
   `http://192.168.1.133:3782` in any browser.
 - Phones off home Wi-Fi: NOT reachable yet. Blocked on Tailscale.
+
+---
+
+## GitHub download + hosted validation
+
+- **Release page for launcher downloads:**
+  https://github.com/yosiwizman/WiseTutor/releases/tag/launchers-v1.0-2026-04-13
+  — one Windows zip + one macOS zip attached.
+- **GitHub Actions launcher validation:**
+  https://github.com/yosiwizman/WiseTutor/actions/workflows/launcher-validate.yml
+  — runs three jobs on push to any branch:
+    1. Ubuntu: build both zips from source
+    2. Windows-latest: unzip + assert the 4 files + URL + PowerShell syntax check
+    3. macOS-latest: unzip + assert the .app bundle structure + URL + exec bit + plist lint
+  Passes prove the zips are structurally valid on each OS. They do
+  NOT prove a real family-member click-through install succeeds on
+  their actual Windows/Mac laptop. That last-mile check is still one
+  real click per OS.

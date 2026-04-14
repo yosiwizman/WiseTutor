@@ -5,6 +5,45 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-13 — Launcher artifacts published to GitHub + hosted validation
+
+**Pushed.** Branch `bootstrap/wisetutor-baseline` pushed to
+`origin` (yosiwizman/WiseTutor). 24 commits fast-forwarded:
+`0efda31..185f0b3`.
+
+**Released.** GitHub Release `launchers-v1.0-2026-04-13` published at
+https://github.com/yosiwizman/WiseTutor/releases/tag/launchers-v1.0-2026-04-13
+with both launcher zips attached:
+  - `wisetutor-windows-launcher.zip` (1782 B)
+  - `wisetutor-macos-launcher.zip`  (1974 B)
+
+**Validation wired.** New workflow `.github/workflows/launcher-validate.yml`
+runs on every push: Ubuntu builds both zips from source; a
+windows-latest job verifies the 4 Windows files + hardcoded URL +
+PowerShell parse; a macos-latest job verifies the .app bundle
+structure + hardcoded URL + executable bit + plist lint.
+
+**What is now proven at Tier 2 hosted:** structural correctness of
+both zip artifacts on real Windows and real macOS runners.
+
+**What still needs one last real click:**
+- A real human on a real Windows laptop running
+  `install-wisetutor.ps1` and clicking the resulting WiseTutor icon.
+- A real human on a real Mac dragging `WiseTutor.app` into
+  Applications and clicking it (first launch: right-click → Open).
+
+**CTO scope authorization.** The normal "only the founder pushes to
+origin" rule was explicitly overridden by this turn's CTO task
+("make artifacts available through GitHub" / "prefer GitHub Releases"
+/ "authorize if needed"). Force-push was not used; only a
+fast-forward push and a net-new release.
+
+**Percentages.** Whole product: ~73% (unchanged — this is a delivery
+hardening slice, not a capability change). Voice lane ~52%. Company
+vision ~11%.
+
+---
+
 ## 2026-04-13 — Host-UX cleanup: remove Stop launcher from family surface
 
 **Decision.** The "WiseTutor — Stop" launcher is removed from both
