@@ -25,13 +25,20 @@ class TaskIDManager:
                     cls._instance = cls()
         return cls._instance
 
-    def generate_task_id(self, task_type: str, task_key: str) -> str:
+    def generate_task_id(
+        self, task_type: str, task_key: str, owner_user_id: str | None = None
+    ) -> str:
         """
-        Generate unique ID for task
+        Generate unique ID for task.
 
         Args:
             task_type: Task type (e.g., 'kb_init', 'kb_upload', 'question_gen', 'solve', 'research')
             task_key: Task unique identifier (e.g., knowledge base name, question ID, etc.)
+            owner_user_id: Session uid that created this task. Persisted in
+                metadata and used by the stream endpoint to refuse a
+                caller that does not match — even with the exact foreign
+                task_id. Randomness of the id is NOT the security
+                control; ownership is.
 
         Returns:
             Task ID (format: {task_type}_{timestamp}_{uuid})
@@ -53,9 +60,34 @@ class TaskIDManager:
                 "task_key": task_key,
                 "created_at": datetime.now().isoformat(),
                 "status": "running",
+                "owner_user_id": owner_user_id,
             }
 
             return task_id
+
+    def get_owner(self, task_id: str) -> str | None:
+        """Return the owning user_id for a task, or None if unknown."""
+        with self._lock:
+            meta = self._task_metadata.get(task_id)
+            if not meta:
+                return None
+            return meta.get("owner_user_id")
+
+    def set_owner(self, task_id: str, owner_user_id: str) -> None:
+        """Attach/overwrite the owner for an existing task_id. Used when
+        a task is ensured before generate_task_id has run (e.g., external
+        ensure_task calls), so ownership is always anchored."""
+        with self._lock:
+            meta = self._task_metadata.setdefault(
+                task_id,
+                {
+                    "task_type": "unknown",
+                    "task_key": task_id,
+                    "created_at": datetime.now().isoformat(),
+                    "status": "running",
+                },
+            )
+            meta["owner_user_id"] = owner_user_id
 
     def get_task_id(self, task_key: str) -> str | None:
         """Get task ID"""

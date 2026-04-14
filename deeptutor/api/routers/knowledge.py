@@ -165,10 +165,12 @@ class LinkedFolderInfo(BaseModel):
     file_count: int
 
 
-def _build_unique_task_id(task_type: str, task_key_prefix: str) -> str:
+def _build_unique_task_id(
+    task_type: str, task_key_prefix: str, owner_user_id: str | None = None
+) -> str:
     task_manager = TaskIDManager.get_instance()
     task_key = f"{task_key_prefix}_{datetime.now().isoformat()}_{uuid4().hex[:8]}"
-    return task_manager.generate_task_id(task_type, task_key)
+    return task_manager.generate_task_id(task_type, task_key, owner_user_id=owner_user_id)
 
 
 def _save_uploaded_files(
@@ -701,13 +703,38 @@ async def delete_knowledge_base(kb_name: str, request: Request):
 async def stream_task_logs(task_id: str, request: Request):
     """Stream task-specific logs for knowledge-base operations.
 
-    Tenant gate: requires a session uid (anon -> 401). Task IDs include
-    a random suffix so cross-user enumeration is hard, but a child
-    cannot subscribe to ANY task stream without a valid session, and an
-    owner inspecting a child's task would need to know the exact id —
-    which is itself owner-only enumerable via the per-user scoped
-    /list endpoint."""
-    _require_uid(request)
+    Ownership-bound: every knowledge task_id is stamped with the uid
+    that created it (via _build_unique_task_id). This endpoint refuses
+    the stream unless the caller's uid matches. A child who learns or
+    guesses another user's task_id still cannot subscribe. Owner
+    cross-user inspect on task streams is intentionally NOT added —
+    tasks carry logs which could leak content, and the read-only
+    inspect contract is bounded to /list and /{kb_name}.
+
+    Deny shape:
+      - 401 anon / disabled (via _require_uid)
+      - 404 task_id unknown
+      - 403 task_id exists but is owned by another user
+    """
+    uid = _require_uid(request)
+    id_mgr = TaskIDManager.get_instance()
+    owner = id_mgr.get_owner(task_id)
+    if owner is None:
+        # Unknown task_id. Treat as 404 — does NOT leak whether the id
+        # is merely unseeded (ensure_task not yet called) or truly
+        # unknown; in either case a child cannot race to observe a
+        # foreign task.
+        _admin_log.warning(
+            "admin_action denied action=task_stream actor=%s task_id=%s reason=unknown_task",
+            uid, task_id,
+        )
+        raise HTTPException(status_code=404, detail="task_not_found")
+    if owner != uid:
+        _admin_log.warning(
+            "admin_action denied action=task_stream actor=%s task_id=%s owner=%s reason=not_owner",
+            uid, task_id, owner,
+        )
+        raise HTTPException(status_code=403, detail="forbidden")
     manager = get_task_stream_manager()
     manager.ensure_task(task_id)
     return StreamingResponse(
@@ -752,7 +779,7 @@ async def upload_files(
         uploaded_files, uploaded_file_paths = _save_uploaded_files(
             files, raw_dir, allowed_extensions=allowed_extensions
         )
-        task_id = _build_unique_task_id("kb_upload", kb_name)
+        task_id = _build_unique_task_id("kb_upload", kb_name, owner_user_id=uid)
         get_task_stream_manager().ensure_task(task_id)
 
         logger.info(f"Uploading {len(uploaded_files)} files to KB '{kb_name}'")
@@ -800,7 +827,7 @@ async def create_knowledge_base(
         rag_provider = _validate_registered_provider(rag_provider)
 
         logger.info(f"Creating KB: {name}")
-        task_id = _build_unique_task_id("kb_init", name)
+        task_id = _build_unique_task_id("kb_init", name, owner_user_id=uid)
         get_task_stream_manager().ensure_task(task_id)
 
         # Register KB to kb_config.json immediately with "initializing" status
@@ -1131,7 +1158,7 @@ async def sync_folder(
         logger.info(
             f"Syncing {len(files_to_process)} files from folder '{folder_path}' to KB '{kb_name}'"
         )
-        task_id = _build_unique_task_id("kb_upload", f"{kb_name}_folder_{folder_id}")
+        task_id = _build_unique_task_id("kb_upload", f"{kb_name}_folder_{folder_id}", owner_user_id=uid)
         get_task_stream_manager().ensure_task(task_id)
 
         # NOTE: We DO NOT update sync state here anymore.
