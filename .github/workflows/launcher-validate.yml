@@ -58,7 +58,7 @@ jobs:
       - name: Verify hardcoded URL
         shell: bash
         run: |
-          grep -q "http://192.168.1.133:3782" win/WiseTutor.bat
+          grep -q "http://ai-desktop-system-product-name:3782" win/WiseTutor.bat
           echo "URL ok in WiseTutor.bat"
 
       - name: PowerShell syntax check
@@ -95,7 +95,7 @@ jobs:
 
       - name: Verify hardcoded URL
         run: |
-          grep -q "http://192.168.1.133:3782" "mac/WiseTutor.app/Contents/MacOS/WiseTutor"
+          grep -q "http://ai-desktop-system-product-name:3782" "mac/WiseTutor.app/Contents/MacOS/WiseTutor"
           echo "URL ok in MacOS/WiseTutor"
 
       - name: Verify exec bit on MacOS/WiseTutor
