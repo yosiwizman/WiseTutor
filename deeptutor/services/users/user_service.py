@@ -132,6 +132,13 @@ class User:
     pin_is_default: bool = True
     # Per-user behavior preferences. Merged with role defaults on read.
     preferences: dict[str, Any] = field(default_factory=dict)
+    # Profile lifecycle v1: owner can disable a non-owner profile to revoke
+    # access without deleting any data. A disabled user fails identity
+    # resolution at the cookie boundary AND fails PIN switch at the
+    # switch boundary, so the entire protected surface refuses them
+    # consistently. Re-enable restores normal access; the user's data
+    # (memory, knowledge, sessions) is preserved.
+    disabled: bool = False
 
     def verify_pin(self, pin: str) -> bool:
         if not self.pin_hash or not self.pin_salt:
@@ -157,6 +164,7 @@ class User:
             "pin_set": bool(self.pin_hash),
             "pin_is_default": self.pin_is_default,
             "preferences": self.effective_preferences(),
+            "disabled": self.disabled,
         }
 
 
@@ -345,15 +353,31 @@ class UserService:
     def switch(self, user_id: str, pin: str) -> User:
         """Validate PIN and update last_seen. Does NOT change a process-global
         active user — identity is per-request via signed cookie. `_active_id`
-        remains as a last-used hint only (for CLI / diagnostics)."""
+        remains as a last-used hint only (for CLI / diagnostics).
+
+        A disabled user is refused at this boundary even with a correct PIN —
+        their account exists on disk but cannot acquire a session cookie."""
         with self._lock:
             u = self._users.get(user_id)
             if not u:
                 raise KeyError(user_id)
+            if u.disabled:
+                raise PermissionError("disabled")
             if not u.verify_pin(pin):
                 raise PermissionError("bad pin")
             u.last_seen_at = datetime.now(timezone.utc).isoformat()
             self._active_id = u.id  # last-used hint; not a request identity
+            self._save()
+            return u
+
+    def set_disabled(self, user_id: str, value: bool) -> User:
+        """Owner-only lifecycle toggle. The router enforces the owner check
+        and the no-self-disable rule; this is the storage write."""
+        with self._lock:
+            u = self._users.get(user_id)
+            if u is None:
+                raise KeyError(user_id)
+            u.disabled = bool(value)
             self._save()
             return u
 

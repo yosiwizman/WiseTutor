@@ -234,6 +234,7 @@ jobs:
             --project=mobile-responsive \
             --project=rbac-foundation \
             --project=admin-oversight \
+            --project=profile-lifecycle \
             --project=quiz-summary \
             --project=voice-turn \
             --project=voice-turn-real \

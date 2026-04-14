@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ShieldAlert, KeyRound, Save, RefreshCw } from "lucide-react";
+import { ShieldAlert, KeyRound, Save, RefreshCw, UserMinus, UserPlus } from "lucide-react";
 
 const API_BASE =
   typeof window !== "undefined"
@@ -15,6 +15,7 @@ type PublicUser = {
   theme: string;
   pin_set: boolean;
   pin_is_default: boolean;
+  disabled?: boolean;
   preferences?: {
     tone?: string;
     response_length?: string;
@@ -161,6 +162,30 @@ export function AdminPanel() {
     }
   }
 
+  async function toggleDisable(targetId: string, currentlyDisabled: boolean) {
+    const action = currentlyDisabled ? "enable" : "disable";
+    if (!currentlyDisabled) {
+      if (!window.confirm(`Disable ${targetId}? They lose access immediately. You can re-enable later.`)) return;
+    }
+    setBusy(`lifecycle:${targetId}`);
+    setErr(null);
+    try {
+      const r = await fetch(`${API_BASE}/api/v1/users/${targetId}/${action}`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!r.ok) {
+        setErr(`${action} failed (HTTP ${r.status})`);
+        return;
+      }
+      setFlash(`${action === "disable" ? "Disabled" : "Re-enabled"} ${targetId}`);
+      setTimeout(() => setFlash(null), 2500);
+      await load();
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function saveCaps(targetId: string) {
     setBusy(`caps:${targetId}`);
     setErr(null);
@@ -218,6 +243,28 @@ export function AdminPanel() {
             <span>{u.display_name}</span>
             <span className="text-[10px] text-[var(--muted-foreground)] font-normal">({u.role})</span>
             <span className="text-[10px] font-mono text-[var(--muted-foreground)]">id: {u.id}</span>
+            {u.disabled && (
+              <span
+                data-testid={`admin-status-${u.id}`}
+                className="rounded-full bg-rose-100 px-2 py-[1px] text-[10px] font-medium uppercase tracking-wide text-rose-800 dark:bg-rose-950/40 dark:text-rose-300"
+              >
+                disabled
+              </span>
+            )}
+            <button
+              data-testid={`admin-toggle-disable-${u.id}`}
+              onClick={() => toggleDisable(u.id, !!u.disabled)}
+              disabled={busy === `lifecycle:${u.id}`}
+              className={
+                "ml-auto inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-normal " +
+                (u.disabled
+                  ? "border-emerald-400/50 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
+                  : "border-rose-400/50 text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/30")
+              }
+            >
+              {u.disabled ? <UserPlus size={12} /> : <UserMinus size={12} />}
+              {u.disabled ? "Re-enable" : "Disable"}
+            </button>
           </div>
 
           {/* PIN reset */}

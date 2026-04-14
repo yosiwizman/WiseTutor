@@ -145,5 +145,10 @@ export default defineConfig({
       testMatch: "**/admin-oversight.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
+    {
+      name: "profile-lifecycle",
+      testMatch: "**/profile-lifecycle.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });

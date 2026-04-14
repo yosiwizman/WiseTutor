@@ -71,8 +71,28 @@ def verify_cookie(raw: Optional[str]) -> Optional[str]:
 
 
 def resolve_request_user(request: Request) -> Optional[str]:
-    """Return the validated user id from the request cookie or None."""
-    return verify_cookie(request.cookies.get(COOKIE_NAME))
+    """Return the validated user id from the request cookie or None.
+
+    A disabled user resolves to None here — every protected `_require_uid`
+    style helper across the API will then 401, which is the consistent
+    deny shape we want at the cookie boundary. The /users/active
+    endpoint bypasses this check via `verify_cookie` directly so it can
+    return a more specific 403 with detail="disabled" for UX."""
+    uid = verify_cookie(request.cookies.get(COOKIE_NAME))
+    if not uid:
+        return None
+    try:
+        # Local import to avoid a module-load cycle with user_service.
+        from deeptutor.services.users import get_user_service
+
+        u = get_user_service().get(uid)
+        if u is None or getattr(u, "disabled", False):
+            return None
+    except Exception:
+        # If user service is unavailable for any reason we fail closed:
+        # the caller will see no identity and return 401, never elevated.
+        return None
+    return uid
 
 
 def resolve_headers_user(headers: dict) -> Optional[str]:

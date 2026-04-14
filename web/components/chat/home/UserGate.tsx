@@ -42,20 +42,35 @@ export function UserGate({ children }: { children: React.ReactNode }) {
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
 
+  const [disabledIdentity, setDisabledIdentity] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     try {
       const r = await fetch(`${API_BASE}/api/v1/users`, j({ method: "GET" }));
       const jl = (await r.json()) as UserList;
       setList(jl);
-      if (jl.active_user_id) {
-        const r2 = await fetch(`${API_BASE}/api/v1/users/active`, j({ method: "GET" }));
-        if (r2.ok) {
-          setActiveUser((await r2.json()) as PublicUser);
-        } else {
-          setActiveUser(null);
+      // Always probe /active even if active_user_id is null in the list
+      // payload — for a disabled user the list endpoint returns null
+      // because identity resolution drops disabled callers, but /active
+      // is special-cased to return 403 detail=disabled for the very same
+      // cookie. We need that signal to render the blocked-state screen.
+      const r2 = await fetch(`${API_BASE}/api/v1/users/active`, j({ method: "GET" }));
+      if (r2.ok) {
+        setActiveUser((await r2.json()) as PublicUser);
+        setDisabledIdentity(null);
+      } else if (r2.status === 403) {
+        // Backend body shape: {"detail": {"detail": "disabled", "user_id": "...", "display_name": "..."}}
+        let detailField: any = null;
+        try { detailField = (await r2.json())?.detail; } catch {}
+        const detailKind = typeof detailField === "string" ? detailField : detailField?.detail;
+        if (detailKind === "disabled") {
+          const uid = (typeof detailField === "object" && detailField?.user_id) || jl.active_user_id || "unknown";
+          setDisabledIdentity(uid);
         }
+        setActiveUser(null);
       } else {
         setActiveUser(null);
+        setDisabledIdentity(null);
       }
     } catch {
       setActiveUser(null);
@@ -141,6 +156,38 @@ export function UserGate({ children }: { children: React.ReactNode }) {
   // Cleared
   if (activeUser && !activeUser.pin_is_default) {
     return <>{children}</>;
+  }
+
+  // Disabled-by-owner screen — full takeover, no normal product use
+  if (disabledIdentity) {
+    const who = (list?.users ?? []).find((u) => u.id === disabledIdentity);
+    return (
+      <div
+        data-testid="user-gate-disabled"
+        data-disabled-user-id={disabledIdentity}
+        className="fixed inset-0 z-[2147483600] flex items-center justify-center bg-[var(--background)]/95 backdrop-blur-sm"
+      >
+        <div className="w-[400px] rounded-2xl border border-rose-300 bg-[var(--card)] p-5 shadow-2xl">
+          <div className="mb-3 text-[14px] font-semibold text-rose-700 dark:text-rose-300">
+            Account disabled
+          </div>
+          <p className="text-[13px] text-[var(--foreground)]">
+            This profile <strong>{who?.display_name ?? disabledIdentity}</strong> has been disabled
+            by the household owner. Ask them to re-enable it from Settings → Admin.
+          </p>
+          <button
+            data-testid="user-gate-disabled-signout"
+            onClick={async () => {
+              try { await fetch(`${API_BASE}/api/v1/users/logout`, j({ method: "POST" })); } catch {}
+              await load();
+            }}
+            className="mt-4 w-full rounded-md bg-[var(--foreground)] px-2 py-2 text-[12px] font-medium text-[var(--background)]"
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
+    );
   }
 
   // Login screen

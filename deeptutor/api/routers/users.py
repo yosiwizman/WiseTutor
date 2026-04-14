@@ -63,12 +63,29 @@ async def list_users(request: Request):
 
 @router.get("/active")
 async def active_user(request: Request):
-    uid = resolve_request_user(request)
+    """Return the active user payload.
+
+    Bypasses the disabled-aware `resolve_request_user` so that a disabled
+    caller still sees a specific 403 detail="disabled" instead of a
+    generic 401 — the frontend uses that signal to render the
+    blocked-state UX. All OTHER endpoints continue to use the
+    disabled-aware resolver and uniformly 401 disabled callers."""
+    from deeptutor.services.users.identity import COOKIE_NAME, verify_cookie
+
+    uid = verify_cookie(request.cookies.get(COOKIE_NAME))
     if not uid:
         raise HTTPException(status_code=401, detail="no_user")
     u = get_user_service().get(uid)
     if not u:
         raise HTTPException(status_code=401, detail="no_user")
+    if u.disabled:
+        # Body carries `user_id` so the UI can render a personalized
+        # blocked-state screen ("Bella is disabled") instead of a
+        # generic placeholder.
+        raise HTTPException(
+            status_code=403,
+            detail={"detail": "disabled", "user_id": u.id, "display_name": u.display_name},
+        )
     return u.public()
 
 
@@ -77,7 +94,12 @@ async def switch_user(req: SwitchRequest, response: Response):
     svc = get_user_service()
     try:
         u = svc.switch(req.user_id, req.pin)
-    except PermissionError:
+    except PermissionError as exc:
+        # Distinguish disabled from bad-PIN so the UI can render a
+        # specific blocked-state message instead of "wrong PIN".
+        if str(exc) == "disabled":
+            logger.info("user switch rejected: disabled user_id=%s", req.user_id)
+            raise HTTPException(status_code=403, detail="disabled")
         logger.info("user switch rejected: bad PIN for user_id=%s", req.user_id)
         raise HTTPException(status_code=403, detail="invalid credentials")
     except KeyError:
@@ -252,5 +274,68 @@ async def upsert(req: UpsertRequest, request: Request):
     _admin_log.warning(
         "admin_action ok action=user_upsert actor=%s target=%s role=%s",
         caller_id, req.user_id, req.role,
+    )
+    return u.public()
+
+
+def _require_owner_for_lifecycle(request: Request, target_user_id: str, action: str):
+    """Shared gate for disable / enable. Returns the resolved caller User."""
+    caller_id = resolve_request_user(request)
+    if not caller_id:
+        # resolve_request_user already returns None for disabled callers, so
+        # a disabled actor can never even reach this audit log line — they
+        # silently 401 like any anon caller. That's the consistent shape.
+        raise HTTPException(status_code=401, detail="no_user")
+    svc = get_user_service()
+    caller = svc.get(caller_id)
+    if caller is None or caller.role != "owner":
+        _admin_log.warning(
+            "admin_action denied action=%s actor=%s target=%s reason=not_owner",
+            action, caller_id, target_user_id,
+        )
+        raise HTTPException(status_code=403, detail="forbidden")
+    target = svc.get(target_user_id)
+    if target is None:
+        _admin_log.warning(
+            "admin_action denied action=%s actor=%s target=%s reason=target_not_found",
+            action, caller_id, target_user_id,
+        )
+        raise HTTPException(status_code=404, detail="user_not_found")
+    if target.id == caller.id:
+        _admin_log.warning(
+            "admin_action denied action=%s actor=%s target=%s reason=self_lockout_forbidden",
+            action, caller_id, target_user_id,
+        )
+        raise HTTPException(status_code=400, detail="self_lockout_forbidden")
+    if target.role == "owner":
+        # Defense in depth: even if the household ever has more than one
+        # owner, disabling another owner via this UI is out of scope for
+        # this slice. A future "ownership transfer" slice can revisit.
+        _admin_log.warning(
+            "admin_action denied action=%s actor=%s target=%s reason=cannot_disable_owner",
+            action, caller_id, target_user_id,
+        )
+        raise HTTPException(status_code=403, detail="cannot_disable_owner")
+    return caller, target
+
+
+@router.post("/{user_id}/disable")
+async def disable_user(user_id: str, request: Request):
+    _caller, _target = _require_owner_for_lifecycle(request, user_id, "user_disable")
+    u = get_user_service().set_disabled(user_id, True)
+    _admin_log.warning(
+        "admin_action ok action=user_disable actor=%s target=%s",
+        _caller.id, user_id,
+    )
+    return u.public()
+
+
+@router.post("/{user_id}/enable")
+async def enable_user(user_id: str, request: Request):
+    _caller, _target = _require_owner_for_lifecycle(request, user_id, "user_enable")
+    u = get_user_service().set_disabled(user_id, False)
+    _admin_log.warning(
+        "admin_action ok action=user_enable actor=%s target=%s",
+        _caller.id, user_id,
     )
     return u.public()
