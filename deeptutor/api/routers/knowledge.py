@@ -744,6 +744,96 @@ async def stream_task_logs(task_id: str, request: Request):
     )
 
 
+class IngestUrlRequest(BaseModel):
+    url: str
+
+
+@router.post("/{kb_name}/ingest-url")
+async def ingest_url(
+    kb_name: str,
+    payload: IngestUrlRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+):
+    """URL ingestion v1: one public HTML page -> one staged text
+    artifact in the caller's own KB, processed by the same background
+    task that handles /{kb_name}/upload.
+
+    Safety contract lives in deeptutor.services.ingestion.url_fetch:
+      - http/https only
+      - host must resolve to a public IP (no private/loopback/link-local)
+      - no PDF URLs or PDF content-types
+      - 1 MiB response cap, 10s timeout
+      - redirects re-validate against the same gate
+    """
+    from deeptutor.services.ingestion.url_fetch import (
+        UrlIngestError,
+        fetch_public_html,
+        render_artifact,
+        staged_filename_for,
+    )
+
+    uid = _require_uid(request)
+    try:
+        manager = get_kb_manager(uid)
+        kb_entry = _load_kb_entry_or_404(manager, kb_name)
+        _assert_kb_writable_or_409(kb_name, kb_entry)
+        kb_provider = _validate_registered_provider(
+            kb_entry.get("rag_provider") or DEFAULT_PROVIDER
+        )
+
+        try:
+            result = fetch_public_html(payload.url)
+        except UrlIngestError as exc:
+            _CODE_TO_STATUS = {
+                "invalid_url": 400,
+                "unsupported_scheme": 400,
+                "unsafe_target": 400,
+                "dns_failure": 400,
+                "pdf_not_supported": 400,
+                "not_html": 415,
+                "too_large": 413,
+                "fetch_failed": 502,
+            }
+            status = _CODE_TO_STATUS.get(exc.code, 400)
+            raise HTTPException(status_code=status, detail={"code": exc.code, "message": exc.message})
+
+        kb_path = manager.get_knowledge_base_path(kb_name)
+        raw_dir = kb_path / "raw"
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        filename = staged_filename_for(result.url, result.title)
+        staged_path = raw_dir / filename
+        staged_path.write_text(render_artifact(result), encoding="utf-8")
+
+        task_id = _build_unique_task_id("kb_upload", kb_name, owner_user_id=uid)
+        get_task_stream_manager().ensure_task(task_id)
+        background_tasks.add_task(
+            run_upload_processing_task,
+            kb_name=kb_name,
+            base_dir=str(manager.base_dir),
+            uploaded_file_paths=[str(staged_path)],
+            task_id=task_id,
+            rag_provider=kb_provider,
+        )
+        logger.info(
+            f"URL ingested as staged artifact kb={kb_name} file={filename} source_url={result.url}"
+        )
+        return {
+            "message": "URL fetched and staged for ingestion.",
+            "source_url": result.url,
+            "final_url": result.final_url,
+            "title": result.title,
+            "file": filename,
+            "task_id": task_id,
+        }
+    except HTTPException:
+        raise
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"Knowledge base '{kb_name}' not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=format_exception_message(e)) from e
+
+
 @router.post("/{kb_name}/upload")
 async def upload_files(
     kb_name: str,

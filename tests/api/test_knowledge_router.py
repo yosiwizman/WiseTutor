@@ -185,6 +185,95 @@ def test_upload_ready_kb_returns_task_id(monkeypatch, tmp_path: Path) -> None:
     assert isinstance(body.get("task_id"), str) and body["task_id"]
 
 
+def test_ingest_url_writes_staged_artifact_and_queues_task(monkeypatch, tmp_path: Path) -> None:
+    """Router-level proof that /ingest-url, given a valid fetch result,
+    stages a .txt artifact into raw/ and queues run_upload_processing_task.
+    We monkeypatch fetch_public_html to return a canned FetchResult so
+    this unit test never hits the network AND never fights the SSRF
+    gate (which correctly refuses localhost in the live backend)."""
+    from deeptutor.services.ingestion import url_fetch as _uf
+
+    manager = _FakeKBManager(tmp_path / "knowledge_bases")
+    manager.config["knowledge_bases"]["ready-kb"] = {
+        "path": "ready-kb",
+        "rag_provider": "llamaindex",
+        "needs_reindex": False,
+        "status": "ready",
+    }
+    monkeypatch.setattr(knowledge_router_module, "get_kb_manager", lambda *_a, **_k: manager)
+    monkeypatch.setattr(knowledge_router_module, "_require_uid", lambda *_a, **_k: "test-uid")
+    monkeypatch.setattr(knowledge_router_module, "_kb_base_dir_for_user", lambda *_a, **_k: manager.base_dir)
+
+    async def _noop_upload_task(*_args, **_kwargs):
+        return None
+
+    queued: list[dict] = []
+
+    def _capture_add_task(func, **kwargs):
+        queued.append(kwargs)
+
+    monkeypatch.setattr(knowledge_router_module, "run_upload_processing_task", _noop_upload_task)
+
+    # Canned successful fetch result.
+    fake_result = _uf.FetchResult(
+        url="https://example.org/article",
+        final_url="https://example.org/article",
+        title="Article",
+        text="Body text line 1.\nBody text line 2.",
+        content_type="text/html; charset=utf-8",
+    )
+    monkeypatch.setattr(_uf, "fetch_public_html", lambda url, **_k: fake_result)
+
+    with TestClient(_build_app()) as client:
+        response = client.post(
+            "/api/v1/knowledge/ready-kb/ingest-url",
+            json={"url": "https://example.org/article"},
+        )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["source_url"] == "https://example.org/article"
+    assert body["title"] == "Article"
+    assert isinstance(body["task_id"], str) and body["task_id"]
+
+    # Staged file lives in the expected per-user KB raw/ dir.
+    raw_dir = manager.base_dir / "ready-kb" / "raw"
+    assert raw_dir.exists(), f"raw dir was not created at {raw_dir}"
+    staged = list(raw_dir.iterdir())
+    assert len(staged) == 1, f"expected exactly one staged artifact, got {staged}"
+    content = staged[0].read_text(encoding="utf-8")
+    assert "Source URL: https://example.org/article" in content
+    assert "Body text line 1." in content
+
+
+def test_ingest_url_rejects_private_host_without_staging(monkeypatch, tmp_path: Path) -> None:
+    """Safety regression: the router must NOT write any staged artifact
+    or queue any task when the safety gate refuses the URL."""
+    manager = _FakeKBManager(tmp_path / "knowledge_bases")
+    manager.config["knowledge_bases"]["ready-kb"] = {
+        "path": "ready-kb",
+        "rag_provider": "llamaindex",
+        "needs_reindex": False,
+        "status": "ready",
+    }
+    monkeypatch.setattr(knowledge_router_module, "get_kb_manager", lambda *_a, **_k: manager)
+    monkeypatch.setattr(knowledge_router_module, "_require_uid", lambda *_a, **_k: "test-uid")
+    monkeypatch.setattr(knowledge_router_module, "_kb_base_dir_for_user", lambda *_a, **_k: manager.base_dir)
+
+    with TestClient(_build_app()) as client:
+        response = client.post(
+            "/api/v1/knowledge/ready-kb/ingest-url",
+            json={"url": "http://127.0.0.1/admin"},
+        )
+    assert response.status_code == 400
+    body = response.json()
+    assert body["detail"]["code"] == "unsafe_target"
+
+    # No file should have been staged.
+    raw_dir = manager.base_dir / "ready-kb" / "raw"
+    assert not raw_dir.exists() or list(raw_dir.iterdir()) == []
+
+
 def test_update_config_rejects_unregistered_provider() -> None:
     class _FakeConfigService:
         def set_kb_config(self, kb_name: str, config: dict) -> None:
