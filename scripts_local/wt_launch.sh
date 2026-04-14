@@ -6,7 +6,7 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOG_FILE="${REPO_DIR}/logs/launcher.log"
-TARGET_URL="http://192.168.1.133:3782"
+TARGET_URL="http://ai-desktop-system-product-name:3782"
 START_SCRIPT="${REPO_DIR}/scripts_local/wt_start.sh"
 
 mkdir -p "${REPO_DIR}/logs"
