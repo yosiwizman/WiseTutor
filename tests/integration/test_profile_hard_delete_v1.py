@@ -30,7 +30,9 @@ from pathlib import Path
 import pytest
 
 BASE = "http://localhost:8001"
-REPO = Path("/home/ai-desktop/projects/WiseTutor")
+# CI and local runners have different repo roots; the conftest already
+# exposes WISETUTOR_REPO (with a local default), so reuse that contract.
+REPO = Path(os.environ.get("WISETUTOR_REPO") or "/home/ai-desktop/projects/WiseTutor")
 MRW_PIN = os.environ.get("WT_MRW_PIN", "2468")
 BELLA_PIN = os.environ.get("WT_BELLA_PIN", "1357")
 
