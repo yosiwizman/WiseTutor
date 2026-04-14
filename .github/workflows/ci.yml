@@ -236,6 +236,7 @@ jobs:
             --project=admin-oversight \
             --project=profile-lifecycle \
             --project=knowledge-isolation-v2 \
+            --project=theme-isolation-v1 \
             --project=quiz-summary \
             --project=voice-turn \
             --project=voice-turn-real \

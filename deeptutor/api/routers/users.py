@@ -183,6 +183,30 @@ async def put_preferences(user_id: str, patch: PreferencesPatch, request: Reques
     return {"user_id": user_id, "preferences": updated}
 
 
+class SelfThemeRequest(BaseModel):
+    theme: Literal["light", "dark", "bella"]
+
+
+@router.put("/me/theme")
+async def set_my_theme(req: SelfThemeRequest, request: Request):
+    """Persist the caller's own theme (per-user). Self-only.
+
+    Previously the UI's theme toggle only wrote to a shared
+    localStorage key, which (a) bled across users in the same browser
+    and (b) never persisted on the server — so a user's preferred
+    theme reverted on next sign-in. This endpoint writes the top-level
+    `User.theme` field, which is the existing per-user source of truth
+    surfaced by GET /users/active."""
+    caller_id = resolve_request_user(request)
+    if not caller_id:
+        raise HTTPException(status_code=401, detail="no_user")
+    try:
+        updated = get_user_service().update_preferences(caller_id, {"theme": req.theme})
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"user_id": caller_id, "theme": req.theme, "preferences": updated}
+
+
 @router.post("/logout")
 async def logout(response: Response):
     clear_user_cookie(response)

@@ -26,6 +26,17 @@ function applyTheme(theme: WiseTutorTheme | null) {
   } else {
     html.classList.remove("dark");
   }
+  // Overwrite the shared localStorage key with the active user's
+  // authoritative theme. Without this, a prior user's theme stays in
+  // localStorage and ThemeScript applies it on the next reload before
+  // the provider finishes hydrating — a brief cross-user flash.
+  try {
+    if (theme === "dark" || theme === "light") {
+      window.localStorage.setItem("deeptutor-theme", theme);
+    }
+  } catch {
+    /* localStorage may be disabled */
+  }
 }
 
 async function fetchActiveTheme(): Promise<WiseTutorTheme | null> {

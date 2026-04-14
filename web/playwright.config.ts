@@ -155,5 +155,10 @@ export default defineConfig({
       testMatch: "**/knowledge-isolation-v2.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
+    {
+      name: "theme-isolation-v1",
+      testMatch: "**/theme-isolation-v1.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });

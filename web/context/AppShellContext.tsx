@@ -149,6 +149,21 @@ export function AppShellProvider({
   const setTheme = useCallback((nextTheme: Theme) => {
     applyThemePreference(nextTheme);
     setThemeState(nextTheme);
+    // Persist per-user on the server so the theme sticks across sessions
+    // AND cannot bleed to another user in the same browser — the shared
+    // localStorage write is kept for instant boot paint, but the server
+    // field (returned by GET /users/active) is the authoritative source
+    // the ThemeProvider applies on mount / user-switch.
+    if (typeof window !== "undefined") {
+      fetch("/api/v1/users/me/theme", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme: nextTheme }),
+      }).catch(() => {
+        /* best-effort; the local paint already happened */
+      });
+    }
   }, []);
 
   const setLanguage = useCallback((nextLanguage: AppLanguage) => {
