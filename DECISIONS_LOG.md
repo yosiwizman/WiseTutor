@@ -5,6 +5,29 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-14 — Real iPhone re-test: composer + settings confirmed (Tier 1)
+
+**Evidence.** Founder re-tested WiseTutor on the real iPhone over
+Tailscale after commit `c5ddd5d` and reported verbatim:
+
+    iphone retest: yes — composer fully visible and settings reachable
+
+**Tier movement.** Real-iPhone-Safari layout: **Tier 2 local + DOM
+invariants → Tier 1** (independently re-executed against real iOS
+Safari by the founder). The physical-device gap left open by the
+previous entry is now closed.
+
+**No code change in this commit** — docs-only promotion recording
+the real-device confirmation.
+
+**Percentages.** Whole WiseTutor product: ~79% → ~80% (iPhone
+usability now Tier 1 proven end-to-end by the actual target user on
+the actual target device — a real family-alpha milestone, not just
+an emulator pass). Voice lane ~52% unchanged. Company vision ~11%
+unchanged.
+
+---
+
 ## 2026-04-14 — Real-iPhone-Safari follow-up: h-dvh + safe-area + drawer scroll
 
 **Problem.** Founder's real iPhone screenshots after commit `f140397`

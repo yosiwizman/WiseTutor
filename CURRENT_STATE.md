@@ -89,7 +89,7 @@ scripts under `scripts_local/wt_*.sh`. Operator runbook at
   - Sidebar `<aside>` (both expanded + collapsed branches): `h-screen` → `h-dvh`, `overflow-y-auto` for internal scroll if content exceeds drawer height, `pb-[env(safe-area-inset-bottom)]` for Settings comfort.
   - Utility layout: sidebar hidden below `md` (`hidden md:flex`) so the settings page takes full mobile width; main area made `overflow-y-auto` so long settings content scrolls.
 
-Proof: **9/9** `mobile-responsive` Playwright cases at iPhone 14 viewport (6 original + 3 new real-device-targeted: root uses `h-dvh` class, `<main>` has safe-area padding declared, drawer Settings link is within viewport when open). Full cross-suite regression **64/64** green. **Mobile responsiveness tier: Tier 1 local; real-iPhone-Safari layout: Tier 2 local** (Playwright emulator doesn't simulate Safari bar collapse; DOM-level invariants proven; physical device re-verification ideally happens after founder opens the updated URL once).
+Proof: **9/9** `mobile-responsive` Playwright cases at iPhone 14 viewport (6 original + 3 new real-device-targeted: root uses `h-dvh` class, `<main>` has safe-area padding declared, drawer Settings link is within viewport when open). Full cross-suite regression **64/64** green. **Mobile responsiveness tier: Tier 1 local; real-iPhone-Safari layout: Tier 1 (2026-04-14)** — founder re-tested on the real iPhone after `c5ddd5d` and reported "composer fully visible and settings reachable". Physical-device gap closed.
 
 **Evidence tiers:**
 - Packaged startup scripts exist + basic sanity: **Tier 2 local** — Agent A ran wt_status + wt_health against live services.
