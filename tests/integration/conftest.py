@@ -94,7 +94,13 @@ def _restore_user_catalogs_before_each_test():
     catalog-load (which can wipe profiles when env keys aren't materialized,
     e.g. on CI with placeholder keys) does not bleed into the legacy-shared
     catalog assertion downstream. Uses _legacy snapshot when present, else
-    the CI-seeded shape, so both local + CI runs have a stable baseline."""
+    the CI-seeded shape, so both local + CI runs have a stable baseline.
+
+    Also resets the in-process ModelCatalogService cache so a subsequent
+    `.load()` rereads from disk instead of returning the previously
+    hydrated (and potentially wiped) in-memory copy. Without that reset,
+    rewriting the file is a no-op for any code path that already cached
+    the empty-default catalog object."""
     import json as _json
 
     snap = _pick_mrw_snapshot()
@@ -104,6 +110,26 @@ def _restore_user_catalogs_before_each_test():
         # No legacy snapshot: re-seed from the CI shape so the assertion
         # in test_legacy_shared_catalog_is_off_the_live_path still holds.
         MRW_CATALOG.write_text(_json.dumps(_MRW_CI_SEED_CATALOG, indent=2))
+    # Wipe the live shared/legacy catalog to a deliberately distinct
+    # shape so the legacy-vs-user divergence assertion is robust against
+    # any in-process backend cache that may have already written the
+    # empty default earlier in the run.
+    shared_catalog = REPO / "data/user/settings/model_catalog.json"
+    if shared_catalog.parent.exists():
+        shared_catalog.write_text(
+            _json.dumps(
+                {
+                    "version": 1,
+                    "_legacy_marker": "shared_legacy_only",
+                    "services": {
+                        "llm": {"active_profile_id": None, "active_model_id": None, "profiles": []},
+                        "embedding": {"active_profile_id": None, "active_model_id": None, "profiles": []},
+                        "search": {"active_profile_id": None, "profiles": []},
+                    },
+                },
+                indent=2,
+            )
+        )
     # Bella's catalog gets reset to a Bella-specific default shape so the
     # tests have a stable starting point.
     if BELLA_CATALOG.exists():
