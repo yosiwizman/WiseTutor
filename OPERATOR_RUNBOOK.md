@@ -130,7 +130,7 @@ systemd unit so the app starts automatically when you log in.
 
 **Daily use:** double-click the "WiseTutor" icon on the Desktop. It calls
 `scripts_local/wt_launch.sh` under the hood, which starts the app and opens
-Chrome in app mode pointing at http://ai-desktop-system-product-name:3782. **Closing the
+Chrome in app mode pointing at http://100.109.173.59:3782. **Closing the
 browser window closes your view only — the WiseTutor host keeps running
 in the background so you can reopen it instantly.** No Stop icon is placed
 on the Desktop; stopping the host is a maintenance action (see below),
@@ -155,7 +155,7 @@ of this setup. A logged-in session on ai-desktop is acceptable for family use.
 Day-to-day launching no longer requires a terminal.
 
 **Stable private URL (Tailscale MagicDNS — live since 2026-04-14):**
-the family URL `http://ai-desktop-system-product-name:3782` resolves
+the family URL `http://100.109.173.59:3782` resolves
 privately over Tailscale to `100.109.173.59`. Any family device
 enrolled in the tailnet (iPhone, Android, Mac, Windows) reaches
 WiseTutor from anywhere — not limited to home Wi-Fi. No public
@@ -172,7 +172,7 @@ launcher that opens the hosted app in their browser like a native app icon.
 1. Send the zip file to the family member.
 2. They unzip it, right-click `install-wisetutor.ps1` → "Run with PowerShell".
 3. A WiseTutor icon appears on their Desktop and in the Start Menu.
-4. Double-click to launch. Chrome opens in app mode to `http://ai-desktop-system-product-name:3782`.
+4. Double-click to launch. Chrome opens in app mode to `http://100.109.173.59:3782`.
 
 **Mac — `dist/wisetutor-macos-launcher.zip`:**
 1. Send the zip file to the family member.
@@ -182,7 +182,7 @@ launcher that opens the hosted app in their browser like a native app icon.
 4. Fallback: if `WiseTutor.app` won't open, double-click `WiseTutor.command`
    instead — it does the same thing.
 
-**What the launcher does:** opens `http://ai-desktop-system-product-name:3782` in Chrome app
+**What the launcher does:** opens `http://100.109.173.59:3782` in Chrome app
 mode. No local backend. No local frontend. No install beyond the small wrapper.
 
 **Requirements:** the family member must be on the home Wi-Fi, and ai-desktop
@@ -208,7 +208,7 @@ production-ready.
 Remote access requires a one-time Tailscale setup. See
 `docs/TAILSCALE_SETUP.md` for the 5 steps. Until that is done:
 - Family devices on home Wi-Fi: use the launcher zips or
-  `http://ai-desktop-system-product-name:3782` in any browser.
+  `http://100.109.173.59:3782` in any browser.
 - Phones off home Wi-Fi: NOT reachable yet. Blocked on Tailscale.
 
 ---

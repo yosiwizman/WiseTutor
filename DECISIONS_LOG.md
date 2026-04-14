@@ -5,6 +5,60 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-14 — Canonical remote URL: Tailscale IP, not MagicDNS short hostname
+
+**Decision.** The family canonical remote URL is now
+`http://100.109.173.59:3782/` (Tailscale IP, plain HTTP). The short
+MagicDNS hostname `ai-desktop-system-product-name` is demoted from
+primary.
+
+**Evidence.**
+- Founder confirmed WiseTutor opens on real iPhone at
+  `http://100.109.173.59:3782/` (Tailscale IP, HTTP).
+- Founder showed `https://ai-desktop-system-product-name:3782` failing
+  on iPhone. Two separate defects in that URL:
+  1. **Wrong scheme** — the server is plain HTTP; there is no TLS on
+     :3782. `curl https://...:3782/` from the host also fails with
+     `SSL wrong version number`. This is the primary blocker on the
+     exact URL the founder typed.
+  2. **Short MagicDNS hostname on iOS** — not independently proven
+     working on the founder's iPhone in this session. From the host,
+     the short name resolves to `127.0.1.1` (local `/etc/hosts`), not
+     the Tailscale IP. iPhone MagicDNS short-name behavior depends on
+     Tailscale being the active DNS server on the device; the full
+     FQDN does not depend on that.
+- Host URL matrix (plain HTTP, port 3782): IP → 200; short hostname
+  → 200 (via `/etc/hosts` on the host itself — unrelated to iPhone
+  path); FQDN `ai-desktop-system-product-name.tail1f13f5.ts.net` →
+  200 (resolved to 100.109.173.59 via MagicDNS).
+
+**Why the IP, not the FQDN.** The FQDN over HTTP is *plausible* but
+**not founder-proven on the iPhone**. The IP is the only remote URL
+independently confirmed by the real target device. Per truth-first
+rule, the canonical URL is the one actually proven.
+
+**Trade-off.** Tailscale IPs are stable per-tailnet-device but not
+as human-readable as a hostname. If the device is replaced or the
+tailnet changes, the URL changes. This is acceptable for family alpha
+and can be revisited (FQDN retest, or TLS + funnel) later.
+
+**Changes.**
+- `scripts_local/wt_launch.sh`: `TARGET_URL` → `http://100.109.173.59:3782`.
+- `clients/windows/WiseTutor.url`, `WiseTutor.bat`: URL → IP form.
+- `clients/macos/WiseTutor.command`,
+  `WiseTutor.app/Contents/MacOS/WiseTutor`: URL → IP form.
+- Docs: `CURRENT_STATE.md`, `OPERATOR_RUNBOOK.md` — canonical URL
+  corrected and note added about HTTPS being the wrong scheme.
+
+**Proof (Tier 1 founder-device for the IP URL).** Founder: "iPhone
+successfully opens WiseTutor at http://100.109.173.59:3782/".
+Production runtime (commit `e09b390`) remains in place — no Next dev
+badge.
+
+**Not changed.** Backend, frontend runtime, mobile layout, CI. No
+release re-cut required until a launcher binary is redistributed;
+source launchers now carry the correct URL for the next download.
+
 ## 2026-04-14 — Frontend runtime hardened to production (remove Next dev badge)
 
 **Decision.** The family-facing frontend now serves via Next.js

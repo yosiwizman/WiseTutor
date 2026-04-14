@@ -2,6 +2,22 @@
 
 Snapshot of reality at baseline bootstrap. Updated after every meaningful change.
 
+## Canonical remote URL (2026-04-14) — Tailscale IP, plain HTTP
+
+**Family iPhone URL right now:** `http://100.109.173.59:3782/`
+
+- **HTTP, not HTTPS.** The server on :3782 has no TLS. `https://`
+  will fail with SSL errors. Always `http://`.
+- **IP, not short hostname.** Founder-proven on real iPhone. The
+  short MagicDNS hostname `ai-desktop-system-product-name` is not
+  confirmed working on iOS in this session (depends on Tailscale
+  being the active DNS on the device). The full FQDN
+  `ai-desktop-system-product-name.tail1f13f5.ts.net` is host-proven
+  but not yet phone-proven.
+- Launchers and docs were patched to the IP URL immediately after
+  commit `e09b390`. See DECISIONS_LOG 2026-04-14: "Canonical remote
+  URL: Tailscale IP, not MagicDNS short hostname".
+
 ## Frontend runtime (2026-04-14) — production, not dev
 
 The frontend serves from Next.js production standalone
@@ -138,7 +154,7 @@ in the repo for admin-side hand-install if ever needed.
   bundle + `WiseTutor.command` fallback + README. Built on Linux host;
   **Gate C partial** — never installed on real macOS this session;
   Gatekeeper may require right-click → Open on first launch.
-- Both launchers open `http://ai-desktop-system-product-name:3782` in Chrome app mode (Tailscale MagicDNS; migrated 2026-04-14). Zero backend on client machines.
+- Both launchers open `http://100.109.173.59:3782` in Chrome app mode (Tailscale MagicDNS; migrated 2026-04-14). Zero backend on client machines.
 - **Published to GitHub (2026-04-13, updated 2026-04-14):** Branch `bootstrap/wisetutor-baseline` pushed to `origin`. Initial Release `launchers-v1.0-2026-04-13` (LAN IP) superseded by `launchers-v1.1-2026-04-14` (Tailscale MagicDNS) — latter has both rebuilt zips. Workflow `.github/workflows/launcher-validate.yml` runs Ubuntu-build + Windows-verify + macOS-verify on every push; asserts the MagicDNS URL; 3/3 green on run 24377893467.
 
 **Evidence tiers:**
