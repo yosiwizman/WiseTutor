@@ -2,6 +2,50 @@
 
 Snapshot of reality at baseline bootstrap. Updated after every meaningful change.
 
+## PDF Ingestion Overhaul v1 (2026-04-14) — CLOSED (Tier 1 local)
+
+**Landed on top of `eed4fb7`:** the shipped Knowledge page UI is now
+tool-proven for the four PDF classes the backend preflight recognizes.
+The UI now surfaces the preflight's structured error detail as a
+readable message (previously threw `new Error(<object>)`, rendering
+`[object Object]` to the user).
+
+**UI change (smallest safe fix):** `web/app/(utility)/knowledge/page.tsx`
+`uploadToKnowledgeBase` now reads `detail.message || detail.code ||
+JSON.stringify(detail)` from the backend error body and falls back to
+a plain string when `detail` is already a string. Four `data-testid`
+hooks added to the existing controls (`upload-target-select`,
+`upload-file-input`, `upload-submit`, `upload-error`) so Playwright
+can exercise the real shipped path. No flow or layout change.
+
+**Playwright proof — `pdf-ingestion-ui` project, 5/5 green locally
+(~6s on ai-desktop with live Ollama `nomic-embed-text` embeddings):**
+- seed KB creation via shipped `/create` reaches `status=ready`
+- normal text-based PDF uploaded through the real UI reaches the
+  backend pipeline and completes — `raw_documents` on the owner's KB
+  increments via the shipped `/api/v1/knowledge/list` read surface
+- encrypted PDF → UI error panel shows `"PDF is password-protected"`
+  (not `[object Object]`)
+- image-only PDF → UI error panel shows `"…looks image-only or
+  scanned"`
+- malformed PDF → UI error panel shows `"cannot open PDF: …"`
+
+**Artifacts:** `artifacts/pdf_ingestion_ui/latest/` —
+`text_pdf_uploaded.png`, `encrypted_pdf_error.png`,
+`imageonly_pdf_error.png`, `malformed_pdf_error.png`, plus the
+deterministic PyMuPDF fixtures (`fixtures/{text,enc,img,bad}.pdf`).
+
+**Regression:** `knowledge-isolation-v2` Playwright (3/3) still green
+against the modified page — UI change does not regress the shared
+Knowledge surface.
+
+**Hosted CI scope:** the `pdf-ingestion-ui` project is local-only
+(same rationale as `quiz-real-path`) — it requires a real embedding
+provider, which hosted CI does not have. Preflight rejection behavior
+for the three unsupported classes remains fully covered on hosted CI
+by the existing backend pytests (`tests/api/test_pdf_preflight.py`,
+`tests/api/test_pdf_ingestion_completion.py`).
+
 ## Canonical remote URL (2026-04-14) — Tailscale HTTPS FQDN (Tier 1)
 
 **Family iPhone URL right now:**

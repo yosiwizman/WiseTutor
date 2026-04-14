@@ -170,5 +170,10 @@ export default defineConfig({
       testMatch: "**/profile-hard-delete.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
+    {
+      name: "pdf-ingestion-ui",
+      testMatch: "**/pdf-ingestion-ui.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });

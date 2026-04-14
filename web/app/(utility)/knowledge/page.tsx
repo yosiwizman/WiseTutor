@@ -443,8 +443,25 @@ export default function KnowledgePage() {
         body: form,
       });
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.detail || "Failed to upload files");
+        let detail: unknown = null;
+        try {
+          const body = await res.json();
+          detail = body?.detail;
+        } catch {
+          // non-JSON error body; leave detail null and fall through
+        }
+        // Backend may return detail as a string OR as a structured object
+        // ({code, message, filename, ...} for PDF preflight rejections).
+        // Render the object fields in a readable form so the user sees the
+        // truthful error, not "[object Object]".
+        const readable =
+          typeof detail === "string"
+            ? detail
+            : (detail as { message?: string; code?: string } | null)?.message ||
+              (detail as { message?: string; code?: string } | null)?.code ||
+              (detail ? JSON.stringify(detail) : null) ||
+              "Failed to upload files";
+        throw new Error(readable);
       }
 
       const data = (await res.json()) as KnowledgeTaskResponse;
@@ -757,6 +774,7 @@ export default function KnowledgePage() {
 
                 <div className="space-y-3">
                   <select
+                    data-testid="upload-target-select"
                     value={uploadTarget}
                     onChange={(event) => setUploadTarget(event.target.value)}
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[13px] text-[var(--foreground)] outline-none"
@@ -807,6 +825,7 @@ export default function KnowledgePage() {
                   </button>
                   <input
                     ref={uploadFileRef}
+                    data-testid="upload-file-input"
                     type="file"
                     multiple
                     className="hidden"
@@ -829,6 +848,7 @@ export default function KnowledgePage() {
                   )}
 
                   <button
+                    data-testid="upload-submit"
                     onClick={uploadToKnowledgeBase}
                     disabled={uploadDisabled}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3.5 py-1.5 text-[13px] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-40"
@@ -858,7 +878,10 @@ export default function KnowledgePage() {
                   )}
 
                   {uploadProcess.error && (
-                    <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+                    <div
+                      data-testid="upload-error"
+                      className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+                    >
                       {uploadProcess.error}
                     </div>
                   )}
