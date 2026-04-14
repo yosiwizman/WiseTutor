@@ -6,9 +6,18 @@ export default function UtilityLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="flex h-screen overflow-hidden">
-      <UtilitySidebar />
-      <main className="flex-1 overflow-hidden bg-[var(--background)]">{children}</main>
+    /* h-dvh keeps the container within Safari's actual visible area on
+       iOS. On phones the sidebar is hidden (md:block) so settings gets
+       full width and Safari's URL bar doesn't clip bottom controls;
+       users arrive here via the workspace drawer's Settings link and
+       use the browser back button to return. */
+    <div className="flex h-dvh overflow-hidden">
+      <div className="hidden md:flex">
+        <UtilitySidebar />
+      </div>
+      <main className="flex-1 overflow-y-auto bg-[var(--background)] pb-[env(safe-area-inset-bottom)]">
+        {children}
+      </main>
     </div>
   );
 }

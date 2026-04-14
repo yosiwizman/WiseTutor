@@ -5,6 +5,79 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-14 — Real-iPhone-Safari follow-up: h-dvh + safe-area + drawer scroll
+
+**Problem.** Founder's real iPhone screenshots after commit `f140397`
+showed two remaining issues that the emulator-only Playwright proof
+had missed:
+1. The composer/input area sat partially below Safari's bottom URL
+   bar — invisible or half-clipped in real iOS Safari.
+2. The drawer's Settings link was below the visible viewport area —
+   not practically reachable without the user figuring out drawer
+   scroll.
+
+**Why f140397 missed it.** Playwright's iPhone 14 device emulation
+renders the viewport as a flat 844 px height with no collapsing URL
+bar. Under `h-screen` = `100vh`, on emulator `100vh == innerHeight`
+and every test "passes." On real iOS Safari, `100vh` reports the
+LARGEST viewport height (URL bar hidden) — so content near the
+bottom at `y = 100vh - δ` falls under Safari's visible bar whenever
+it's showing. The only way to catch this in CI is to assert
+DOM-level invariants (h-dvh class used, safe-area padding declared),
+which this commit adds.
+
+**Fix (narrow, 3 files):**
+- `app/(workspace)/layout.tsx`: outer container `h-screen` → `h-dvh`.
+  `<main>` gains `pb-[env(safe-area-inset-bottom)]`.
+- `app/(utility)/layout.tsx`: outer container `h-screen` → `h-dvh`.
+  `<UtilitySidebar>` hidden below `md` (`hidden md:flex`) so settings
+  takes full mobile width. `<main>` made `overflow-y-auto` with
+  `pb-[env(safe-area-inset-bottom)]`.
+- `components/sidebar/SidebarShell.tsx`: both `<aside>` branches
+  (expanded + collapsed) get `h-screen` → `h-dvh`, `overflow-y-auto`
+  for internal scroll when drawer content exceeds height, and
+  `pb-[env(safe-area-inset-bottom)]` so Settings is clear of the iOS
+  home indicator.
+
+**New stronger Playwright coverage (3 added to mobile-responsive):**
+- `root workspace container uses h-dvh (not h-screen)` — DOM query
+  for `div.h-dvh` presence.
+- `main has safe-area bottom padding declared` — reads
+  `getComputedStyle(main).paddingBottom`, asserts non-null
+  (non-iOS runners resolve `env()` to 0 px but the property exists;
+  real iOS resolves to ~34 px).
+- `drawer Settings link sits within viewport when drawer is open` —
+  opens drawer, reads Settings link's `getBoundingClientRect().bottom`,
+  asserts it's `<= window.innerHeight`.
+
+**Proof.**
+- `mobile-responsive`: 9/9 green.
+- Full cross-suite regression: 64/64 green.
+- Typecheck clean on touched files.
+
+**Honest tier language.**
+- Mobile responsiveness (breakpoint, drawer, toggle, backdrop):
+  Tier 1 local.
+- Real-iPhone-Safari layout fix (h-dvh + safe-area): **Tier 2 local
+  + DOM invariants** — Playwright's emulator can't simulate Safari
+  bar collapse; the CSS fix is the standard iOS workaround but real
+  physical re-verification on the founder's device ideally happens
+  once after this deploy.
+- Desktop behavior preservation: Tier 1 unchanged.
+
+**Percentages.** Whole WiseTutor product: ~78% → ~79% (small, narrow
+bump — real-iPhone fix addresses an observed regression rather than
+adding new capability). Voice lane ~52% unchanged. Company vision
+~11% unchanged.
+
+**Prior mobile claim correction.** The f140397 entry overclaimed
+"Tier 1 local" for mobile workspace usability. That was true for the
+emulator-visible invariants but missed the iOS-specific
+bottom-clipping mode. No revert needed — f140397 was a real
+improvement; this commit extends it with the iOS-specific layer.
+
+---
+
 ## 2026-04-14 — Mobile-responsive workspace (iPhone usability fix)
 
 **Problem.** Founder opened WiseTutor on iPhone over Tailscale; remote

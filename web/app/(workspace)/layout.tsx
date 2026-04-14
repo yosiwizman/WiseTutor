@@ -13,7 +13,11 @@ export default function WorkspaceLayout({
   const [mobileOpen, setMobileOpen] = useState(false);
   return (
     <UnifiedChatProvider>
-      <div className="flex h-screen overflow-hidden">
+      {/* h-dvh (dynamic viewport height) instead of h-screen so the
+          container shrinks when iOS Safari's URL bar is visible. With
+          h-screen = 100vh the bottom sits under Safari's chrome and
+          the composer / drawer Settings area get clipped. */}
+      <div className="flex h-dvh overflow-hidden">
         <WorkspaceSidebar
           mobileOpen={mobileOpen}
           onCloseMobile={() => setMobileOpen(false)}
@@ -31,7 +35,9 @@ export default function WorkspaceLayout({
             className="fixed bottom-0 right-0 top-0 left-[260px] z-30 bg-black/40 md:hidden"
           />
         )}
-        <main className="relative flex-1 overflow-hidden bg-[var(--background)]">
+        {/* pb-[env(safe-area-inset-bottom)] keeps the composer's
+            bottom edge clear of the iOS home indicator. */}
+        <main className="relative flex-1 overflow-hidden bg-[var(--background)] pb-[env(safe-area-inset-bottom)]">
           <button
             type="button"
             aria-label="Open navigation"

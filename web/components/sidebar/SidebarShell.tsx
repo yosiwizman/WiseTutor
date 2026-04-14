@@ -99,7 +99,7 @@ export function SidebarShell({
     return (
       <aside
         data-mobile-open={String(mobileOpen)}
-        className={`flex w-[260px] md:w-[56px] h-screen shrink-0 flex-col items-center bg-[var(--secondary)] py-3 ${mobileDrawerClasses}`}
+        className={`flex w-[260px] md:w-[56px] h-dvh shrink-0 flex-col items-center overflow-y-auto bg-[var(--secondary)] py-3 pb-[env(safe-area-inset-bottom)] ${mobileDrawerClasses}`}
       >
         <button
           onClick={() => (onCloseMobile ? onCloseMobile() : setCollapsed(false))}
@@ -174,7 +174,7 @@ export function SidebarShell({
   return (
     <aside
       data-mobile-open={String(mobileOpen)}
-      className={`flex w-[260px] md:w-[220px] h-screen shrink-0 flex-col bg-[var(--secondary)] ${mobileDrawerClasses}`}
+      className={`flex w-[260px] md:w-[220px] h-dvh shrink-0 flex-col overflow-y-auto bg-[var(--secondary)] pb-[env(safe-area-inset-bottom)] ${mobileDrawerClasses}`}
     >
       {/* Header: logo + collapse/close toggle */}
       <div className="flex h-12 items-center justify-between px-4">
