@@ -182,7 +182,28 @@ class KnowledgeBaseConfigService:
                 self.sync_from_metadata(kb_dir.name, kb_base_dir)
 
 
-def get_kb_config_service() -> KnowledgeBaseConfigService:
+_PER_USER_INSTANCES: dict[str, KnowledgeBaseConfigService] = {}
+
+
+def get_kb_config_service(user_id: str | None = None) -> KnowledgeBaseConfigService:
+    """Return a per-user KB config service when user_id is given.
+
+    Without user_id we return the legacy root-scoped singleton — kept only
+    for callers that have not yet been threaded through the per-user
+    refactor (notably `deeptutor/services/config/__init__.py` re-export).
+    Live HTTP routes MUST pass user_id so each user's KB config lives
+    under `data/knowledge_bases/<uid>/kb_config.json` and cannot be
+    observed across tenants."""
+    if user_id:
+        inst = _PER_USER_INSTANCES.get(user_id)
+        if inst is None:
+            user_root = (
+                get_path_service().project_root / "data" / "knowledge_bases" / user_id
+            )
+            user_root.mkdir(parents=True, exist_ok=True)
+            inst = KnowledgeBaseConfigService(config_path=user_root / "kb_config.json")
+            _PER_USER_INSTANCES[user_id] = inst
+        return inst
     return KnowledgeBaseConfigService.get_instance()
 
 

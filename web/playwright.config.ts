@@ -150,5 +150,10 @@ export default defineConfig({
       testMatch: "**/profile-lifecycle.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
+    {
+      name: "knowledge-isolation-v2",
+      testMatch: "**/knowledge-isolation-v2.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });

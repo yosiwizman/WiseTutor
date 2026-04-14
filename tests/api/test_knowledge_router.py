@@ -200,7 +200,17 @@ def test_update_config_rejects_unregistered_provider() -> None:
     app = _build_app()
 
     with pytest.MonkeyPatch.context() as monkeypatch:
-        monkeypatch.setattr(config_module, "get_kb_config_service", lambda: fake_service)
+        monkeypatch.setattr(config_module, "get_kb_config_service", lambda *_a, **_k: fake_service)
+        # Knowledge isolation v2 added a per-user import path inside the
+        # router for the kb_config service; patch it there too so the
+        # unit test's fake_service is honored regardless of which
+        # import the router uses.
+        monkeypatch.setattr(
+            "deeptutor.services.config.knowledge_base_config.get_kb_config_service",
+            lambda *_a, **_k: fake_service,
+        )
+        # The router now requires a session uid; stub it to a fake.
+        monkeypatch.setattr(knowledge_router_module, "_require_uid", lambda *_a, **_k: "test-uid")
         with TestClient(app) as client:
             response = client.put(
                 "/api/v1/knowledge/demo/config",

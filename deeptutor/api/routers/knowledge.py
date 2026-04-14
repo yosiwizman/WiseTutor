@@ -301,7 +301,8 @@ async def run_initialization_task(initializer: KnowledgeBaseInitializer, task_id
                 ProgressStage.COMPLETED, "Knowledge base initialization complete!", current=1, total=1
             )
 
-            manager = get_kb_manager()
+            # Manager scoped to the initializer's per-user base_dir.
+            manager = KnowledgeBaseManager(base_dir=initializer.base_dir)
             manager.update_kb_status(
                 name=initializer.kb_name,
                 status="ready",
@@ -328,7 +329,8 @@ async def run_initialization_task(initializer: KnowledgeBaseInitializer, task_id
 
             task_manager.update_task_status(task_id, "error", error=error_msg)
 
-            manager = get_kb_manager()
+            # Manager scoped to the initializer's per-user base_dir.
+            manager = KnowledgeBaseManager(base_dir=initializer.base_dir)
             manager.update_kb_status(
                 name=initializer.kb_name,
                 status="error",
@@ -423,7 +425,10 @@ async def run_upload_processing_task(
 
             if folder_id and processed_files:
                 try:
-                    manager = get_kb_manager()
+                    # Manager scoped to the per-user base_dir threaded
+                    # through from the originating request — never the
+                    # legacy root singleton.
+                    manager = KnowledgeBaseManager(base_dir=base_dir)
                     manager.update_folder_sync_state(
                         kb_name, folder_id, [str(f) for f in processed_files]
                     )
@@ -489,12 +494,13 @@ async def get_rag_providers():
 
 
 @router.get("/configs")
-async def get_all_kb_configs():
-    """Get all knowledge base configurations from centralized config file."""
+async def get_all_kb_configs(request: Request):
+    """Per-user KB configs."""
+    uid = _require_uid(request)
     try:
-        from deeptutor.services.config import get_kb_config_service
+        from deeptutor.services.config.knowledge_base_config import get_kb_config_service
 
-        service = get_kb_config_service()
+        service = get_kb_config_service(user_id=uid)
         return service.get_all_configs()
     except Exception as e:
         logger.error(f"Error getting KB configs: {e}")
@@ -502,12 +508,13 @@ async def get_all_kb_configs():
 
 
 @router.get("/{kb_name}/config")
-async def get_kb_config(kb_name: str):
-    """Get configuration for a specific knowledge base."""
+async def get_kb_config(kb_name: str, request: Request):
+    """Per-user KB config read."""
+    uid = _require_uid(request)
     try:
-        from deeptutor.services.config import get_kb_config_service
+        from deeptutor.services.config.knowledge_base_config import get_kb_config_service
 
-        service = get_kb_config_service()
+        service = get_kb_config_service(user_id=uid)
         config = service.get_kb_config(kb_name)
         return {"kb_name": kb_name, "config": config}
     except Exception as e:
@@ -516,15 +523,16 @@ async def get_kb_config(kb_name: str):
 
 
 @router.put("/{kb_name}/config")
-async def update_kb_config(kb_name: str, config: dict):
-    """Update configuration for a specific knowledge base."""
+async def update_kb_config(kb_name: str, config: dict, request: Request):
+    """Per-user KB config write. Self-only (no as_user write)."""
+    uid = _require_uid(request)
     try:
-        from deeptutor.services.config import get_kb_config_service
+        from deeptutor.services.config.knowledge_base_config import get_kb_config_service
 
         if "rag_provider" in config:
             config["rag_provider"] = _validate_registered_provider(config.get("rag_provider"))
 
-        service = get_kb_config_service()
+        service = get_kb_config_service(user_id=uid)
         service.set_kb_config(kb_name, config)
         return {"status": "success", "kb_name": kb_name, "config": service.get_kb_config(kb_name)}
     except HTTPException:
@@ -535,13 +543,14 @@ async def update_kb_config(kb_name: str, config: dict):
 
 
 @router.post("/configs/sync")
-async def sync_configs_from_metadata():
-    """Sync all KB configurations from their metadata.json files to centralized config."""
+async def sync_configs_from_metadata(request: Request):
+    """Per-user metadata sync."""
+    uid = _require_uid(request)
     try:
-        from deeptutor.services.config import get_kb_config_service
+        from deeptutor.services.config.knowledge_base_config import get_kb_config_service
 
-        service = get_kb_config_service()
-        service.sync_all_from_metadata(_kb_base_dir)
+        service = get_kb_config_service(user_id=uid)
+        service.sync_all_from_metadata(_kb_base_dir_for_user(uid))
         return {"status": "success", "message": "Configurations synced from metadata files"}
     except Exception as e:
         logger.error(f"Error syncing configs: {e}")
@@ -689,8 +698,16 @@ async def delete_knowledge_base(kb_name: str, request: Request):
 
 
 @router.get("/tasks/{task_id}/stream")
-async def stream_task_logs(task_id: str):
-    """Stream task-specific logs for knowledge-base operations."""
+async def stream_task_logs(task_id: str, request: Request):
+    """Stream task-specific logs for knowledge-base operations.
+
+    Tenant gate: requires a session uid (anon -> 401). Task IDs include
+    a random suffix so cross-user enumeration is hard, but a child
+    cannot subscribe to ANY task stream without a valid session, and an
+    owner inspecting a child's task would need to know the exact id —
+    which is itself owner-only enumerable via the per-user scoped
+    /list endpoint."""
+    _require_uid(request)
     manager = get_task_stream_manager()
     manager.ensure_task(task_id)
     return StreamingResponse(
@@ -856,10 +873,11 @@ async def create_knowledge_base(
 
 
 @router.get("/{kb_name}/progress")
-async def get_progress(kb_name: str):
-    """Get initialization progress for a knowledge base"""
+async def get_progress(kb_name: str, request: Request):
+    """Per-user KB initialization progress."""
+    uid = _require_uid(request)
     try:
-        progress_tracker = ProgressTracker(kb_name, _kb_base_dir)
+        progress_tracker = ProgressTracker(kb_name, _kb_base_dir_for_user(uid))
         progress = progress_tracker.get_progress()
 
         if progress is None:
@@ -871,10 +889,11 @@ async def get_progress(kb_name: str):
 
 
 @router.post("/{kb_name}/progress/clear")
-async def clear_progress(kb_name: str):
-    """Clear progress file for a knowledge base (useful for stuck states)"""
+async def clear_progress(kb_name: str, request: Request):
+    """Per-user progress clear."""
+    uid = _require_uid(request)
     try:
-        progress_tracker = ProgressTracker(kb_name, _kb_base_dir)
+        progress_tracker = ProgressTracker(kb_name, _kb_base_dir_for_user(uid))
         progress_tracker.clear()
         return {"status": "success", "message": f"Progress cleared for {kb_name}"}
     except Exception as e:
@@ -883,19 +902,48 @@ async def clear_progress(kb_name: str):
 
 @router.websocket("/{kb_name}/progress/ws")
 async def websocket_progress(websocket: WebSocket, kb_name: str):
-    """WebSocket endpoint for real-time progress updates"""
+    """WebSocket endpoint for real-time progress updates.
+
+    Tenant gate: validates the WiseTutor identity cookie BEFORE
+    `accept()` so an anonymous or disabled caller is closed with a 4401
+    code and never observes another user's KB progress. Identity is
+    resolved from the request headers (same `verify_cookie` path used
+    elsewhere) and the progress tracker is rooted in the per-user KB
+    base — a child cannot subscribe to Mr W's progress channel even
+    if they guess the kb_name."""
+    from deeptutor.services.users.identity import resolve_headers_user
+
+    uid = resolve_headers_user(dict(websocket.headers))
+    if not uid:
+        await websocket.close(code=4401)
+        return
+    # Disabled-aware second check (resolve_headers_user only verifies the
+    # cookie signature, not the disabled state). Mirror the HTTP
+    # resolver's behavior for consistency.
+    try:
+        from deeptutor.services.users import get_user_service
+
+        u = get_user_service().get(uid)
+        if u is None or getattr(u, "disabled", False):
+            await websocket.close(code=4403)
+            return
+    except Exception:
+        await websocket.close(code=4500)
+        return
+
     await websocket.accept()
 
     broadcaster = ProgressBroadcaster.get_instance()
 
+    user_base_dir = _kb_base_dir_for_user(uid)
     try:
         await broadcaster.connect(kb_name, websocket)
 
-        progress_tracker = ProgressTracker(kb_name, _kb_base_dir)
+        progress_tracker = ProgressTracker(kb_name, user_base_dir)
         initial_progress = progress_tracker.get_progress()
         expected_task_id = websocket.query_params.get("task_id")
 
-        kb_dir = _kb_base_dir / kb_name
+        kb_dir = user_base_dir / kb_name
         llamaindex_storage_dir = kb_dir / "llamaindex_storage"
         kb_is_ready = llamaindex_storage_dir.exists() and llamaindex_storage_dir.is_dir()
 
@@ -1004,22 +1052,13 @@ async def websocket_progress(websocket: WebSocket, kb_name: str):
 
 
 @router.post("/{kb_name}/link-folder", response_model=LinkedFolderInfo)
-async def link_folder(kb_name: str, request: LinkFolderRequest):
-    """
-    Link a local folder to a knowledge base.
-
-    This allows syncing documents from a local folder (which can be
-    synced with SharePoint, Google Drive, OneLake, etc.) to the KB.
-
-    The folder path supports:
-    - Absolute paths: /Users/name/Documents or C:\\Users\\name\\Documents
-    - Home directory: ~/Documents
-    - Relative paths (resolved from server working directory)
-    """
+async def link_folder(kb_name: str, payload: LinkFolderRequest, request: Request):
+    """Self-only: link a local folder to one of the caller's KBs."""
+    uid = _require_uid(request)
     try:
-        manager = get_kb_manager()
-        folder_info = manager.link_folder(kb_name, request.folder_path)
-        logger.info(f"Linked folder '{request.folder_path}' to KB '{kb_name}'")
+        manager = get_kb_manager(uid)
+        folder_info = manager.link_folder(kb_name, payload.folder_path)
+        logger.info(f"Linked folder '{payload.folder_path}' to KB '{kb_name}'")
         return LinkedFolderInfo(**folder_info)
     except ValueError as e:
         error_msg = str(e)
@@ -1031,10 +1070,11 @@ async def link_folder(kb_name: str, request: LinkFolderRequest):
 
 
 @router.get("/{kb_name}/linked-folders", response_model=list[LinkedFolderInfo])
-async def get_linked_folders(kb_name: str):
-    """Get list of linked folders for a knowledge base."""
+async def get_linked_folders(kb_name: str, request: Request):
+    """Self-only: linked folders for one of the caller's KBs."""
+    uid = _require_uid(request)
     try:
-        manager = get_kb_manager()
+        manager = get_kb_manager(uid)
         folders = manager.get_linked_folders(kb_name)
         return [LinkedFolderInfo(**f) for f in folders]
     except ValueError:
@@ -1044,10 +1084,11 @@ async def get_linked_folders(kb_name: str):
 
 
 @router.delete("/{kb_name}/linked-folders/{folder_id}")
-async def unlink_folder(kb_name: str, folder_id: str):
-    """Unlink a folder from a knowledge base."""
+async def unlink_folder(kb_name: str, folder_id: str, request: Request):
+    """Self-only: unlink a folder from one of the caller's KBs."""
+    uid = _require_uid(request)
     try:
-        manager = get_kb_manager()
+        manager = get_kb_manager(uid)
         success = manager.unlink_folder(kb_name, folder_id)
         if not success:
             raise HTTPException(status_code=404, detail=f"Folder '{folder_id}' not found")
@@ -1060,15 +1101,13 @@ async def unlink_folder(kb_name: str, folder_id: str):
 
 
 @router.post("/{kb_name}/sync-folder/{folder_id}")
-async def sync_folder(kb_name: str, folder_id: str, background_tasks: BackgroundTasks):
-    """
-    Sync files from a linked folder to the knowledge base.
-
-    This scans the linked folder for supported documents and processes
-    any new files that haven't been added yet.
-    """
+async def sync_folder(
+    kb_name: str, folder_id: str, request: Request, background_tasks: BackgroundTasks
+):
+    """Self-only: trigger a sync from a linked folder on the caller's KB."""
+    uid = _require_uid(request)
     try:
-        manager = get_kb_manager()
+        manager = get_kb_manager(uid)
         kb_entry = _load_kb_entry_or_404(manager, kb_name)
         _assert_kb_writable_or_409(kb_name, kb_entry)
         kb_provider = _validate_registered_provider(kb_entry.get("rag_provider") or DEFAULT_PROVIDER)
@@ -1103,7 +1142,7 @@ async def sync_folder(kb_name: str, folder_id: str, background_tasks: Background
         background_tasks.add_task(
             run_upload_processing_task,
             kb_name=kb_name,
-            base_dir=str(_kb_base_dir),
+            base_dir=str(manager.base_dir),
             uploaded_file_paths=files_to_process,
             task_id=task_id,
             rag_provider=kb_provider,
