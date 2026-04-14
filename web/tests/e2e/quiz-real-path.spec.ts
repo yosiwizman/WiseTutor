@@ -13,13 +13,9 @@
 
 import { test, expect, chromium } from "@playwright/test";
 import { signInAsMrW } from "./_auth_helper";
-import * as fs from "fs";
-import * as path from "path";
 
 const APP = process.env.DEEPTUTOR_APP || "http://localhost:3782";
 const API = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8001";
-
-const SCREENSHOT_DIR = "/home/ai-desktop/projects/WiseTutor/artifacts/quiz_summary";
 
 test.describe.configure({ mode: "serial" });
 test.setTimeout(180_000);
@@ -50,7 +46,7 @@ async function answerAndSubmit(page: import("@playwright/test").Page) {
   await page.getByRole("button", { name: /Check Answer/i }).click({ timeout: 10_000 });
 }
 
-test("real quiz path: generate -> answer all -> summary renders", async () => {
+test("real quiz path: generate -> answer all -> summary renders", async ({}, testInfo) => {
   const browser = await chromium.launch();
   const ctx = await browser.newContext();
   const pageErrors: string[] = [];
@@ -153,10 +149,9 @@ test("real quiz path: generate -> answer all -> summary renders", async () => {
     // 9. No DeepTutor branding on the quiz page.
     await expect(page.locator("text=/DeepTutor/i")).toHaveCount(0);
 
-    // 10. Screenshot.
-    if (!fs.existsSync(SCREENSHOT_DIR)) fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+    // 10. Screenshot — runner-safe output path.
     await page.screenshot({
-      path: path.join(SCREENSHOT_DIR, "quiz-real-path-summary.png"),
+      path: testInfo.outputPath("quiz-real-path-summary.png"),
       fullPage: true,
     });
 

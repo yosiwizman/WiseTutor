@@ -3,7 +3,6 @@ import { signInAsMrW } from "./_auth_helper";
 
 const APP = process.env.DEEPTUTOR_APP || "http://localhost:3782";
 const API = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8001";
-const ARTIFACTS = "/home/ai-desktop/projects/WiseTutor/artifacts/family_alpha_shakedown";
 
 /**
  * Family-alpha screenshot + visual verification pass.
@@ -28,7 +27,7 @@ function attachPageErrorListener(page: import("@playwright/test").Page) {
   return errors;
 }
 
-test("capture: first screen (sidebar + workspace hero)", async () => {
+test("capture: first screen (sidebar + workspace hero)", async ({}, testInfo) => {
   const browser = await chromium.launch();
   const ctx = await browser.newContext();
   try {
@@ -44,7 +43,7 @@ test("capture: first screen (sidebar + workspace hero)", async () => {
     await expect(page.locator("text=/DeepTutor/i")).toHaveCount(0);
 
     await page.screenshot({
-      path: `${ARTIFACTS}/family-alpha-first-screen.png`,
+      path: testInfo.outputPath("family-alpha-first-screen.png"),
       fullPage: true,
     });
 
@@ -55,7 +54,7 @@ test("capture: first screen (sidebar + workspace hero)", async () => {
   }
 });
 
-test("capture: composer row", async () => {
+test("capture: composer row", async ({}, testInfo) => {
   const browser = await chromium.launch();
   const ctx = await browser.newContext();
   try {
@@ -71,7 +70,7 @@ test("capture: composer row", async () => {
     await expect(page.locator("text=/DeepTutor/i")).toHaveCount(0);
 
     await page.screenshot({
-      path: `${ARTIFACTS}/family-alpha-composer.png`,
+      path: testInfo.outputPath("family-alpha-composer.png"),
       fullPage: true,
     });
 
@@ -82,7 +81,7 @@ test("capture: composer row", async () => {
   }
 });
 
-test("capture: settings page", async () => {
+test("capture: settings page", async ({}, testInfo) => {
   const browser = await chromium.launch();
   const ctx = await browser.newContext();
   try {
@@ -123,7 +122,7 @@ test("capture: settings page", async () => {
     await expect(page.locator("text=/DeepTutor/i")).toHaveCount(0);
 
     await page.screenshot({
-      path: `${ARTIFACTS}/family-alpha-settings.png`,
+      path: testInfo.outputPath("family-alpha-settings.png"),
       fullPage: true,
     });
 

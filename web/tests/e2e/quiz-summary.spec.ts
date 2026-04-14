@@ -1,7 +1,5 @@
 import { test, expect, chromium } from "@playwright/test";
 import { signInAsMrW } from "./_auth_helper";
-import * as fs from "fs";
-import * as path from "path";
 
 const APP = process.env.DEEPTUTOR_APP || "http://localhost:3782";
 const API = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8001";
@@ -63,7 +61,7 @@ async function driveToCompletion(
   await answerAndSubmit(page, q3);
 }
 
-test("quiz summary: complete all three questions → summary renders with truthful score", async () => {
+test("quiz summary: complete all three questions → summary renders with truthful score", async ({}, testInfo) => {
   const browser = await chromium.launch();
   const ctx = await browser.newContext();
   try {
@@ -96,11 +94,9 @@ test("quiz summary: complete all three questions → summary renders with truthf
       );
     }
 
-    // Screenshot
-    const screenshotDir = "/home/ai-desktop/projects/WiseTutor/artifacts/quiz_summary";
-    if (!fs.existsSync(screenshotDir)) fs.mkdirSync(screenshotDir, { recursive: true });
+    // Screenshot — runner-safe output path (Playwright creates parent dir).
     await page.screenshot({
-      path: path.join(screenshotDir, "quiz-summary-100.png"),
+      path: testInfo.outputPath("quiz-summary-100.png"),
       fullPage: true,
     });
   } finally {
@@ -109,7 +105,7 @@ test("quiz summary: complete all three questions → summary renders with truthf
   }
 });
 
-test("quiz summary: one wrong answer → truthful tally", async () => {
+test("quiz summary: one wrong answer → truthful tally", async ({}, testInfo) => {
   const browser = await chromium.launch();
   const ctx = await browser.newContext();
   try {
@@ -139,11 +135,9 @@ test("quiz summary: one wrong answer → truthful tally", async () => {
     // Wrong item should show the correct answer text
     await expect(page.getByTestId("quiz-summary-item-1")).toContainText("C");
 
-    // Screenshot
-    const screenshotDir = "/home/ai-desktop/projects/WiseTutor/artifacts/quiz_summary";
-    if (!fs.existsSync(screenshotDir)) fs.mkdirSync(screenshotDir, { recursive: true });
+    // Screenshot — runner-safe output path.
     await page.screenshot({
-      path: path.join(screenshotDir, "quiz-summary-67.png"),
+      path: testInfo.outputPath("quiz-summary-67.png"),
       fullPage: true,
     });
   } finally {
