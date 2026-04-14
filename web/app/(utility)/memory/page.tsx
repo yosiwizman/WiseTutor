@@ -6,6 +6,7 @@ import { Brain, Eraser, Loader2, RefreshCw, Save, BookOpen, User } from "lucide-
 import { useTranslation } from "react-i18next";
 import { useAppShell } from "@/context/AppShellContext";
 import { apiUrl } from "@/lib/api";
+import { OwnerInspectSelector, ReadOnlyInspectBanner } from "@/components/OwnerInspectSelector";
 
 const MarkdownRenderer = dynamic(() => import("@/components/common/MarkdownRenderer"), {
   ssr: false,
@@ -64,6 +65,8 @@ export default function MemoryPage() {
   const [editors, setEditors] = useState<Record<MemoryFile, string>>({ summary: "", profile: "" });
   const [toast, setToast] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [inspectAsUser, setInspectAsUser] = useState<string | null>(null);
+  const isInspecting = inspectAsUser !== null;
 
   const tab = TABS.find((t) => t.key === activeTab)!;
   const editorValue = editors[activeTab];
@@ -79,14 +82,17 @@ export default function MemoryPage() {
   const loadMemory = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(apiUrl("/api/v1/memory"));
+      const url = inspectAsUser
+        ? apiUrl(`/api/v1/memory?as_user=${encodeURIComponent(inspectAsUser)}`)
+        : apiUrl("/api/v1/memory");
+      const res = await fetch(url);
       const d: MemoryData = await res.json();
       setData(d);
       setEditors({ summary: d.summary || "", profile: d.profile || "" });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [inspectAsUser]);
 
   useEffect(() => { void loadMemory(); }, [loadMemory]);
 
@@ -171,9 +177,11 @@ export default function MemoryPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <OwnerInspectSelector value={inspectAsUser} onChange={setInspectAsUser} />
             <button
               onClick={saveMemory}
-              disabled={saving}
+              disabled={saving || isInspecting}
+              data-testid="memory-save"
               className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)]/50 px-3 py-1.5 text-[12px] font-medium text-[var(--muted-foreground)] transition-colors hover:border-[var(--border)] hover:text-[var(--foreground)] disabled:opacity-40"
             >
               {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
@@ -181,7 +189,8 @@ export default function MemoryPage() {
             </button>
             <button
               onClick={refreshMemory}
-              disabled={refreshing}
+              disabled={refreshing || isInspecting}
+              data-testid="memory-refresh"
               className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)]/50 px-3 py-1.5 text-[12px] font-medium text-[var(--muted-foreground)] transition-colors hover:border-[var(--border)] hover:text-[var(--foreground)] disabled:opacity-40"
             >
               {refreshing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
@@ -189,7 +198,8 @@ export default function MemoryPage() {
             </button>
             <button
               onClick={clearMemory}
-              disabled={clearing}
+              disabled={clearing || isInspecting}
+              data-testid="memory-clear"
               className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)]/50 px-3 py-1.5 text-[12px] font-medium text-[var(--muted-foreground)] transition-colors hover:border-[var(--border)] hover:text-[var(--foreground)] disabled:opacity-40"
             >
               {clearing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Eraser className="h-3 w-3" />}
@@ -197,6 +207,9 @@ export default function MemoryPage() {
             </button>
           </div>
         </div>
+        {isInspecting && inspectAsUser && (
+          <ReadOnlyInspectBanner targetId={inspectAsUser} users={null} />
+        )}
 
         {/* Tab selector */}
         <div className="mb-4 flex items-center gap-1 border-b border-[var(--border)]/50 pb-3">

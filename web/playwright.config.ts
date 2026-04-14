@@ -140,5 +140,10 @@ export default defineConfig({
       testMatch: "**/rbac-foundation.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
+    {
+      name: "admin-oversight",
+      testMatch: "**/admin-oversight.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
   ],
 });

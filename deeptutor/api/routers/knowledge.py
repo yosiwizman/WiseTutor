@@ -6,6 +6,7 @@ Handles knowledge base CRUD operations, file uploads, and initialization.
 """
 
 import asyncio
+import logging
 from datetime import datetime
 import os
 from pathlib import Path
@@ -102,6 +103,43 @@ def _require_uid(request: Request) -> str:
     if not uid:
         raise HTTPException(status_code=401, detail="no_user")
     return uid
+
+
+_admin_log = logging.getLogger("wisetutor.admin")
+
+
+def _resolve_target_uid(request: Request, as_user: str | None) -> str:
+    """Owner-only cross-user read for knowledge inspection.
+
+    Without `as_user` -> caller's own scope.
+    With `as_user` -> caller must be role=owner; audited. Read-only by
+    convention: this helper is only used in GET endpoints. Mutating
+    endpoints (upload/create/delete/default-set) ignore as_user."""
+    caller = _require_uid(request)
+    if not as_user or as_user == caller:
+        return caller
+    from deeptutor.services.users import get_user_service
+
+    svc = get_user_service()
+    caller_user = svc.get(caller)
+    if caller_user is None or caller_user.role != "owner":
+        _admin_log.warning(
+            "admin_action denied action=knowledge_inspect actor=%s target=%s reason=not_owner",
+            caller, as_user,
+        )
+        raise HTTPException(status_code=403, detail="forbidden")
+    target = svc.get(as_user)
+    if target is None:
+        _admin_log.warning(
+            "admin_action denied action=knowledge_inspect actor=%s target=%s reason=target_not_found",
+            caller, as_user,
+        )
+        raise HTTPException(status_code=404, detail="user_not_found")
+    _admin_log.warning(
+        "admin_action ok action=knowledge_inspect actor=%s target=%s",
+        caller, as_user,
+    )
+    return as_user
 
 
 class KnowledgeBaseInfo(BaseModel):
@@ -544,9 +582,9 @@ async def set_default_kb(kb_name: str, request: Request):
 
 
 @router.get("/list", response_model=list[KnowledgeBaseInfo])
-async def list_knowledge_bases(request: Request):
-    """List the current user's knowledge bases."""
-    uid = _require_uid(request)
+async def list_knowledge_bases(request: Request, as_user: str | None = None):
+    """List the caller's KBs, or (owner-only) those of `as_user`."""
+    uid = _resolve_target_uid(request, as_user)
     try:
         manager = get_kb_manager(uid)
         kb_names = manager.list_knowledge_bases()
@@ -619,9 +657,11 @@ async def list_knowledge_bases(request: Request):
 
 
 @router.get("/{kb_name}")
-async def get_knowledge_base_details(kb_name: str, request: Request):
-    """Get detailed info for a specific KB owned by the current user."""
-    uid = _require_uid(request)
+async def get_knowledge_base_details(
+    kb_name: str, request: Request, as_user: str | None = None
+):
+    """Get details for the caller's KB, or (owner-only) `as_user`'s KB."""
+    uid = _resolve_target_uid(request, as_user)
     try:
         manager = get_kb_manager(uid)
         return manager.get_info(kb_name)

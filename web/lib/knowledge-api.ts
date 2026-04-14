@@ -17,11 +17,27 @@ export interface RagProviderSummary {
   description: string;
 }
 
-export async function listKnowledgeBases(options?: { force?: boolean }) {
+export async function listKnowledgeBases(options?: { force?: boolean; asUser?: string | null }) {
+  // When inspecting another user's KBs (owner-only oversight), bypass the
+  // client cache entirely so target switches always re-fetch and never bleed
+  // one user's list into another's view.
+  const asUser = options?.asUser ?? null;
+  const path = asUser
+    ? `/api/v1/knowledge/list?as_user=${encodeURIComponent(asUser)}`
+    : "/api/v1/knowledge/list";
+  if (asUser) {
+    const response = await fetch(apiUrl(path), { cache: "no-store" });
+    const data = await response.json();
+    return Array.isArray(data)
+      ? (data as KnowledgeBaseSummary[])
+      : Array.isArray(data?.knowledge_bases)
+        ? (data.knowledge_bases as KnowledgeBaseSummary[])
+        : [];
+  }
   return withClientCache<KnowledgeBaseSummary[]>(
     `${KNOWLEDGE_CACHE_PREFIX}list`,
     async () => {
-      const response = await fetch(apiUrl("/api/v1/knowledge/list"), {
+      const response = await fetch(apiUrl(path), {
         cache: "no-store",
       });
       const data = await response.json();

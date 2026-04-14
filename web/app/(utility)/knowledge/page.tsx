@@ -29,6 +29,7 @@ import {
   listKnowledgeBases,
   listRagProviders,
 } from "@/lib/knowledge-api";
+import { OwnerInspectSelector, ReadOnlyInspectBanner } from "@/components/OwnerInspectSelector";
 import {
   getNotebookDetail,
   invalidateNotebookCaches,
@@ -152,6 +153,8 @@ export default function KnowledgePage() {
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const [createProcess, setCreateProcess] = useState<ProcessState>(EMPTY_PROCESS_STATE);
   const [uploadProcess, setUploadProcess] = useState<ProcessState>(EMPTY_PROCESS_STATE);
+  const [inspectAsUser, setInspectAsUser] = useState<string | null>(null);
+  const isInspecting = inspectAsUser !== null;
   const socketsRef = useRef<Record<string, WebSocket>>({});
   const logSourcesRef = useRef<Record<ProcessKind, EventSource | null>>({
     create: null,
@@ -255,7 +258,7 @@ export default function KnowledgePage() {
     setPageError(null);
     try {
       const [kbs, providerData, nextNotebooks] = await Promise.all([
-        listKnowledgeBases(),
+        listKnowledgeBases({ asUser: inspectAsUser, force: true }),
         listRagProviders(),
         listNotebooks(),
       ]);
@@ -326,7 +329,7 @@ export default function KnowledgePage() {
       closeTaskLogStream("upload");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [inspectAsUser]);
 
   const subscribeProgress = (kbName: string, expectedTaskId?: string) => {
     closeProgressSocket(kbName);
@@ -603,6 +606,10 @@ export default function KnowledgePage() {
             </p>
           </div>
 
+          <div className="flex shrink-0 items-center gap-2">
+            <OwnerInspectSelector value={inspectAsUser} onChange={setInspectAsUser} />
+          </div>
+
           <div className="inline-flex shrink-0 rounded-lg border border-[var(--border)] bg-[var(--muted)] p-0.5">
             {[
               { key: "knowledge", label: t("Knowledge Bases"), icon: Database },
@@ -623,6 +630,10 @@ export default function KnowledgePage() {
             ))}
           </div>
         </div>
+
+        {isInspecting && inspectAsUser && (
+          <ReadOnlyInspectBanner targetId={inspectAsUser} users={null} />
+        )}
 
         {pageError && (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
