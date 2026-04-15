@@ -2,7 +2,21 @@
 
 Snapshot of reality at baseline bootstrap. Updated after every meaningful change.
 
-## Qdrant Adoption v1 (2026-04-14) — CLOSED (Tier 2 local + hosted CI)
+## Qdrant Adoption v1 (2026-04-14) — CLOSED (Tier 2 local + hosted CI, incl. product-layer proof)
+
+**Product-layer proof added** (`tests/api/test_qdrant_adoption_v1_product_layer.py`,
+5/5 green ~1.6 s, on tip `e101dbe`): exercises the real shipped
+surfaces — POST `/api/v1/knowledge/create` with
+`rag_provider=qdrant`, PUT `/api/v1/knowledge/{kb}/config` accepting
+qdrant, RAGService.search retrieving the ingested canary, foreign
+user (Bella) seeing nothing in `/list` and unable to retrieve the
+owner's content via her own RAGService. Default LlamaIndex product
+path round-trips DEFAULTMARK end-to-end (no regression). Tiny
+follow-up: `FileTypeRouter.get_extensions_for_provider` now treats
+qdrant as a known provider so legitimate uploads no longer log a
+"Unknown/legacy provider" warning.
+
+
 
 **Landed.** One caller-owned KB can be configured to use Qdrant as its
 vector backend under the CURRENT knowledge pipeline, with deterministic
