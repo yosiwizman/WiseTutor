@@ -5,6 +5,48 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-15 — Librarian + Avatar planning pass (no adoption, no implementation)
+
+**Decision.** Capture founder intent for the Knowledge-page AI Librarian
+mode and the Interactive Avatar Tutor without promoting either to
+proof. Land the planning artifact
+`FEATURE_REQUESTS_2026_04_15.md`, reflect the two features in SSOT.md's
+"NOT yet proven / not built" list, and record adoption **candidates**
+(not adoptions) for later decision:
+
+- **Avatar runtime shortlist:** `@pixiv/three-vrm` (v3.5.1 early 2026,
+  actively maintained) + `three` + `@react-three/fiber`. Reference
+  demo: `pixiv/local-chat-vrm` (Google I/O 2025). VRoid Hub API is
+  deferred; MVP is admin-upload-only VRMs.
+- **Crawler shortlist:** `crawl4ai` (Apache-2.0) as the leading LLM-
+  friendly crawler, OR stay with an extended in-repo `url_fetch` +
+  `httpx`. No commitment either way in this pass.
+- **Open-book source allowlist candidates:** OpenStax, MIT OCW,
+  Project Gutenberg, arXiv, Wikibooks. Exact allowlist and the
+  accompanying `LICENSING_POLICY.md` are gated on founder approval.
+
+**Why.** Both features need a hard contract before any code merges:
+licensing policy (librarian), dependency addition (avatar),
+pod/workstream structure (team). This planning doc is the seed; it
+records intent separately from proof so later slices cannot
+accidentally promote aspirational features to claimed capabilities.
+
+**Consequence.** No runtime code moves. No new dependency is added.
+The next legitimate Phase-1 slice is doc-only: ratify
+`LICENSING_POLICY.md`, the librarian UX spec, the avatar UX spec, and
+the per-dependency adoption decisions. Stabilization pod continues the
+`tests/services/test_model_catalog.py` cleanup in parallel as the only
+code-touching work until gates are satisfied.
+
+**Scope boundaries (explicit).** Nothing in this pass changes:
+- The URL ingestion v1 single-URL contract.
+- The PDF ingestion v1 preflight contract.
+- The Qdrant adoption v1 per-KB opt-in contract.
+- The Phase-5 voice substrate.
+- The model-catalog default-binding repair lane.
+
+---
+
 ## 2026-04-14 — Qdrant adoption v1: opt-in per-KB, on-disk local mode
 
 **Decision.** Qdrant is adopted as a second supported vector backend for

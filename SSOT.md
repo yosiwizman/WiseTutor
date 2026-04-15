@@ -37,6 +37,16 @@ customizations (runtime honesty, memory safety, per-user boundaries).
 - Voice STT / TTS.
 - CI/CD pipeline for this product repo.
 - Remote deployment. This is a local-only build today.
+- Knowledge-page AI Librarian mode (goal elicitation → free-first
+  content acquisition → ingest under caller's KB). Intent captured
+  2026-04-15 in `FEATURE_REQUESTS_2026_04_15.md`; no runtime code
+  exists yet.
+- Interactive avatar tutor (VRM-based, admin-curated catalog, voice
+  loop over the existing Phase-5 substrate). Intent captured
+  2026-04-15 in `FEATURE_REQUESTS_2026_04_15.md`; no runtime code
+  exists yet.
+- Pod-based parallel execution for this product phase (planning-only
+  as of 2026-04-15).
 
 ## Product boundary
 
