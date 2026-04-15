@@ -133,7 +133,9 @@ def _patch_runtime(
     monkeypatch: pytest.MonkeyPatch,
     service: _FakeCatalogService,
 ) -> None:
-    monkeypatch.setattr(settings_router, "get_model_catalog_service", lambda: service)
+    monkeypatch.setattr(
+        settings_router, "get_model_catalog_service", lambda *_a, **_k: service
+    )
     monkeypatch.setattr(llm_client_module, "get_logger", lambda *_args, **_kwargs: _DummyLogger())
     monkeypatch.setattr(
         embedding_client_module,
@@ -146,7 +148,7 @@ def _patch_runtime(
         lambda _binding: _FakeEmbeddingAdapter,
     )
 
-    def _resolve_llm_runtime_config() -> ResolvedLLMConfig:
+    def _resolve_llm_runtime_config(*_args, **_kwargs) -> ResolvedLLMConfig:
         catalog = service.load()
         profile = catalog["services"]["llm"]["profiles"][0]
         model = profile["models"][0]
@@ -164,7 +166,7 @@ def _patch_runtime(
             reasoning_effort=None,
         )
 
-    def _resolve_embedding_runtime_config() -> ResolvedEmbeddingConfig:
+    def _resolve_embedding_runtime_config(*_args, **_kwargs) -> ResolvedEmbeddingConfig:
         catalog = service.load()
         profile = catalog["services"]["embedding"]["profiles"][0]
         model = profile["models"][0]
@@ -207,6 +209,20 @@ def _reset_runtime_state() -> None:
     embedding_client_module.reset_embedding_client()
 
 
+@pytest.fixture(autouse=True)
+def _stub_caller_identity(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Settings router handlers call ``_require_uid(request)`` at the top
+    of every mutating endpoint; without an authenticated request the
+    direct handler invocations used by these tests return 401. Stub the
+    underlying resolver to a deterministic uid so the tests can focus
+    on runtime-cache invalidation. The auth contract itself is covered
+    by identity-source-truth and the RBAC integration lanes."""
+    monkeypatch.setattr(
+        "deeptutor.api.routers.settings._resolve_uid_from_request",
+        lambda _request: "test-uid",
+    )
+
+
 @pytest.mark.asyncio
 async def test_update_catalog_invalidates_runtime_caches(monkeypatch: pytest.MonkeyPatch) -> None:
     initial_catalog = _build_catalog(
@@ -233,14 +249,15 @@ async def test_update_catalog_invalidates_runtime_caches(monkeypatch: pytest.Mon
     old_embedding_client = embedding_client_module.get_embedding_client()
 
     response = await settings_router.update_catalog(
-        settings_router.CatalogPayload(catalog=updated_catalog)
+        settings_router.CatalogPayload(catalog=updated_catalog),
+        request=object(),
     )
 
     new_llm_config = llm_config_module.get_llm_config()
     new_llm_client = llm_client_module.get_llm_client()
     new_embedding_client = embedding_client_module.get_embedding_client()
 
-    assert response == {"catalog": updated_catalog}
+    assert response["catalog"] == updated_catalog
     assert old_llm_config.model == "gpt-old"
     assert new_llm_config.model == "gpt-new"
     assert new_llm_config.base_url == "https://new-llm.example/v1"
@@ -278,7 +295,8 @@ async def test_apply_catalog_invalidates_runtime_caches(monkeypatch: pytest.Monk
     old_embedding_client = embedding_client_module.get_embedding_client()
 
     response = await settings_router.apply_catalog(
-        settings_router.CatalogPayload(catalog=applied_catalog)
+        object(),
+        settings_router.CatalogPayload(catalog=applied_catalog),
     )
 
     new_llm_config = llm_config_module.get_llm_config()
@@ -327,7 +345,8 @@ async def test_complete_tour_invalidates_runtime_caches(
     old_embedding_client = embedding_client_module.get_embedding_client()
 
     response = await settings_router.complete_tour(
-        settings_router.TourCompletePayload(catalog=completed_catalog)
+        object(),
+        settings_router.TourCompletePayload(catalog=completed_catalog),
     )
 
     new_llm_config = llm_config_module.get_llm_config()
