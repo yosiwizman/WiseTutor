@@ -30,7 +30,13 @@ def test_get_llm_config_from_resolver(monkeypatch) -> None:
     """Resolver-backed loading should populate provider metadata."""
     _reset_config_cache()
 
-    def _fake_resolver() -> ResolvedLLMConfig:
+    # get_llm_config() now invokes resolve_llm_runtime_config(user_id=...)
+    # (deeptutor/services/llm/config.py:187). A zero-arg fake raised
+    # `_fake_resolver() got an unexpected keyword argument 'user_id'`,
+    # which config.py swallowed and fell back to the env compatibility
+    # path — so the assertion saw env-derived "gpt-5.4" instead of the
+    # resolver output. Widen the fake to accept the kwarg.
+    def _fake_resolver(*_args, **_kwargs) -> ResolvedLLMConfig:
         return ResolvedLLMConfig(
             model="openai/gpt-4o-mini",
             provider_name="openrouter",
