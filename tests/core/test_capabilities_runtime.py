@@ -20,7 +20,19 @@ from deeptutor.core.stream_bus import StreamBus
 
 
 def _install_module(monkeypatch: pytest.MonkeyPatch, fullname: str, **attrs: Any) -> types.ModuleType:
-    __import__("src")
+    # The `src` top-level package is an upstream-DeepTutor artifact that
+    # this fork does not carry; the helper only needs it to exist in
+    # sys.modules so fake `src.agents.*` children can be registered.
+    # Install a lightweight package stub if it's missing.
+    if "src" not in sys.modules:
+        src_pkg = types.ModuleType("src")
+        src_pkg.__path__ = []  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "src", src_pkg)
+    # Use monkeypatch.setattr for every parent-module attribute write so
+    # that pytest's per-test cleanup unwinds the fake hierarchy; plain
+    # setattr calls leaked across tests, corrupting real deeptutor.*
+    # submodules and breaking downstream lanes (e.g. knowledge_router)
+    # when capabilities_runtime ran first.
     parts = fullname.split(".")
     for idx in range(1, len(parts)):
         pkg_name = ".".join(parts[:idx])
@@ -30,7 +42,7 @@ def _install_module(monkeypatch: pytest.MonkeyPatch, fullname: str, **attrs: Any
             monkeypatch.setitem(sys.modules, pkg_name, pkg)
             if idx > 1:
                 parent = sys.modules[".".join(parts[: idx - 1])]
-                setattr(parent, parts[idx - 1], pkg)
+                monkeypatch.setattr(parent, parts[idx - 1], pkg, raising=False)
 
     module = types.ModuleType(fullname)
     for key, value in attrs.items():
@@ -38,7 +50,7 @@ def _install_module(monkeypatch: pytest.MonkeyPatch, fullname: str, **attrs: Any
     monkeypatch.setitem(sys.modules, fullname, module)
     if len(parts) > 1:
         parent = sys.modules[".".join(parts[:-1])]
-        setattr(parent, parts[-1], module)
+        monkeypatch.setattr(parent, parts[-1], module, raising=False)
     return module
 
 
@@ -66,7 +78,7 @@ async def test_chat_capability_streams_content_and_geogebra_context(
     captured: dict[str, Any] = {}
 
     class FakePipeline:
-        def __init__(self, language: str = "en") -> None:
+        def __init__(self, language: str = "en", *_args, **_kwargs) -> None:
             captured["pipeline_init"] = {"language": language}
 
         async def run(self, context: UnifiedContext, stream: StreamBus) -> None:
