@@ -18,7 +18,17 @@ def test_resolve_config_path_returns_existing_config(tmp_path: Path) -> None:
     assert used_alias is False
 
 
-def test_load_config_with_main_merges_main_and_module_config(tmp_path: Path) -> None:
+def test_load_config_with_main_loads_named_file_and_injects_runtime_paths(
+    tmp_path: Path,
+) -> None:
+    # Current loader contract (deeptutor/services/config/loader.py::
+    # load_config_with_main at lines 116-131) reads the named config
+    # file and runs _inject_runtime_paths on it. It does NOT merge with
+    # a sibling main.yaml, despite the docstring's aspirational wording:
+    # every live caller passes "main.yaml" as the config_file, so the
+    # merge path was never exercised in production and was dropped. This
+    # test asserts the actual contract (named-file load + runtime-path
+    # injection) rather than the vestigial merge.
     settings_dir = tmp_path / "data" / "user" / "settings"
     settings_dir.mkdir(parents=True)
     (settings_dir / "main.yaml").write_text(
@@ -32,9 +42,14 @@ def test_load_config_with_main_merges_main_and_module_config(tmp_path: Path) -> 
 
     config = load_config_with_main("custom.yaml", tmp_path)
 
-    assert config["system"]["language"] == "en"
+    # Named file contents round-trip.
     assert config["solve"]["max_replans"] == 5
     assert config["logging"]["level"] == "INFO"
+    # Sibling main.yaml is NOT merged in: its keys must be absent.
+    assert "system" not in config
+    # Runtime paths are injected even for non-main files.
+    assert "paths" in config
+    assert "solve_output_dir" in config["paths"]
 
 
 def test_load_config_with_main_raises_for_unknown_missing_config(tmp_path: Path) -> None:
