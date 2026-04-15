@@ -7,19 +7,22 @@ import os
 import pytest
 
 
-def test_list_available_providers_only_llamaindex() -> None:
-    """Provider list should expose only llamaindex."""
+def test_list_available_providers_includes_llamaindex_and_qdrant() -> None:
+    """Provider list exposes the LlamaIndex default plus Qdrant adoption v1."""
     from deeptutor.tools.rag_tool import get_available_providers
 
     providers = get_available_providers()
-    assert [p["id"] for p in providers] == ["llamaindex"]
+    ids = [p["id"] for p in providers]
+    assert ids == ["llamaindex", "qdrant"], ids
 
 
-def test_factory_has_pipeline_only_llamaindex() -> None:
-    """Factory should only report llamaindex as selectable provider."""
+def test_factory_has_pipeline_registered() -> None:
+    """Factory should report llamaindex + qdrant as selectable providers,
+    and still reject legacy / unknown provider names."""
     from deeptutor.services.rag.factory import has_pipeline
 
     assert has_pipeline("llamaindex") is True
+    assert has_pipeline("qdrant") is True
     assert has_pipeline("lightrag") is False
     assert has_pipeline("raganything") is False
     assert has_pipeline("nonexistent") is False

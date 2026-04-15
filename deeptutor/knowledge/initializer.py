@@ -95,7 +95,7 @@ class KnowledgeBaseInitializer:
             from deeptutor.services.config import get_kb_config_service
 
             service = get_kb_config_service()
-            service.set_rag_provider(self.kb_name, DEFAULT_PROVIDER)
+            service.set_rag_provider(self.kb_name, normalize_provider_name(provider))
             service.set_kb_config(self.kb_name, {"needs_reindex": False})
         except Exception as config_err:
             logger.warning(f"Failed to persist provider in centralized config: {config_err}")
@@ -115,7 +115,7 @@ class KnowledgeBaseInitializer:
             "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "description": f"Knowledge base: {self.kb_name}",
             "version": "1.0",
-            "rag_provider": DEFAULT_PROVIDER,
+            "rag_provider": self.rag_provider or DEFAULT_PROVIDER,
             "needs_reindex": False,
         }
 
@@ -140,9 +140,8 @@ class KnowledgeBaseInitializer:
     async def process_documents(
         self,
     ) -> bool:
-        """Process documents with llamaindex provider.
-        """
-        provider = DEFAULT_PROVIDER
+        """Process documents with the configured RAG provider."""
+        provider = self.rag_provider or DEFAULT_PROVIDER
 
         self.progress_tracker.update(
             ProgressStage.PROCESSING_DOCUMENTS,

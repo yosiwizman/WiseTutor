@@ -2,6 +2,67 @@
 
 Snapshot of reality at baseline bootstrap. Updated after every meaningful change.
 
+## Qdrant Adoption v1 (2026-04-14) — CLOSED (Tier 2 local + hosted CI)
+
+**Landed.** One caller-owned KB can be configured to use Qdrant as its
+vector backend under the CURRENT knowledge pipeline, with deterministic
+per-KB collection naming, per-user directory scoping, and real
+index + query-time retrieval proof. Not a migration: existing
+KBs continue on the LlamaIndex default; Qdrant is strictly opt-in
+via `rag_provider = "qdrant"`.
+
+**How.** `LlamaIndexPipeline` gained a `vector_backend` kwarg. When
+set to `"qdrant"`, the pipeline attaches a `QdrantVectorStore` (from
+`llama-index-vector-stores-qdrant`) backed by a `QdrantClient` in
+on-disk local mode (`QdrantClient(path=<kb_dir>/qdrant_storage)`).
+Collection name is deterministic: `wt_kb_<safe_kb_name>`. The
+factory registers `"qdrant"` as a second provider whose builder
+simply passes `vector_backend="qdrant"` to `LlamaIndexPipeline`.
+The `DocumentAdder` and `KnowledgeBaseInitializer` now honor the
+per-KB `rag_provider` instead of hard-coding LlamaIndex, so the
+CURRENT upload and create flows both route to Qdrant when the KB
+config selects it.
+
+**Acceptance bar — all six clauses proven**
+(`tests/services/rag/test_qdrant_adoption_v1.py`, 5/5 green, ~1.5 s):
+- `qdrant` provider is registered and listed alongside `llamaindex`
+- caller-owned KB configured with `rag_provider=qdrant` indexes one
+  source through the CURRENT pipeline
+- indexing is proven by reading back the on-disk Qdrant collection
+  directly (`client.count(collection).count >= 1`), not inferred
+- query-time retrieval returns the ingested content (`search()` pulls
+  back the exact `BRIDGETON` canary token from the indexed text)
+- foreign-user scoping: a pipeline bound to a different user's
+  `kb_base_dir` cannot see the owner's Qdrant-backed KB; retrieval
+  returns the "no documents indexed" response shape
+- the default LlamaIndex backend is not regressed (separate test
+  ingests + retrieves via the default path end-to-end)
+
+**Scoping rule.** Cross-user collision is structurally impossible
+because the Qdrant on-disk client is rooted inside the per-user
+`kb_base_dir`, not a shared server. This reuses the existing
+per-user manager contract that already gates URL ingestion v1, PDF
+ingestion v1, and knowledge tenant isolation v2.
+
+**Regression (local).** 80 / 80 green across the impacted prior
+lanes run as one batch: tenant isolation v2, task ownership v1,
+URL ingestion v1, PDF ingestion completion + preflight, family RBAC
+v1, profile lifecycle v1, profile hard delete v1, admin oversight
+v1, knowledge router shape, provider registry, Qdrant adoption v1
+itself.
+
+**CI.** No `ci.yml` topology change was required. The on-disk Qdrant
+runtime is an in-process Python dependency; CI picks it up via the
+existing `pip install -r requirements/server.txt` step (→
+`cli.txt`, which now declares `qdrant-client` and
+`llama-index-vector-stores-qdrant`). Server-mode Qdrant, Docker
+services, and CI service containers are explicitly NOT added by
+this slice.
+
+**Out of scope (unchanged after this slice).** Mass migration of
+existing KBs, hybrid search tuning, reranking, a UI provider
+selector, a Qdrant server deployment, multi-node ops hardening.
+
 ## PDF Ingestion Overhaul v1 (2026-04-14) — CLOSED (Tier 1 local)
 
 **Landed on top of `eed4fb7`:** the shipped Knowledge page UI is now

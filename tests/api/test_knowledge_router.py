@@ -76,7 +76,7 @@ def _upload_payload() -> list[tuple[str, tuple[str, bytes, str]]]:
     return [("files", ("demo.txt", b"hello", "text/plain"))]
 
 
-def test_rag_providers_returns_llamaindex_only() -> None:
+def test_rag_providers_returns_llamaindex_and_qdrant() -> None:
     with TestClient(_build_app()) as client:
         response = client.get("/api/v1/knowledge/rag-providers")
 
@@ -88,7 +88,15 @@ def test_rag_providers_returns_llamaindex_only() -> None:
                 "id": "llamaindex",
                 "name": "LlamaIndex",
                 "description": "Pure vector retrieval, fastest processing speed.",
-            }
+            },
+            {
+                "id": "qdrant",
+                "name": "LlamaIndex + Qdrant",
+                "description": (
+                    "LlamaIndex ingestion with a Qdrant vector store "
+                    "(on-disk local mode by default)."
+                ),
+            },
         ]
     }
 

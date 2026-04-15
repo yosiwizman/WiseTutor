@@ -16,8 +16,11 @@ from typing import List, Optional
 from dotenv import load_dotenv
 
 from deeptutor.logging import get_logger
-from deeptutor.services.rag.factory import DEFAULT_PROVIDER
-from deeptutor.services.rag.pipelines.llamaindex import LlamaIndexPipeline
+from deeptutor.services.rag.factory import (
+    DEFAULT_PROVIDER,
+    get_pipeline,
+    normalize_provider_name,
+)
 
 logger = get_logger("KnowledgeInit")
 
@@ -56,10 +59,7 @@ class DocumentAdder:
         if not self.llamaindex_storage_dir.exists():
             raise ValueError(f"Knowledge base not initialized (llamaindex): {kb_name}")
 
-        if rag_provider and rag_provider != DEFAULT_PROVIDER:
-            logger.warning(
-                f"Requested provider '{rag_provider}' ignored. Using '{DEFAULT_PROVIDER}' for consistency."
-            )
+        self.rag_provider = normalize_provider_name(rag_provider)
 
         self.api_key = api_key
         self.base_url = base_url
@@ -124,7 +124,7 @@ class DocumentAdder:
         if not new_files:
             return []
 
-        pipeline = LlamaIndexPipeline(kb_base_dir=str(self.base_dir))
+        pipeline = get_pipeline(self.rag_provider, kb_base_dir=str(self.base_dir))
         processed_files: list[Path] = []
         total_files = len(new_files)
 
@@ -183,7 +183,7 @@ class DocumentAdder:
             except Exception:
                 metadata = {}
 
-        metadata["rag_provider"] = DEFAULT_PROVIDER
+        metadata["rag_provider"] = self.rag_provider
         metadata["needs_reindex"] = False
         metadata["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -193,7 +193,7 @@ class DocumentAdder:
                 "timestamp": metadata["last_updated"],
                 "action": "incremental_add",
                 "count": added_count,
-                "provider": DEFAULT_PROVIDER,
+                "provider": self.rag_provider,
             }
         )
         metadata["update_history"] = history

@@ -114,16 +114,74 @@ class LlamaIndexPipeline:
     - StorageContext for persistence
     """
 
-    def __init__(self, kb_base_dir: Optional[str] = None):
+    def __init__(
+        self,
+        kb_base_dir: Optional[str] = None,
+        vector_backend: str = "default",
+    ):
         """
         Initialize LlamaIndex pipeline.
 
         Args:
             kb_base_dir: Base directory for knowledge bases
+            vector_backend: "default" (LlamaIndex SimpleVectorStore persisted
+                to disk under ``<kb_dir>/llamaindex_storage``) or "qdrant"
+                (Qdrant on-disk client under ``<kb_dir>/qdrant_storage``,
+                docstore still persisted under ``llamaindex_storage``).
         """
         self.logger = get_logger("LlamaIndexPipeline")
         self.kb_base_dir = kb_base_dir or DEFAULT_KB_BASE_DIR
+        self.vector_backend = (vector_backend or "default").strip().lower()
+        if self.vector_backend not in ("default", "qdrant"):
+            raise ValueError(
+                f"Unsupported vector_backend: {vector_backend!r}. "
+                "Expected 'default' or 'qdrant'."
+            )
         self._configure_settings()
+
+    def _qdrant_storage_dir(self, kb_dir: Path) -> Path:
+        return kb_dir / "qdrant_storage"
+
+    def _qdrant_collection_name(self, kb_name: str) -> str:
+        """Deterministic, filesystem-safe collection name. The on-disk
+        QdrantClient is already scoped to ``<kb_dir>/qdrant_storage``,
+        so collection collisions across KBs are impossible by
+        construction. We still name the collection per-KB for clarity
+        in downstream tooling."""
+        safe = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in kb_name)
+        return f"wt_kb_{safe}"
+
+    def _build_storage_context(self, kb_dir: Path, *, for_load: bool = False):
+        """Build a StorageContext for the configured vector backend.
+
+        Default backend persists via ``persist_dir`` (SimpleVectorStore +
+        JSON docstore). Qdrant backend attaches a ``QdrantVectorStore``
+        backed by an on-disk ``QdrantClient``; the docstore/index-store
+        still persist under ``llamaindex_storage`` so that the existing
+        read surfaces see a populated storage dir.
+        """
+        persist_dir = kb_dir / "llamaindex_storage"
+        if self.vector_backend == "qdrant":
+            from qdrant_client import QdrantClient
+            from llama_index.vector_stores.qdrant import QdrantVectorStore
+
+            qdrant_dir = self._qdrant_storage_dir(kb_dir)
+            qdrant_dir.mkdir(parents=True, exist_ok=True)
+            client = QdrantClient(path=str(qdrant_dir))
+            vector_store = QdrantVectorStore(
+                client=client,
+                collection_name=self._qdrant_collection_name(kb_dir.name),
+            )
+            if for_load and persist_dir.exists():
+                return StorageContext.from_defaults(
+                    vector_store=vector_store,
+                    persist_dir=str(persist_dir),
+                )
+            return StorageContext.from_defaults(vector_store=vector_store)
+        # Default backend
+        if for_load:
+            return StorageContext.from_defaults(persist_dir=str(persist_dir))
+        return StorageContext.from_defaults()
 
     def _configure_settings(self):
         """Configure LlamaIndex global settings."""
@@ -237,12 +295,21 @@ class LlamaIndexPipeline:
                 Settings.embed_model.set_progress_callback(progress_callback)
 
             loop = asyncio.get_event_loop()
+            storage_context = self._build_storage_context(kb_dir, for_load=False)
             index = await loop.run_in_executor(
                 None,
-                lambda: VectorStoreIndex.from_documents(documents, show_progress=True),
+                lambda: VectorStoreIndex.from_documents(
+                    documents,
+                    storage_context=storage_context,
+                    show_progress=True,
+                ),
             )
 
-            # Persist index
+            # Persist index. For the default backend this writes the
+            # SimpleVectorStore JSON + docstore. For the Qdrant backend
+            # vectors already live in Qdrant's on-disk store; persist()
+            # still writes the docstore so read surfaces see a
+            # populated llamaindex_storage dir.
             index.storage_context.persist(persist_dir=str(storage_dir))
             self.logger.info(f"Index persisted to {storage_dir}")
 
@@ -315,8 +382,17 @@ class LlamaIndexPipeline:
             loop = asyncio.get_event_loop()
 
             def load_and_retrieve():
-                storage_context = StorageContext.from_defaults(persist_dir=str(storage_dir))
-                index = load_index_from_storage(storage_context)
+                storage_context = self._build_storage_context(kb_dir, for_load=True)
+                if self.vector_backend == "qdrant":
+                    # Vectors live in Qdrant; rebuild the index view on
+                    # top of the existing vector store rather than
+                    # loading a SimpleVectorStore from JSON.
+                    index = VectorStoreIndex.from_vector_store(
+                        storage_context.vector_store,
+                        storage_context=storage_context,
+                    )
+                else:
+                    index = load_index_from_storage(storage_context)
                 top_k = kwargs.get("top_k", 5)
 
                 # Use retriever instead of query_engine to avoid LLM requirement
@@ -444,8 +520,14 @@ class LlamaIndexPipeline:
                 self.logger.info(f"Loading existing index from {storage_dir}...")
 
                 def load_and_insert():
-                    storage_context = StorageContext.from_defaults(persist_dir=str(storage_dir))
-                    index = load_index_from_storage(storage_context)
+                    storage_context = self._build_storage_context(kb_dir, for_load=True)
+                    if self.vector_backend == "qdrant":
+                        index = VectorStoreIndex.from_vector_store(
+                            storage_context.vector_store,
+                            storage_context=storage_context,
+                        )
+                    else:
+                        index = load_index_from_storage(storage_context)
 
                     for i, doc in enumerate(documents, 1):
                         self.logger.info(
@@ -464,7 +546,12 @@ class LlamaIndexPipeline:
                 storage_dir.mkdir(parents=True, exist_ok=True)
 
                 def create_index():
-                    index = VectorStoreIndex.from_documents(documents, show_progress=True)
+                    storage_context = self._build_storage_context(kb_dir, for_load=False)
+                    index = VectorStoreIndex.from_documents(
+                        documents,
+                        storage_context=storage_context,
+                        show_progress=True,
+                    )
                     index.storage_context.persist(persist_dir=str(storage_dir))
                     return len(documents)
 

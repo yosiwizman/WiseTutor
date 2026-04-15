@@ -43,9 +43,18 @@ def _init_pipelines() -> None:
 
         return LlamaIndexPipeline(**kwargs)
 
+    def _build_qdrant(**kwargs):
+        # Reuses LlamaIndexPipeline with a Qdrant-backed vector store.
+        # Optional dependencies: qdrant_client, llama_index_vector_stores_qdrant.
+        from .pipelines.llamaindex import LlamaIndexPipeline
+
+        kwargs.setdefault("vector_backend", "qdrant")
+        return LlamaIndexPipeline(**kwargs)
+
     _PIPELINES.update(
         {
             DEFAULT_PROVIDER: _build_llamaindex,
+            "qdrant": _build_qdrant,
         }
     )
     _PIPELINES_INITIALIZED = True
@@ -93,7 +102,15 @@ def list_pipelines() -> List[Dict[str, str]]:
             "id": DEFAULT_PROVIDER,
             "name": "LlamaIndex",
             "description": "Pure vector retrieval, fastest processing speed.",
-        }
+        },
+        {
+            "id": "qdrant",
+            "name": "LlamaIndex + Qdrant",
+            "description": (
+                "LlamaIndex ingestion with a Qdrant vector store "
+                "(on-disk local mode by default)."
+            ),
+        },
     ]
 
 

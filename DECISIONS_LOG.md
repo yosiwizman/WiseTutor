@@ -5,6 +5,56 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-14 — Qdrant adoption v1: opt-in per-KB, on-disk local mode
+
+**Decision.** Qdrant is adopted as a second supported vector backend for
+WiseTutor KBs, registered alongside the existing LlamaIndex default.
+Activation is strictly opt-in per-KB via `rag_provider = "qdrant"` on
+KB config; no existing KB is migrated. The runtime is `qdrant-client`
+in its on-disk local mode (`QdrantClient(path=...)`) — no Docker, no
+server process, no new CI service.
+
+**How.** The existing `LlamaIndexPipeline` is extended with a
+`vector_backend` kwarg. When `vector_backend == "qdrant"`, the
+pipeline substitutes a `QdrantVectorStore` into the LlamaIndex
+`StorageContext` and routes on-disk vector storage to
+`<kb_dir>/qdrant_storage/`; the docstore continues to persist under
+`<kb_dir>/llamaindex_storage/`. Collection name is deterministic
+per-KB (`wt_kb_<safe_kb_name>`). Per-user isolation is preserved by
+the existing per-user `kb_base_dir` scoping — the Qdrant on-disk
+client is rooted inside the caller's user directory, so cross-user
+collision is structurally impossible.
+
+**Why on-disk mode, not a server.** The founder-approved next slice
+was Qdrant adoption. The minimum truthful runtime that satisfies
+the acceptance bar (indexing proven, retrieval proven, isolation
+preserved) without introducing a new daemon or CI topology change
+is on-disk local mode. This keeps the slice narrow, makes the tests
+CI-capable with zero service containers, and leaves a clean upgrade
+path to a server deployment later: swap the `QdrantClient`
+constructor to `QdrantClient(url=...)` — no pipeline logic change.
+
+**Dependencies added** (`requirements/cli.txt`):
+- `qdrant-client>=1.17.0`
+- `llama-index-vector-stores-qdrant>=0.10.0`
+
+**Proof.** `tests/services/rag/test_qdrant_adoption_v1.py`, 5/5 green
+(~1.5 s): provider registration, index + retrieval on a Qdrant-backed
+KB, incremental `add_documents` extension, per-KB scoping (a
+pipeline bound to a foreign user's `kb_base_dir` cannot see the
+owner's data), and non-regression of the default LlamaIndex path.
+Regression on 80 impacted prior-lane tests (tenant isolation, task
+ownership, URL ingestion, PDF ingestion completion + preflight,
+family RBAC, profile lifecycle/delete, admin oversight, knowledge
+router shape): all green.
+
+**Scope boundaries (explicit).** Still out of scope after this
+slice: mass migration of existing KBs, hybrid search tuning,
+reranking, a UI provider-selection surface, a Qdrant server
+deployment, and multi-node ops hardening.
+
+---
+
 ## 2026-04-14 — Canonical remote URL: Tailscale HTTPS FQDN (supersedes IP)
 
 **Decision.** Canonical family URL promoted from
