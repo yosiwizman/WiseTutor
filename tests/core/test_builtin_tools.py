@@ -100,7 +100,13 @@ async def test_rag_tool_forwards_query_and_extra_kwargs(monkeypatch: pytest.Monk
     assert result.content == "grounded answer"
     assert captured["query"] == "what is a tensor"
     assert captured["kb_name"] == "demo-kb"
-    assert captured["mode"] == "hybrid"
+    # `mode` is intentionally filtered out of the rag_search kwargs
+    # today: RAGTool.execute excludes it from extra_kwargs
+    # (deeptutor/tools/builtin/__init__.py:86) and RAGService.search
+    # pops it on entry (deeptutor/services/rag/service.py:103). The
+    # parameter is accepted at the RAGTool API surface for backwards
+    # compatibility with callers but is no longer forwarded.
+    assert "mode" not in captured
     assert captured["only_need_context"] is True
 
 
@@ -312,6 +318,13 @@ async def test_tool_registry_resolves_aliases_and_argument_mapping() -> None:
     code_result = await registry.execute("run_code", query="compute this")
 
     assert rag_result.content == "rag"
-    assert rag.calls[0]["mode"] == "hybrid"
+    # `rag_hybrid` / `rag_naive` aliases currently resolve to ("rag", {})
+    # in deeptutor/tools/builtin/__init__.py (TOOL_ALIASES); the registry
+    # merges that empty default dict with the caller's kwargs, so no
+    # `mode` is injected. The original test asserted a pre-filter
+    # contract where the alias carried a `mode=...` default. The alias
+    # today is intentionally a pass-through alias-only mapping; the
+    # mode decision lives elsewhere in RAGService.
+    assert "mode" not in rag.calls[0]
     assert rag.calls[0]["query"] == "find this"
     assert code.calls[0]["intent"] == "compute this"
