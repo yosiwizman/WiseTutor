@@ -5,6 +5,48 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-15 — Licensing boundary ratified (G1 + G6 CLOSED)
+
+**Decision.** The founder-approved licensing boundary from
+`FEATURE_REQUESTS_2026_04_15.md` §4B is now canonical and written
+down as `LICENSING_POLICY.md` at the repo root. Gate G1 (licensing
+policy) and Gate G6 (`LICENSING_POLICY.md` acceptance) are closed.
+
+**What is canonical.**
+- Allowed licenses for automatic fetch + ingest: `public-domain`,
+  `cc0`, `cc-by`, `cc-by-sa`, `mit`, `bsd` (any standard variant),
+  `apache` (Apache-2.0), `gfdl`, `openstax` (unless a specific page
+  states otherwise), `arxiv` pre-prints.
+- Ambiguous, paid, all-rights-reserved, or access-controlled
+  material: link-only. No fetch, no cache, no ingest.
+- Hard prohibitions: no auto-purchase; no assumption of
+  redistribution rights when the user claims to have already bought a
+  copy; no bypassing access controls; no ingest under the wrong
+  license.
+- Operator note: fetch approval is license-bound, not
+  usefulness-bound.
+
+**Why.** G1 is a hard legal boundary on acquisition behavior. G6
+writes it down where every future slice (AI Librarian pipeline, any
+auto-ingest work) can cite a single source-of-truth. `LICENSING_POLICY.md`
+supersedes any license discussion elsewhere if there is ever a
+disagreement.
+
+**Consequence (explicit non-goals for this slice).**
+- No runtime code changed.
+- No new dependency added.
+- No build pod unlocked.
+- No ROADMAP edit.
+- No other gate closed by this commit (G2, G3, G4, G5, G8 are
+  tracked elsewhere and remain their own closures).
+
+**Scope boundaries preserved.** URL ingestion v1, PDF ingestion
+overhaul v1, Qdrant adoption v1, and the Phase-5 voice substrate are
+unaffected by this policy commit; they remain governed by their own
+slices. This policy constrains future auto-acquisition flows only.
+
+---
+
 ## 2026-04-15 — Librarian + Avatar planning pass (no adoption, no implementation)
 
 **Decision.** Capture founder intent for the Knowledge-page AI Librarian
