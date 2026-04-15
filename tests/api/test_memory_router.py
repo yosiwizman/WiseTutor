@@ -17,6 +17,21 @@ def _build_app() -> FastAPI:
     return app
 
 
+@pytest.fixture(autouse=True)
+def _stub_caller_identity(monkeypatch):
+    """Memory router resolves the caller via ``resolve_request_user`` and
+    401s when no uid is bound. These tests exercise the router's
+    behavior for an authenticated caller, so stub the identity
+    resolver to return a deterministic uid. The auth contract itself
+    is covered by the dedicated identity-source-truth integration
+    lane; memory_router tests focus on snapshot/refresh/write logic."""
+    monkeypatch.setattr(
+        "deeptutor.api.routers.memory.resolve_request_user",
+        lambda _request: "test-uid",
+    )
+    yield
+
+
 def _make_snapshot(
     summary: str = "",
     profile: str = "",
@@ -43,7 +58,10 @@ def test_memory_router_returns_single_document(monkeypatch) -> None:
                 profile_updated_at="2026-03-13T12:00:00+08:00",
             )
 
-    monkeypatch.setattr("deeptutor.api.routers.memory.get_memory_service", lambda: FakeMemoryService())
+    monkeypatch.setattr(
+        "deeptutor.api.routers.memory.get_memory_service",
+        lambda *_a, **_k: FakeMemoryService(),
+    )
 
     with TestClient(_build_app()) as client:
         response = client.get("/api/v1/memory")
@@ -71,14 +89,20 @@ def test_memory_router_refreshes_from_session(monkeypatch) -> None:
     )
 
     class FakeMemoryService:
-        async def refresh_from_session(self, session_id, language="en"):
+        async def refresh_from_session(self, session_id, language="en", store=None):
             return type("Result", (), {"changed": True})()
 
         def read_snapshot(self):
             return _snapshot
 
-    monkeypatch.setattr("deeptutor.api.routers.memory.get_sqlite_session_store", lambda: FakeStore())
-    monkeypatch.setattr("deeptutor.api.routers.memory.get_memory_service", lambda: FakeMemoryService())
+    monkeypatch.setattr(
+        "deeptutor.api.routers.memory.get_sqlite_session_store",
+        lambda *_a, **_k: FakeStore(),
+    )
+    monkeypatch.setattr(
+        "deeptutor.api.routers.memory.get_memory_service",
+        lambda *_a, **_k: FakeMemoryService(),
+    )
 
     with TestClient(_build_app()) as client:
         response = client.post(
@@ -101,7 +125,10 @@ def test_memory_router_updates_document(monkeypatch) -> None:
                 profile_updated_at="2026-03-13T12:20:00+08:00",
             )
 
-    monkeypatch.setattr("deeptutor.api.routers.memory.get_memory_service", lambda: FakeMemoryService())
+    monkeypatch.setattr(
+        "deeptutor.api.routers.memory.get_memory_service",
+        lambda *_a, **_k: FakeMemoryService(),
+    )
 
     with TestClient(_build_app()) as client:
         response = client.put(
