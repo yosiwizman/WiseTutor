@@ -24,9 +24,16 @@ async def test_factory_complete_uses_litellm(monkeypatch) -> None:
         captured.update(kwargs)
         return "ok"
 
+    # The litellm gateway path was removed when the provider-SDK
+    # executor layer landed ("no litellm" per
+    # deeptutor/services/llm/executors.py:1). The factory now routes
+    # non-direct provider modes through sdk_complete imported from
+    # .executors (factory.py:57-59, :270-283). Patch that symbol
+    # instead of the retired litellm_available / litellm_complete.
     monkeypatch.setattr("deeptutor.services.llm.factory.get_llm_config", lambda: cfg)
-    monkeypatch.setattr("deeptutor.services.llm.factory.litellm_available", lambda: True)
-    monkeypatch.setattr("deeptutor.services.llm.factory.litellm_complete", _fake_litellm_complete)
+    monkeypatch.setattr(
+        "deeptutor.services.llm.factory.sdk_complete", _fake_litellm_complete
+    )
 
     result = await complete("hello")
     assert result == "ok"
@@ -51,8 +58,10 @@ async def test_factory_complete_uses_direct_azure(monkeypatch) -> None:
         captured.update(kwargs)
         return "ok"
 
+    # provider_mode="direct" takes the cloud_provider.complete branch
+    # (factory.py:295-309). No litellm toggle exists; the removed
+    # monkeypatch of `litellm_available` is dropped.
     monkeypatch.setattr("deeptutor.services.llm.factory.get_llm_config", lambda: cfg)
-    monkeypatch.setattr("deeptutor.services.llm.factory.litellm_available", lambda: False)
     monkeypatch.setattr("deeptutor.services.llm.cloud_provider.complete", _fake_cloud_complete)
 
     result = await complete("hello")
@@ -70,8 +79,9 @@ async def test_factory_complete_openai_codex_requires_oauth(monkeypatch) -> None
         provider_name="openai_codex",
         provider_mode="oauth",
     )
+    # provider_mode="oauth" now raises LLMConfigError before touching
+    # any executor (factory.py:260-269). No litellm toggle to patch.
     monkeypatch.setattr("deeptutor.services.llm.factory.get_llm_config", lambda: cfg)
-    monkeypatch.setattr("deeptutor.services.llm.factory.litellm_available", lambda: False)
 
     with pytest.raises(Exception):
         await complete("hello", max_retries=0)
@@ -93,9 +103,14 @@ async def test_factory_stream_uses_litellm(monkeypatch) -> None:
         yield "a"
         yield "b"
 
+    # Streaming-side counterpart of the sdk_complete migration:
+    # factory.stream() now routes non-direct provider modes through
+    # sdk_stream imported from .executors (factory.py:57-59,
+    # :400-413). Patch that symbol; retired litellm toggle dropped.
     monkeypatch.setattr("deeptutor.services.llm.factory.get_llm_config", lambda: cfg)
-    monkeypatch.setattr("deeptutor.services.llm.factory.litellm_available", lambda: True)
-    monkeypatch.setattr("deeptutor.services.llm.factory.litellm_stream", _fake_litellm_stream)
+    monkeypatch.setattr(
+        "deeptutor.services.llm.factory.sdk_stream", _fake_litellm_stream
+    )
 
     chunks = []
     async for item in stream("hello"):
