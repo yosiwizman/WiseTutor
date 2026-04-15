@@ -441,23 +441,37 @@ async def test_deep_research_capability_requires_explicit_config_and_streams_tra
 
     captured: dict[str, Any] = {}
 
+    import inspect
+
+    async def _maybe_await(callback, payload):
+        """Tolerate either a sync or async callback. The product's
+        _progress_cb is now sync (schedules emit via loop.create_task),
+        while _trace_cb is async; the old fake awaited both
+        unconditionally."""
+        result = callback(payload)
+        if inspect.isawaitable(result):
+            await result
+
     class FakeResearchPipeline:
         def __init__(self, **kwargs: Any) -> None:
             captured["pipeline_init"] = kwargs
 
         async def run(self, topic: str) -> dict[str, Any]:
-            await captured["pipeline_init"]["progress_callback"](
-                {"status": "gathering evidence", "stage": "researching", "block_id": "block_1"}
+            await _maybe_await(
+                captured["pipeline_init"]["progress_callback"],
+                {"status": "gathering evidence", "stage": "researching", "block_id": "block_1"},
             )
-            await captured["pipeline_init"]["trace_callback"](
+            await _maybe_await(
+                captured["pipeline_init"]["trace_callback"],
                 {
                     "event": "llm_call",
                     "state": "running",
                     "agent_name": "rephrase_agent",
                     "stage": "rephrase",
-                }
+                },
             )
-            await captured["pipeline_init"]["trace_callback"](
+            await _maybe_await(
+                captured["pipeline_init"]["trace_callback"],
                 {
                     "event": "tool_call",
                     "phase": "researching",
@@ -465,8 +479,11 @@ async def test_deep_research_capability_requires_explicit_config_and_streams_tra
                     "tool_args": {"query": "agent-native tutoring"},
                     "label": "Use web_search",
                     "call_id": "research-tool-1",
-                }
+                },
             )
+            # Let the sync progress_cb's scheduled emit actually run.
+            import asyncio as _asyncio
+            await _asyncio.sleep(0)
             return {"report": f"Report about {topic}", "metadata": {"citations": 3}}
 
     def fake_load_config_with_main(_: str) -> dict[str, Any]:
@@ -507,6 +524,15 @@ async def test_deep_research_capability_requires_explicit_config_and_streams_tra
             "mode": "report",
             "depth": "standard",
             "sources": ["kb", "web", "papers"],
+            # Supplying a confirmed_outline skips the new outline-preview
+            # intermediate step (_generate_outline_preview ->
+            # pipeline._phase1_planning) and routes straight to
+            # pipeline.run(topic=...), which is the code path this test
+            # asserts against (progress / trace / result events).
+            "confirmed_outline": [
+                {"title": "Subtopic A", "overview": "overview a"},
+                {"title": "Subtopic B", "overview": "overview b"},
+            ],
         },
         language="en",
     )
