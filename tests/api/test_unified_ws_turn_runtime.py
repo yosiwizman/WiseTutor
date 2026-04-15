@@ -60,7 +60,7 @@ async def test_turn_runtime_replays_events_and_materializes_messages(
     monkeypatch.setattr("deeptutor.runtime.orchestrator.ChatOrchestrator", FakeOrchestrator)
     monkeypatch.setattr(
         "deeptutor.services.memory.get_memory_service",
-        lambda: SimpleNamespace(
+        lambda *_a, **_k: SimpleNamespace(
             build_memory_context=lambda: "",
             refresh_from_turn=_noop_refresh,
         ),
@@ -149,7 +149,7 @@ async def test_turn_runtime_bootstraps_question_followup_context_once(
     monkeypatch.setattr("deeptutor.runtime.orchestrator.ChatOrchestrator", FakeOrchestrator)
     monkeypatch.setattr(
         "deeptutor.services.memory.get_memory_service",
-        lambda: SimpleNamespace(
+        lambda *_a, **_k: SimpleNamespace(
             build_memory_context=lambda: "",
             refresh_from_turn=_noop_refresh,
         ),
@@ -264,7 +264,7 @@ async def test_turn_runtime_persists_deep_research_session_preference(
     monkeypatch.setattr("deeptutor.runtime.orchestrator.ChatOrchestrator", FakeOrchestrator)
     monkeypatch.setattr(
         "deeptutor.services.memory.get_memory_service",
-        lambda: SimpleNamespace(
+        lambda *_a, **_k: SimpleNamespace(
             build_memory_context=lambda: "",
             refresh_from_turn=_noop_refresh,
         ),
@@ -341,12 +341,21 @@ async def test_turn_runtime_injects_memory_and_refreshes_after_completion(
         refresh_calls.append(kwargs)
         return None
 
+    # Auto-refresh of memory on every turn is gated OFF by default
+    # (see deeptutor/services/memory/service.py:MEMORY_AUTO_REFRESH_ENABLED
+    # and the 2026-04-12 audit note). This test exists specifically to
+    # exercise the gated refresh path, so flip the flag for this test
+    # only. Turn_runtime imports the flag inline inside _run_turn, so
+    # the monkeypatch is picked up per invocation.
+    monkeypatch.setattr(
+        "deeptutor.services.memory.service.MEMORY_AUTO_REFRESH_ENABLED", True
+    )
     monkeypatch.setattr("deeptutor.services.llm.config.get_llm_config", lambda: SimpleNamespace())
     monkeypatch.setattr("deeptutor.services.session.context_builder.ContextBuilder", FakeContextBuilder)
     monkeypatch.setattr("deeptutor.runtime.orchestrator.ChatOrchestrator", FakeOrchestrator)
     monkeypatch.setattr(
         "deeptutor.services.memory.get_memory_service",
-        lambda: SimpleNamespace(
+        lambda *_a, **_k: SimpleNamespace(
             build_memory_context=lambda: "## Memory\n## Preferences\n- Prefer concise answers.",
             refresh_from_turn=fake_refresh_from_turn,
         ),
