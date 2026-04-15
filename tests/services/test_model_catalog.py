@@ -53,7 +53,19 @@ def test_load_hydrates_empty_catalog_from_env(tmp_path: Path, monkeypatch):
     assert catalog["services"]["search"]["profiles"][0]["proxy"] == ""
 
 
-def test_load_syncs_existing_active_profiles_from_env(tmp_path: Path, monkeypatch):
+def test_load_seeds_empty_profile_fields_from_env(tmp_path: Path, monkeypatch):
+    # Current contract
+    # ----------------
+    # deeptutor/services/config/model_catalog.py::
+    #   ModelCatalogService._sync_active_services_from_env (lines 215-329)
+    # states explicitly: "Catalog is source of truth — only seed empty
+    # fields from .env, never overwrite."
+    #
+    # The prior test body wrote a catalog with non-empty binding/
+    # base_url/api_key/model and asserted env VALUES OVERWROTE them.
+    # That was the pre-inversion contract; the product intentionally
+    # reversed it. This test now asserts the live contract: env seeds
+    # only the fields the existing profile has left empty.
     env_path = tmp_path / ".env"
     env_path.write_text(
         "\n".join(
@@ -84,13 +96,13 @@ def test_load_syncs_existing_active_profiles_from_env(tmp_path: Path, monkeypatc
         {
           "id": "llm-profile-default",
           "name": "Default LLM Endpoint",
-          "binding": "openai",
-          "base_url": "https://old-llm.example/v1",
-          "api_key": "old-llm-key",
+          "binding": "",
+          "base_url": "",
+          "api_key": "",
           "api_version": "",
           "extra_headers": {},
           "models": [
-            {"id": "llm-model-default", "name": "old-model", "model": "old-model"}
+            {"id": "llm-model-default", "name": "", "model": ""}
           ]
         }
       ]
@@ -102,17 +114,17 @@ def test_load_syncs_existing_active_profiles_from_env(tmp_path: Path, monkeypatc
         {
           "id": "embedding-profile-default",
           "name": "Default Embedding Endpoint",
-          "binding": "openai",
-          "base_url": "https://old-emb.example/v1",
-          "api_key": "old-emb-key",
+          "binding": "",
+          "base_url": "",
+          "api_key": "",
           "api_version": "",
           "extra_headers": {},
           "models": [
             {
               "id": "embedding-model-default",
-              "name": "old-embedding",
-              "model": "old-embedding",
-              "dimension": "3072"
+              "name": "",
+              "model": "",
+              "dimension": ""
             }
           ]
         }
