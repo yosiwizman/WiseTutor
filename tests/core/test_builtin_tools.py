@@ -23,8 +23,20 @@ from deeptutor.tools.builtin import (
 
 
 def _install_module(monkeypatch: pytest.MonkeyPatch, fullname: str, **attrs: Any) -> types.ModuleType:
-    """Install a fake module (and missing parent packages) into sys.modules."""
-    __import__("src")
+    """Install a fake module (and missing parent packages) into sys.modules.
+
+    Mirrors the hardened helper in tests/core/test_capabilities_runtime.py:
+    (1) the `src` top-level package is an upstream-DeepTutor artifact this
+    fork does not carry, so install a lightweight stub if missing; and
+    (2) parent-module attributes are registered via ``monkeypatch.setattr``
+    rather than plain ``setattr`` so pytest unwinds them at test teardown
+    — plain ``setattr`` leaked fake subpackages across tests in the prior
+    run and corrupted downstream namespaces.
+    """
+    if "src" not in sys.modules:
+        src_pkg = types.ModuleType("src")
+        src_pkg.__path__ = []  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "src", src_pkg)
     parts = fullname.split(".")
     for idx in range(1, len(parts)):
         pkg_name = ".".join(parts[:idx])
@@ -34,7 +46,7 @@ def _install_module(monkeypatch: pytest.MonkeyPatch, fullname: str, **attrs: Any
             monkeypatch.setitem(sys.modules, pkg_name, pkg)
             if idx > 1:
                 parent = sys.modules[".".join(parts[: idx - 1])]
-                setattr(parent, parts[idx - 1], pkg)
+                monkeypatch.setattr(parent, parts[idx - 1], pkg, raising=False)
 
     module = types.ModuleType(fullname)
     for key, value in attrs.items():
@@ -42,7 +54,7 @@ def _install_module(monkeypatch: pytest.MonkeyPatch, fullname: str, **attrs: Any
     monkeypatch.setitem(sys.modules, fullname, module)
     if len(parts) > 1:
         parent = sys.modules[".".join(parts[:-1])]
-        setattr(parent, parts[-1], module)
+        monkeypatch.setattr(parent, parts[-1], module, raising=False)
     return module
 
 
