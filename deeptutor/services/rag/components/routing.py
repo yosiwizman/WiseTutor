@@ -288,9 +288,15 @@ class FileTypeRouter:
         Returns:
             Set of supported file extensions (with leading dot, e.g., {".pdf", ".txt"})
         """
-        # Only llamaindex is supported; keep provider param for forward compatibility.
-        if provider and provider != "llamaindex":
-            logger.warning(f"Unknown/legacy provider '{provider}', using llamaindex extension set")
+        # Extension routing is identical for every supported backend
+        # (llamaindex default, qdrant-backed). Warn only on genuinely
+        # unknown provider names so legacy/misconfigured values stay
+        # visible in logs.
+        known = {"llamaindex", "qdrant"}
+        if provider and provider not in known:
+            logger.warning(
+                f"Unknown/legacy provider '{provider}', using llamaindex extension set"
+            )
         return cls.PARSER_EXTENSIONS | cls.TEXT_EXTENSIONS
 
     @classmethod
