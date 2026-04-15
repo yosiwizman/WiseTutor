@@ -5,12 +5,33 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import pytest
 from typer.testing import CliRunner
 
 from deeptutor.app import TurnRequest
 from deeptutor_cli.main import app
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _stub_app_runtime(monkeypatch) -> None:
+    """DeepTutorApp.__init__ eagerly calls get_turn_runtime_manager() and
+    get_sqlite_session_store() with no user_id, which now raises
+    because those factories require an explicit per-user uid. These CLI
+    smoke tests monkeypatch DeepTutorApp's *methods*, so the underlying
+    runtime/store objects just need to exist for construction. Stub the
+    two factories at the facade import site so the CLI constructor
+    path succeeds; the per-user contract itself is covered by the
+    dedicated identity-source-truth and knowledge-isolation lanes."""
+    monkeypatch.setattr(
+        "deeptutor.app.facade.get_turn_runtime_manager",
+        lambda *_a, **_k: object(),
+    )
+    monkeypatch.setattr(
+        "deeptutor.app.facade.get_sqlite_session_store",
+        lambda *_a, **_k: object(),
+    )
 
 
 def _install_fake_runtime(monkeypatch, captured_requests: list[TurnRequest]) -> None:
