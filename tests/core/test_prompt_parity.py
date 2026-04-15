@@ -7,7 +7,14 @@ from typing import Any, Iterable
 import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-AGENTS_DIR = PROJECT_ROOT / "src" / "agents"
+# WiseTutor ships prompts under `deeptutor/agents/<module>/prompts/`;
+# the upstream DeepTutor `src/agents/` layout does not exist in this
+# fork. `deeptutor/services/prompt/manager.py::_candidate_prompt_dirs`
+# confirms the live prompt root is `deeptutor/agents`, with `src/agents`
+# only kept as an optional legacy fallback. Point the parity check at
+# the real location so the en/zh key + placeholder contract is enforced
+# on the prompts the product actually loads.
+AGENTS_DIR = PROJECT_ROOT / "deeptutor" / "agents"
 
 # Template placeholders are expected to be like {topic}, {knowledge_title}, etc.
 # Avoid false positives from LaTeX (\frac{1}{3}) and Mermaid (B{{Processing}}).
