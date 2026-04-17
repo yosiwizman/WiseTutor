@@ -6,9 +6,12 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from deeptutor.logging import get_logger
 from deeptutor.services.path_service import get_path_service
 
 from .env_store import get_env_store
+
+logger = get_logger("ModelCatalogService")
 
 CATALOG_PATH = get_path_service().get_settings_file("model_catalog")
 
@@ -405,6 +408,19 @@ class ModelCatalogService:
                 profile.setdefault("api_version", "")
                 profile.setdefault("base_url", "")
                 profile.setdefault("api_key", "")
+
+                # Warn about plaintext API keys
+                api_key = profile.get("api_key", "")
+                if api_key and not api_key.startswith("env:"):
+                    profile_name = profile.get("name", "Untitled Profile")
+                    profile_id = profile.get("id", "unknown")
+                    logger.warning(
+                        "Plaintext API key detected in %s service profile '%s' (id: %s). "
+                        "Plaintext keys in model_catalog.json are deprecated and will be removed in a future version. "
+                        "Use 'env:VAR_NAME' references or run the migration tool to move keys to .env"
+                        % (service_name, profile_name, profile_id)
+                    )
+
                 if service_name == "search":
                     profile.setdefault("provider", "brave")
                     profile.setdefault("proxy", "")
