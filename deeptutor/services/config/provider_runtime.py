@@ -609,7 +609,7 @@ def resolve_search_runtime_config(
         return ResolvedSearchConfig(
             provider=provider,
             requested_provider=requested_provider,
-            api_key=api_key,
+            api_key=_resolve_api_key(api_key),
             base_url=base_url,
             max_results=max_results,
             proxy=proxy,
@@ -628,7 +628,7 @@ def resolve_search_runtime_config(
     return ResolvedSearchConfig(
         provider=provider,
         requested_provider=requested_provider,
-        api_key=api_key,
+        api_key=_resolve_api_key(api_key),
         base_url=base_url,
         max_results=max_results,
         proxy=proxy,
