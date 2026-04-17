@@ -19,7 +19,7 @@ start_backend() {
   export WISETUTOR_PIPER_VOICE_PATH=/mnt/models/piper/en_US-lessac-low.onnx
 
   setsid nohup "$REPO/.venv/bin/python" -m uvicorn deeptutor.api.main:app \
-    --host 0.0.0.0 --port 8001 \
+    --host ${BACKEND_HOST:-127.0.0.1} --port ${BACKEND_PORT:-8001} \
     > "$LOGS/backend.log" 2>&1 < /dev/null &
   disown
   echo $! > "$LOGS/backend.pid"
