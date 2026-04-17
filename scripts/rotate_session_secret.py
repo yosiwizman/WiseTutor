@@ -22,7 +22,8 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-project_root = Path(__file__).parent.parent
+# Respect WISETUTOR_REPO env var to support running from worktrees/CI
+project_root = Path(os.environ.get("WISETUTOR_REPO") or Path(__file__).parent.parent)
 sys.path.insert(0, str(project_root))
 
 from scripts._cli_kit import banner, error, success, warn, dim, bold, accent
