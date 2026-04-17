@@ -304,3 +304,6 @@ test-results/
 !.env.example
 !.env.example_CN
 backups/
+
+# Auto Claude data directory
+.auto-claude/
