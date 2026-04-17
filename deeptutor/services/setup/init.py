@@ -227,6 +227,18 @@ def get_backend_port(project_root: Path | None = None) -> int:
         return 8001
 
 
+def get_backend_host(project_root: Path | None = None) -> str:
+    """
+    Get backend host from environment variable.
+
+    Configure in .env file: BACKEND_HOST=127.0.0.1
+
+    Returns:
+        Backend host address (default: 127.0.0.1)
+    """
+    return get_env_store().get("BACKEND_HOST", "127.0.0.1")
+
+
 def get_frontend_port(project_root: Path | None = None) -> int:
     """
     Get frontend port from environment variable.
@@ -268,6 +280,7 @@ __all__ = [
     "init_user_directories",
     # Port configuration (from .env)
     "get_backend_port",
+    "get_backend_host",
     "get_frontend_port",
     "get_ports",
 ]
