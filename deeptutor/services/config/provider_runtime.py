@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import json
+import os
 from typing import Any
 from urllib.parse import urlparse
 
@@ -172,6 +173,14 @@ class ResolvedSearchConfig:
 
 def _as_str(value: Any) -> str:
     return str(value).strip() if value is not None else ""
+
+
+def _resolve_api_key(value: str) -> str:
+    """Resolve API key - if value starts with 'env:', look up the environment variable."""
+    if value.startswith("env:"):
+        var_name = value[4:]
+        return os.environ.get(var_name, "")
+    return value
 
 
 def _to_headers(value: Any) -> dict[str, str]:
