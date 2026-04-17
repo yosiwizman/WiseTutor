@@ -98,3 +98,59 @@ def test_pedagogy_mode_defaults_differ_by_role():
 
     # Bella is child, should default to 'adaptive'
     assert bella_prefs["preferences"]["pedagogy_mode"] == "adaptive"
+
+
+def test_prompt_builder_includes_pedagogy_mode():
+    """Test that pedagogy_mode preference is included in the system prompt.
+    Note: 'adaptive' mode doesn't have a specific prompt instruction (it's handled
+    programmatically at runtime), so only 'guided' and 'direct' are tested here.
+    """
+    from deeptutor.agents.chat.agentic_pipeline import AgenticChatPipeline
+
+    class _Ctx:
+        def __init__(self, md):
+            self.metadata = md
+
+    # Test guided mode - should include Socratic/guiding language
+    ctx_guided = _Ctx({
+        "_wt_display_name": "Bella",
+        "_wt_preferences": {
+            "tone": "warm",
+            "response_length": "short",
+            "safety_profile": "child",
+            "pedagogy_mode": "guided",
+            "allowed_capabilities": ["chat", "math_animator"],
+        },
+    })
+    line_guided = AgenticChatPipeline._build_identity_preferences_line(ctx_guided)
+    assert "Socratic" in line_guided or "guiding questions" in line_guided.lower()
+
+    # Test direct mode - should include direct/explanations language
+    ctx_direct = _Ctx({
+        "_wt_display_name": "Mr W",
+        "_wt_preferences": {
+            "tone": "direct",
+            "response_length": "medium",
+            "safety_profile": "standard",
+            "pedagogy_mode": "direct",
+            "allowed_capabilities": ["chat", "deep_research"],
+        },
+    })
+    line_direct = AgenticChatPipeline._build_identity_preferences_line(ctx_direct)
+    assert "clear" in line_direct.lower() and "explanations" in line_direct.lower()
+
+    # Test adaptive mode - no specific prompt instruction (empty pedagogy_hint is OK)
+    ctx_adaptive = _Ctx({
+        "_wt_display_name": "Student",
+        "_wt_preferences": {
+            "tone": "warm",
+            "response_length": "medium",
+            "safety_profile": "child",
+            "pedagogy_mode": "adaptive",
+            "allowed_capabilities": ["chat"],
+        },
+    })
+    line_adaptive = AgenticChatPipeline._build_identity_preferences_line(ctx_adaptive)
+    # Adaptive mode doesn't add a specific pedagogy instruction, so just verify
+    # the line is built without error and contains the user's name
+    assert "Student" in line_adaptive
