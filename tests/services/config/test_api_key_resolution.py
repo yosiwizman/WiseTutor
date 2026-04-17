@@ -88,3 +88,27 @@ def test_resolve_api_key_from_env_reference(tmp_path: Path, monkeypatch) -> None
     # Verify that the api_key was resolved from the environment variable
     assert resolved.api_key == "secret123"
     assert resolved.provider_name == "openai"
+
+
+def test_plaintext_keys_still_work(tmp_path: Path) -> None:
+    """Test that plaintext API keys (without env: prefix) are used as-is."""
+    # Create catalog with plaintext api_key
+    catalog = _build_catalog(
+        llm_profile={
+            "id": "llm-p",
+            "name": "LLM",
+            "binding": "openai",
+            "base_url": "",
+            "api_key": "my-plain-api-key",
+            "api_version": "",
+            "extra_headers": {},
+            "models": [{"id": "llm-m", "name": "m", "model": "gpt-4o-mini"}],
+        }
+    )
+
+    # Resolve the runtime config
+    resolved = resolve_llm_runtime_config(catalog=catalog, env_store=_empty_env(tmp_path))
+
+    # Verify that the plaintext api_key was used as-is
+    assert resolved.api_key == "my-plain-api-key"
+    assert resolved.provider_name == "openai"
