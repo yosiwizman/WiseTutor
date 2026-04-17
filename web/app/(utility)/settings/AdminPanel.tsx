@@ -21,6 +21,7 @@ type PublicUser = {
     response_length?: string;
     allowed_capabilities?: string[];
     safety_profile?: string;
+    pedagogy_mode?: string;
   };
 };
 
@@ -36,6 +37,7 @@ const ALL_CAPS = [
 ];
 const SAFETY = ["standard", "child"];
 const THEMES = ["light", "dark", "bella"];
+const PEDAGOGY_MODES = ["guided", "direct", "adaptive"];
 
 export function AdminPanel() {
   const [me, setMe] = useState<ActiveUser | null>(null);
@@ -50,6 +52,7 @@ export function AdminPanel() {
   const [safety, setSafety] = useState<Record<string, string>>({});
   const [themes, setThemes] = useState<Record<string, string>>({});
   const [caps, setCaps] = useState<Record<string, Set<string>>>({});
+  const [pedagogyModes, setPedagogyModes] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setErr(null);
@@ -84,14 +87,17 @@ export function AdminPanel() {
       const initialCaps: Record<string, Set<string>> = {};
       const initialSafety: Record<string, string> = {};
       const initialTheme: Record<string, string> = {};
+      const initialPedagogyMode: Record<string, string> = {};
       for (const u of enriched) {
         initialCaps[u.id] = new Set(u.preferences?.allowed_capabilities ?? []);
         initialSafety[u.id] = u.preferences?.safety_profile ?? "standard";
         initialTheme[u.id] = (u as any).theme ?? "light";
+        initialPedagogyMode[u.id] = u.preferences?.pedagogy_mode ?? "guided";
       }
       setCaps(initialCaps);
       setSafety(initialSafety);
       setThemes(initialTheme);
+      setPedagogyModes(initialPedagogyMode);
     } catch (e: any) {
       setErr(e?.message || "load failed");
     }
@@ -155,6 +161,25 @@ export function AdminPanel() {
       });
       if (!r.ok) { setErr(`theme update ${r.status}`); return; }
       setFlash(`Updated theme for ${targetId}`);
+      setTimeout(() => setFlash(null), 2500);
+      await load();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function savePedagogyMode(targetId: string) {
+    setBusy(`pedagogy:${targetId}`);
+    setErr(null);
+    try {
+      const r = await fetch(`${API_BASE}/api/v1/users/${targetId}/preferences`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pedagogy_mode: pedagogyModes[targetId] }),
+      });
+      if (!r.ok) { setErr(`pedagogy mode update ${r.status}`); return; }
+      setFlash(`Updated pedagogy mode for ${targetId}`);
       setTimeout(() => setFlash(null), 2500);
       await load();
     } finally {
@@ -360,6 +385,27 @@ export function AdminPanel() {
               data-testid={`admin-save-theme-${u.id}`}
               onClick={() => saveTheme(u.id)}
               disabled={busy === `theme:${u.id}`}
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)]/60 bg-[var(--background)] px-2 py-1 text-[11px]"
+            >
+              <Save size={11} /> Save
+            </button>
+          </div>
+
+          {/* pedagogy mode */}
+          <div className="flex items-center gap-2 mb-3 text-[12px]">
+            <span className="text-[var(--muted-foreground)] w-28">pedagogy_mode</span>
+            <select
+              data-testid={`admin-pedagogy-mode-${u.id}`}
+              value={pedagogyModes[u.id] ?? "guided"}
+              onChange={(e) => setPedagogyModes({ ...pedagogyModes, [u.id]: e.target.value })}
+              className="rounded-md border border-[var(--border)]/60 bg-[var(--background)] px-2 py-1"
+            >
+              {PEDAGOGY_MODES.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+            <button
+              data-testid={`admin-save-pedagogy-mode-${u.id}`}
+              onClick={() => savePedagogyMode(u.id)}
+              disabled={busy === `pedagogy:${u.id}`}
               className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)]/60 bg-[var(--background)] px-2 py-1 text-[11px]"
             >
               <Save size={11} /> Save
