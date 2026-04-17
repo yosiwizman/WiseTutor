@@ -5,6 +5,87 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-17 — API key security hardening: env-var indirection
+
+**Decision.** API keys are no longer stored as readable strings in
+`model_catalog.json`. The runtime now supports environment variable
+indirection via `env:VAR_NAME` syntax in any `api_key` field.
+Plaintext keys remain functional (backward compatibility) but are
+deprecated with a logged warning on catalog load.
+
+**How.** Three changes:
+1. **Resolution layer.** `_resolve_api_key()` helper added to
+   `deeptutor/services/config/provider_runtime.py`. When an `api_key`
+   field contains `env:VAR_NAME`, the runtime resolves the value from
+   `os.environ['VAR_NAME']` at config-load time. Plaintext values
+   (no `env:` prefix) pass through unchanged.
+2. **Migration endpoint.** `POST /api/v1/settings/catalog/migrate-keys`
+   added to `deeptutor/api/routers/settings.py`. Reads the current
+   catalog, converts plaintext `api_key` fields to `env:VAR_NAME`
+   references (deterministic naming: `LLM_API_KEY_PROFILE_<id>`,
+   `EMBEDDING_API_KEY_PROFILE_<id>`, etc.), and returns the updated
+   catalog preview plus environment variables to set. The operator
+   must manually apply changes — no auto-write to disk for safety.
+3. **Log sanitization.** All `api_key` values are redacted via
+   `_redact()` before entering test-run events or any structured log
+   output. Keys appear as `sk-...REDACTED...xyz` (first 3 + last 3
+   chars visible, middle replaced).
+
+**Why.** Per CLAUDE.md Secrets rules and SECURITY_BASELINE.md:
+plaintext API keys in JSON files are unacceptable for a multi-user
+system. A child-profile process reading the parent's filesystem
+could theoretically access provider keys. Environment variable
+indirection is the minimum-viable hardening: keys live outside the
+catalog file, can be rotated without JSON edits, and are scoped per
+deployment environment. OS keyring integration remains a future
+option but is deferred — env-vars are the industry-standard first
+step and match competitor behavior (every hosted tutoring product
+stores keys server-side with encryption or env-var separation).
+
+**Proof.**
+- `tests/services/config/test_api_key_resolution.py`, 5/5 green
+  (~0.8s): env-var resolution, plaintext backward-compat, migration
+  logic, log redaction, per-user isolation (two separate users with
+  different env vars for the same profile ID resolve independently).
+- Regression: `pytest tests/services/test_model_catalog.py -v`, all
+  green (existing catalog tests confirm no breakage).
+- Migration endpoint smoke test: `POST /api/v1/settings/catalog/migrate-keys`
+  returns `200`, catalog preview shows `env:` references, env var
+  dict returned matches expected naming.
+
+**Consequence.**
+- **No breaking change.** Existing catalogs with plaintext keys
+  continue to work. Operator chooses when to migrate.
+- **Deprecation warning.** On catalog load, if a plaintext `api_key`
+  is detected (no `env:` prefix), `ModelCatalogService._normalize()`
+  logs: "Plaintext API keys are deprecated. Use env:VAR_NAME syntax."
+- **Migration is manual.** The operator must: (1) call the migration
+  endpoint, (2) add the returned env vars to `.env` or the deployment
+  environment, (3) apply the updated catalog JSON. This three-step
+  process prevents accidental key exposure during migration.
+- **Per-user isolation preserved.** Each user's catalog is scoped to
+  their own `settings/model_catalog.json`. Env var names are
+  deterministic but can reference different values per environment
+  (e.g., `MRW_API_KEY` vs `BELLA_API_KEY` in the same deployment if
+  needed, or a single shared `LLM_API_KEY_PROFILE_DEFAULT` for
+  family-wide providers).
+
+**Scope boundaries (explicit).** Out of scope for this slice:
+- OS keyring integration (deferred, env-vars sufficient for now).
+- Automatic migration on server startup (too aggressive; operator
+  must explicitly trigger).
+- UI surface for the migration endpoint (API-only in this slice).
+- Secret rotation automation (future: auto-refresh keys from a vault).
+- Enforcement of env-var-only mode (plaintext keys remain valid for
+  now; future slice may require `env:` syntax).
+
+**Technical debt closed.** From ROADMAP.md: "API key storage is
+plaintext in `model_catalog.json`" — now addressed. Keys are no
+longer readable from the filesystem after migration. The catalog
+file contains only `env:VAR_NAME` references post-migration.
+
+---
+
 ## 2026-04-15 — Licensing boundary ratified (G1 + G6 CLOSED)
 
 **Decision.** The founder-approved licensing boundary from
