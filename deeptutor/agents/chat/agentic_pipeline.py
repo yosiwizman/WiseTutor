@@ -925,6 +925,7 @@ class AgenticChatPipeline:
         tone = prefs.get("tone") or ""
         length = prefs.get("response_length") or ""
         safety = prefs.get("safety_profile") or ""
+        pedagogy_mode = prefs.get("pedagogy_mode") or ""
         allowed = prefs.get("allowed_capabilities") or []
         parts: list[str] = []
         if display:
@@ -941,10 +942,16 @@ class AgenticChatPipeline:
             "warm": "Be warm, encouraging, and easy to follow.",
             "formal": "Be formal.",
         }.get(tone, "")
+        pedagogy_hint = {
+            "guided": "Use Socratic questioning and guiding questions to help the user discover insights on their own, rather than giving direct answers immediately.",
+            "direct": "Provide clear, direct explanations and answers without requiring extensive back-and-forth.",
+        }.get(pedagogy_mode, "")
         if tone_hint:
             parts.append(tone_hint)
         if length_hint:
             parts.append(length_hint)
+        if pedagogy_hint:
+            parts.append(pedagogy_hint)
         if safety == "child":
             parts.append(
                 "This user is a child. Use age-appropriate language, avoid adult "
