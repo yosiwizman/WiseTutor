@@ -461,6 +461,60 @@ class ModelCatalogService:
         models = profile.get("models", [])
         return models[0] if models else None
 
+    def migrate_keys_to_env(self) -> tuple[dict[str, Any], dict[str, str]]:
+        """Migrate plaintext API keys from catalog to environment variable references.
+
+        Scans all profiles for plaintext api_key values, generates unique environment
+        variable names, replaces keys with 'env:VAR_NAME' references, and returns
+        the updated catalog along with a dict of environment variables to set.
+
+        Does NOT automatically write to .env - operator must manually apply changes.
+
+        Returns:
+            tuple[dict, dict]: (updated_catalog, env_vars_to_set)
+        """
+        # Read raw catalog file to avoid processing that might modify keys
+        if not self.path.exists():
+            return _default_catalog(), {}
+
+        with open(self.path, "r", encoding="utf-8") as handle:
+            catalog = json.load(handle) or {}
+
+        # Ensure we have the services structure
+        services = catalog.setdefault("services", {})
+        env_vars: dict[str, str] = {}
+
+        for service_name in ("llm", "embedding", "search"):
+            service = services.get(service_name, {})
+            if not service:
+                continue
+
+            profiles = service.get("profiles", [])
+
+            for profile in profiles:
+                api_key = profile.get("api_key", "")
+
+                # Skip empty keys or keys that are already env references
+                if not api_key or api_key.startswith("env:"):
+                    continue
+
+                # Generate unique env var name based on service and profile ID
+                profile_id = profile.get("id", "")
+                if not profile_id:
+                    continue
+
+                # Normalize profile ID for env var name (uppercase, replace hyphens)
+                normalized_id = profile_id.upper().replace("-", "_")
+                env_var_name = f"{service_name.upper()}_API_KEY_PROFILE_{normalized_id}"
+
+                # Store the plaintext key in env vars dict
+                env_vars[env_var_name] = api_key
+
+                # Replace with env reference
+                profile["api_key"] = f"env:{env_var_name}"
+
+        return catalog, env_vars
+
 
 # Per-user catalog service cache. No process-global singleton on live paths.
 _CATALOG_SERVICES: dict[str, ModelCatalogService] = {}
