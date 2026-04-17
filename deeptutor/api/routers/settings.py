@@ -568,3 +568,32 @@ async def reopen_tour():
         "message": "Run the terminal setup guide from the project root to re-open the guided setup.",
         "command": "python scripts/start_tour.py",
     }
+
+
+@router.post("/catalog/migrate-keys")
+async def migrate_catalog_keys(request: Request):
+    """Migrate plaintext API keys to environment variable references.
+
+    Scans the user's catalog for plaintext api_key values, generates unique
+    environment variable names, and returns both the updated catalog and a
+    dict of env vars to set. Does NOT automatically apply changes - operator
+    must manually update .env and save the catalog for safety.
+
+    Returns:
+        - migrated_catalog: Preview of catalog with env:VAR_NAME references
+        - env_vars: Dict of environment variables to add to .env
+        - count: Number of keys migrated
+    """
+    uid = _require_uid(request)
+    svc = get_model_catalog_service(user_id=uid)
+
+    # Call the migration method
+    migrated_catalog, env_vars = svc.migrate_keys_to_env()
+
+    return {
+        "migrated_catalog": migrated_catalog,
+        "env_vars": env_vars,
+        "count": len(env_vars),
+        "message": "Migration preview ready. Manually apply changes to .env and save catalog.",
+        "user_id": uid,
+    }
