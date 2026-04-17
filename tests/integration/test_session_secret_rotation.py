@@ -4,15 +4,20 @@ Verifies that cookie-based authentication survives secret rotation with
 a zero-downtime overlap window. Tests both HTTP cookie and WebSocket token
 rotation scenarios.
 """
+import asyncio
 import http.cookiejar
 import json
 import subprocess
 import urllib.request
 from pathlib import Path
 
+import pytest
+import websockets
+
 from .conftest import requires_provider
 
 BASE = "http://localhost:8001"
+WS_BASE = "ws://localhost:8001/api/v1/ws"
 
 
 def _client(cookies: http.cookiejar.CookieJar | None = None):
@@ -39,6 +44,12 @@ def _req(opener, method: str, path: str, body=None):
 def _switch(opener, user_id: str, pin: str):
     """Switch to a user and establish cookie-based session."""
     return _req(opener, "POST", "/api/v1/users/switch", {"user_id": user_id, "pin": pin})
+
+
+def _ws_token(opener) -> str:
+    """Get WebSocket authentication token for current session."""
+    _, body = _req(opener, "GET", "/api/v1/users/ws-token")
+    return body["token"]
 
 
 def _get_secret_paths():
@@ -184,6 +195,86 @@ def test_new_cookie_issued_after_rotation():
         code, body = _req(opener, "GET", "/api/v1/users/active")
         assert code == 200, f"Active user check failed with new cookie: {code}"
         assert body["id"] == "bella", f"Expected bella, got {body.get('id')}"
+
+    finally:
+        # Restore original secrets
+        if backup_current:
+            current_path.write_bytes(backup_current)
+        elif current_path.exists():
+            current_path.unlink()
+
+        if backup_prev:
+            prev_path.write_bytes(backup_prev)
+        elif prev_path.exists():
+            prev_path.unlink()
+
+
+@pytest.mark.asyncio
+@requires_provider()
+async def test_ws_token_survives_rotation():
+    """Verify WebSocket tokens signed with old secret remain valid during overlap window.
+
+    Flow:
+    1. Switch to user and obtain WebSocket token (signed with current secret)
+    2. Rotate secret (old token should still be valid during overlap window)
+    3. Verify old token still works by connecting to WebSocket
+    4. Send a message and verify response
+    5. Cleanup and restore secrets
+    """
+    # Backup original secrets
+    current_path, prev_path = _get_secret_paths()
+    backup_current = current_path.read_bytes() if current_path.exists() else None
+    backup_prev = prev_path.read_bytes() if prev_path.exists() else None
+
+    try:
+        # 1. Switch to user and get WebSocket token (PIN: 2468 for mrw)
+        opener, _ = _client()
+        code, _ = _switch(opener, "mrw", "2468")
+        assert code == 200, f"Switch failed: {code}"
+
+        old_token = _ws_token(opener)
+        assert old_token, "Failed to obtain WebSocket token"
+
+        # 2. Rotate secret (token is now signed with old secret)
+        _rotate_secret(overlap_minutes=1)
+
+        # Verify rotation happened
+        assert current_path.exists(), "Current secret missing after rotation"
+        assert prev_path.exists(), "Previous secret not created by rotation"
+
+        # 3. Connect to WebSocket with old token (should work during overlap)
+        async with websockets.connect(f"{WS_BASE}?wt_uid_token={old_token}") as ws:
+            # 4. Send a message and verify we get a response
+            await ws.send(json.dumps({
+                "type": "message",
+                "content": "reply only OK",
+                "capability": "chat",
+                "language": "en",
+            }))
+
+            # Wait for response with timeout
+            backend_sid: str | None = None
+            end = asyncio.get_event_loop().time() + 180
+            response_received = False
+
+            while asyncio.get_event_loop().time() < end:
+                try:
+                    m = json.loads(await asyncio.wait_for(ws.recv(), timeout=30))
+                except asyncio.TimeoutError:
+                    break
+
+                # Track session ID
+                if not backend_sid:
+                    backend_sid = m.get("session_id") or (m.get("metadata") or {}).get("session_id")
+
+                # Check for any meaningful response
+                if m.get("type") in ("content", "done") or (m.get("metadata") or {}).get("turn_terminal"):
+                    response_received = True
+                    if m.get("type") == "done" or (m.get("metadata") or {}).get("turn_terminal"):
+                        break
+
+            assert response_received, "No response received from WebSocket with old token"
+            assert backend_sid, "No session_id emitted"
 
     finally:
         # Restore original secrets
