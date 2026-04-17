@@ -112,3 +112,82 @@ def test_plaintext_keys_still_work(tmp_path: Path) -> None:
     # Verify that the plaintext api_key was used as-is
     assert resolved.api_key == "my-plain-api-key"
     assert resolved.provider_name == "openai"
+
+
+def test_migration_converts_plaintext_to_env(tmp_path: Path) -> None:
+    """Test that migrate_keys_to_env() converts plaintext API keys to env-var references."""
+    from deeptutor.services.config.model_catalog import ModelCatalogService
+
+    # Create catalog file with plaintext api_keys
+    catalog_path = tmp_path / "model_catalog.json"
+    catalog_path.write_text(
+        """{
+  "version": 1,
+  "services": {
+    "llm": {
+      "active_profile_id": "llm-profile-default",
+      "active_model_id": "llm-model-default",
+      "profiles": [
+        {
+          "id": "llm-profile-default",
+          "name": "Default LLM Endpoint",
+          "binding": "openai",
+          "base_url": "https://api.openai.com/v1",
+          "api_key": "sk-plaintext-llm-key-12345",
+          "api_version": "",
+          "extra_headers": {},
+          "models": [
+            {"id": "llm-model-default", "name": "GPT-4o-mini", "model": "gpt-4o-mini"}
+          ]
+        }
+      ]
+    },
+    "embedding": {
+      "active_profile_id": "embedding-profile-default",
+      "active_model_id": "embedding-model-default",
+      "profiles": [
+        {
+          "id": "embedding-profile-default",
+          "name": "Default Embedding Endpoint",
+          "binding": "openai",
+          "base_url": "https://api.openai.com/v1",
+          "api_key": "sk-plaintext-emb-key-67890",
+          "api_version": "",
+          "extra_headers": {},
+          "models": [
+            {
+              "id": "embedding-model-default",
+              "name": "text-embedding-3-small",
+              "model": "text-embedding-3-small",
+              "dimension": "1536"
+            }
+          ]
+        }
+      ]
+    },
+    "search": {"active_profile_id": null, "profiles": []}
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    # Create ModelCatalogService and call migration
+    service = ModelCatalogService(path=catalog_path)
+    updated_catalog, env_vars = service.migrate_keys_to_env()
+
+    # Verify that api_keys were replaced with env-var references
+    llm_profile = updated_catalog["services"]["llm"]["profiles"][0]
+    assert llm_profile["api_key"] == "env:LLM_API_KEY_PROFILE_LLM_PROFILE_DEFAULT"
+
+    emb_profile = updated_catalog["services"]["embedding"]["profiles"][0]
+    assert emb_profile["api_key"] == "env:EMBEDDING_API_KEY_PROFILE_EMBEDDING_PROFILE_DEFAULT"
+
+    # Verify that env_vars dict contains the correct mappings
+    assert env_vars["LLM_API_KEY_PROFILE_LLM_PROFILE_DEFAULT"] == "sk-plaintext-llm-key-12345"
+    assert env_vars["EMBEDDING_API_KEY_PROFILE_EMBEDDING_PROFILE_DEFAULT"] == "sk-plaintext-emb-key-67890"
+
+    # Verify that only api_keys were modified, other fields remain unchanged
+    assert llm_profile["binding"] == "openai"
+    assert llm_profile["base_url"] == "https://api.openai.com/v1"
+    assert emb_profile["binding"] == "openai"
