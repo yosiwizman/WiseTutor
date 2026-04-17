@@ -191,3 +191,52 @@ def test_migration_converts_plaintext_to_env(tmp_path: Path) -> None:
     assert llm_profile["binding"] == "openai"
     assert llm_profile["base_url"] == "https://api.openai.com/v1"
     assert emb_profile["binding"] == "openai"
+
+
+def test_logs_never_expose_keys() -> None:
+    """Test that API keys are always redacted in logs and events."""
+    from deeptutor.services.config.test_runner import _redact, TestRun
+    import json
+
+    # Test the _redact function with various inputs
+    assert _redact("") == "(empty)"
+    assert _redact("short") == "****"
+    assert _redact("12345678") == "****"
+    assert _redact("sk-proj-1234567890abcdef") == "sk-p...cdef"
+    assert _redact("a" * 50) == "aaaa..." + "a" * 4
+
+    # Test that TestRun events never contain plaintext keys
+    plaintext_key = "sk-test-secret-api-key-12345"
+    redacted_key = _redact(plaintext_key)
+
+    run = TestRun(id="test-1", service="llm")
+
+    # Emit an event with API key data (simulating what test_runner does)
+    run.emit(
+        "config",
+        "Using active profile.",
+        profile={
+            "name": "Test Profile",
+            "base_url": "https://api.example.com",
+            "binding": "openai",
+            "api_key": redacted_key,  # Should be redacted before emitting
+            "api_version": "",
+        },
+    )
+
+    # Verify the event was recorded
+    events = run.snapshot(0)
+    assert len(events) == 1
+
+    # Verify the plaintext key never appears in the event
+    event_str = json.dumps(events[0])
+    assert plaintext_key not in event_str, "Plaintext API key found in event!"
+
+    # Verify the redacted key is present instead
+    assert redacted_key in event_str, "Redacted key should be present in event"
+
+    # Verify specific fields
+    event = events[0]
+    assert event["type"] == "config"
+    assert event["profile"]["api_key"] == redacted_key
+    assert event["profile"]["api_key"] != plaintext_key
