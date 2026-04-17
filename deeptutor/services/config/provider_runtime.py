@@ -511,7 +511,7 @@ def resolve_embedding_runtime_config(
         provider_mode=str(spec.get("mode") or "standard"),
         binding_hint=binding_hint,
         binding=provider_name,
-        api_key=api_key,
+        api_key=_resolve_api_key(api_key),
         base_url=api_base or None,
         effective_url=api_base or None,
         api_version=api_version or None,
