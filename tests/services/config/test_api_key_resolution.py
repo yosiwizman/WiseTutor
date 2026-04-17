@@ -193,6 +193,58 @@ def test_migration_converts_plaintext_to_env(tmp_path: Path) -> None:
     assert emb_profile["binding"] == "openai"
 
 
+def test_per_user_catalog_env_resolution(tmp_path: Path, monkeypatch) -> None:
+    """Test that per-user catalogs can reference different env vars and resolve independently."""
+    # Set up environment variables for two different users
+    monkeypatch.setenv("MRW_API_KEY", "mrw-secret-key-123")
+    monkeypatch.setenv("BELLA_API_KEY", "bella-secret-key-456")
+
+    # Create Mr W's catalog referencing his env var
+    mrw_catalog = _build_catalog(
+        llm_profile={
+            "id": "llm-profile-mrw",
+            "name": "Mr W LLM",
+            "binding": "openai",
+            "base_url": "https://api.openai.com/v1",
+            "api_key": "env:MRW_API_KEY",
+            "api_version": "",
+            "extra_headers": {},
+            "models": [{"id": "llm-model-mrw", "name": "GPT-4o", "model": "gpt-4o"}],
+        }
+    )
+
+    # Create Bella's catalog referencing her env var
+    bella_catalog = _build_catalog(
+        llm_profile={
+            "id": "llm-profile-bella",
+            "name": "Bella LLM",
+            "binding": "anthropic",
+            "base_url": "",
+            "api_key": "env:BELLA_API_KEY",
+            "api_version": "",
+            "extra_headers": {},
+            "models": [{"id": "llm-model-bella", "name": "Claude", "model": "claude-opus-4-6"}],
+        }
+    )
+
+    # Resolve both catalogs independently
+    mrw_resolved = resolve_llm_runtime_config(catalog=mrw_catalog, env_store=_empty_env(tmp_path))
+    bella_resolved = resolve_llm_runtime_config(catalog=bella_catalog, env_store=_empty_env(tmp_path))
+
+    # Verify each user's catalog resolved to their own env var
+    assert mrw_resolved.api_key == "mrw-secret-key-123"
+    assert mrw_resolved.provider_name == "openai"
+    assert mrw_resolved.model == "gpt-4o"
+
+    assert bella_resolved.api_key == "bella-secret-key-456"
+    assert bella_resolved.provider_name == "anthropic"
+    assert bella_resolved.model == "claude-opus-4-6"
+
+    # Verify no cross-contamination
+    assert mrw_resolved.api_key != bella_resolved.api_key
+    assert mrw_resolved.provider_name != bella_resolved.provider_name
+
+
 def test_logs_never_expose_keys() -> None:
     """Test that API keys are always redacted in logs and events."""
     from deeptutor.services.config.test_runner import _redact, TestRun
