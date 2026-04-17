@@ -1,0 +1,320 @@
+{
+  "feature": "Backend Network Bind Restriction",
+  "workflow_type": "simple",
+  "workflow_rationale": "Single-service security configuration change. No multi-service coordination, no migration phases, just straightforward backend bind address restriction with env var override.",
+  "phases": [
+    {
+      "id": "phase-1-config",
+      "name": "Add Backend Host Configuration",
+      "type": "implementation",
+      "description": "Add get_backend_host() function and BACKEND_HOST env var support",
+      "depends_on": [],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-1-1",
+          "description": "Add get_backend_host() function to deeptutor/services/setup/init.py",
+          "service": "backend",
+          "files_to_modify": [
+            "deeptutor/services/setup/init.py"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "deeptutor/services/setup/init.py (get_backend_port pattern)"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "python -c \"from deeptutor.services.setup import get_backend_host; print(get_backend_host())\"",
+            "expected": "127.0.0.1"
+          },
+          "notes": "Follow the exact pattern of get_backend_port() - use get_env_store().get('BACKEND_HOST', '127.0.0.1'). Default to 127.0.0.1 (localhost only), allow override via env var.",
+          "status": "completed"
+        },
+        {
+          "id": "subtask-1-2",
+          "description": "Update .env.example with BACKEND_HOST documentation",
+          "service": "backend",
+          "files_to_modify": [
+            ".env.example"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            ".env.example (BACKEND_PORT pattern)"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "grep -q 'BACKEND_HOST' .env.example",
+            "expected": "Exit code 0"
+          },
+          "notes": "BACKEND_HOST documentation already present in .env.example (line 11). Documentation includes purpose (backend host binding), default value (127.0.0.1), security rationale (restricts to localhost), and alternative option (0.0.0.0 for LAN). Verification passed.",
+          "status": "completed",
+          "updated_at": "2026-04-17T15:15:36.858623+00:00"
+        }
+      ]
+    },
+    {
+      "id": "phase-2-update-server",
+      "name": "Update Server Entry Points",
+      "type": "implementation",
+      "description": "Replace hardcoded 0.0.0.0 with get_backend_host() in all server entry points",
+      "depends_on": [
+        "phase-1-config"
+      ],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-2-1",
+          "description": "Update deeptutor/api/run_server.py to use get_backend_host()",
+          "service": "backend",
+          "files_to_modify": [
+            "deeptutor/api/run_server.py"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "deeptutor/api/run_server.py (existing get_backend_port usage)"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "grep -q 'get_backend_host' deeptutor/api/run_server.py && ! grep -q 'host=\"0.0.0.0\"' deeptutor/api/run_server.py",
+            "expected": "Exit code 0"
+          },
+          "notes": "Import get_backend_host from deeptutor.services.setup and use it in uvicorn.run() call at line 62",
+          "status": "completed",
+          "updated_at": "2026-04-17T15:20:00.000000+00:00"
+        },
+        {
+          "id": "subtask-2-2",
+          "description": "Update deeptutor_cli/main.py serve command to use get_backend_host()",
+          "service": "backend",
+          "files_to_modify": [
+            "deeptutor_cli/main.py"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "deeptutor_cli/main.py (existing get_backend_port usage)"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "grep -q 'get_backend_host' deeptutor_cli/main.py && ! grep -q 'host: str = typer.Option(\"0.0.0.0\"' deeptutor_cli/main.py",
+            "expected": "Exit code 0"
+          },
+          "notes": "Successfully updated deeptutor_cli/main.py to use get_backend_host() instead of hardcoded \"0.0.0.0\". Imported get_backend_host from deeptutor.services.setup and replaced typer.Option(\"0.0.0.0\") with typer.Option(get_backend_host()). Verification passed. Commit: 3c3353f",
+          "status": "completed",
+          "updated_at": "2026-04-17T15:19:00.940724+00:00"
+        },
+        {
+          "id": "subtask-2-3",
+          "description": "Update deeptutor/tutorbot/config/schema.py GatewayConfig",
+          "service": "backend",
+          "files_to_modify": [
+            "deeptutor/tutorbot/config/schema.py"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "! grep -q 'host: str = \"0.0.0.0\"' deeptutor/tutorbot/config/schema.py",
+            "expected": "Exit code 0"
+          },
+          "notes": "Successfully changed GatewayConfig host default from '0.0.0.0' to '127.0.0.1' at line 105. This is a schema default that restricts TutorBot gateway to localhost binding. Verification passed. Commit: 50ed07a",
+          "status": "completed",
+          "updated_at": "2026-04-17T15:25:00.000000+00:00"
+        }
+      ]
+    },
+    {
+      "id": "phase-3-update-scripts",
+      "name": "Update Startup Scripts and Docker",
+      "type": "implementation",
+      "description": "Update shell scripts and Dockerfile to use BACKEND_HOST env var",
+      "depends_on": [
+        "phase-1-config"
+      ],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-3-1",
+          "description": "Update scripts_local/wt_start.sh to use BACKEND_HOST",
+          "service": "backend",
+          "files_to_modify": [
+            "scripts_local/wt_start.sh"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "scripts_local/wt_start.sh (existing BACKEND_PORT pattern)"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "grep -q '${BACKEND_HOST:-127.0.0.1}' scripts_local/wt_start.sh",
+            "expected": "Exit code 0"
+          },
+          "notes": "Successfully updated scripts_local/wt_start.sh to use ${BACKEND_HOST:-127.0.0.1} for backend host binding. Also added ${BACKEND_PORT:-8001} for consistency. Frontend HOSTNAME remains 0.0.0.0 as it may need to accept connections in dev/production modes. Verification passed. Commit: 0bf3d76",
+          "status": "completed",
+          "updated_at": "2026-04-17T15:30:00.000000+00:00"
+        },
+        {
+          "id": "subtask-3-2",
+          "description": "Update Dockerfile to use BACKEND_HOST env var",
+          "service": "backend",
+          "files_to_modify": [
+            "Dockerfile"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "Dockerfile (existing BACKEND_PORT pattern)"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "grep -q '${BACKEND_HOST:-127.0.0.1}' Dockerfile",
+            "expected": "Exit code 0"
+          },
+          "notes": "Successfully updated Dockerfile to use BACKEND_HOST env var. Added BACKEND_HOST=127.0.0.1 to ENV (line 111), updated start-backend.sh to use ${BACKEND_HOST:-127.0.0.1} (lines 217, 225), updated entrypoint.sh to export BACKEND_HOST (line 285), and updated development stage to use %(ENV_BACKEND_HOST)s (line 369). Next.js HOSTNAME remains 0.0.0.0 for container networking. Verification passed. Commit: 881ac75",
+          "status": "completed",
+          "updated_at": "2026-04-17T15:35:00.000000+00:00"
+        }
+      ]
+    },
+    {
+      "id": "phase-4-verification",
+      "name": "Integration Verification",
+      "type": "integration",
+      "description": "Verify backend starts correctly with new bind address and health checks pass",
+      "depends_on": [
+        "phase-2-update-server",
+        "phase-3-update-scripts"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-4-1",
+          "description": "Verify backend starts and binds to 127.0.0.1",
+          "all_services": false,
+          "service": "backend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "e2e",
+            "steps": [
+              "Start backend with default config (no BACKEND_HOST set)",
+              "Verify backend is accessible on http://localhost:8001/docs",
+              "Run scripts_local/wt_health.sh to verify all checks pass",
+              "Test that BACKEND_HOST=0.0.0.0 override works for debugging"
+            ]
+          },
+          "notes": "Successfully verified: backend binds to 127.0.0.1 by default (lsof confirms 'localhost:8001'), accessible via http://localhost:8001/docs, all voice endpoints functional, BACKEND_HOST=0.0.0.0 override works (lsof shows '*:8001'). Evidence documented in build-progress.txt Session 9.",
+          "status": "completed",
+          "updated_at": "2026-04-17T15:40:00.000000+00:00"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_phases": 4,
+    "total_subtasks": 8,
+    "services_involved": [
+      "backend"
+    ],
+    "parallelism": {
+      "max_parallel_phases": 2,
+      "parallel_groups": [
+        {
+          "phases": [
+            "phase-2-update-server",
+            "phase-3-update-scripts"
+          ],
+          "reason": "Both depend only on phase-1-config, work on different file sets"
+        }
+      ],
+      "recommended_workers": 1,
+      "speedup_estimate": "1.0x (simple sequential execution preferred for config changes)"
+    },
+    "startup_command": "source auto-claude/.venv/bin/activate && python auto-claude/run.py --spec 003 --parallel 1"
+  },
+  "verification_strategy": {
+    "risk_level": "medium",
+    "skip_validation": false,
+    "test_creation_phase": "post_implementation",
+    "test_types_required": [
+      "manual"
+    ],
+    "security_scanning_required": false,
+    "staging_deployment_required": false,
+    "acceptance_criteria": [
+      "Backend binds to 127.0.0.1 by default",
+      "BACKEND_HOST env var override works",
+      "wt_health.sh reports healthy",
+      "Tailscale HTTPS access still works (proxies to localhost)"
+    ],
+    "verification_steps": [
+      {
+        "name": "Backend Bind Verification",
+        "command": "lsof -i :8001 | grep LISTEN",
+        "expected_outcome": "Backend listening on 127.0.0.1:8001, not 0.0.0.0:8001",
+        "type": "command",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Health Check",
+        "command": "./scripts_local/wt_health.sh",
+        "expected_outcome": "All checks pass",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Localhost Access",
+        "command": "curl -sf http://localhost:8001/docs",
+        "expected_outcome": "Returns 200 OK",
+        "type": "api",
+        "required": true,
+        "blocking": true
+      }
+    ],
+    "reasoning": "Medium risk - configuration change affecting network binding. No code logic changes, but needs careful testing to ensure services remain accessible via localhost and Tailscale."
+  },
+  "qa_acceptance": {
+    "unit_tests": {
+      "required": false,
+      "commands": [],
+      "minimum_coverage": null
+    },
+    "integration_tests": {
+      "required": false,
+      "commands": [],
+      "services_to_test": []
+    },
+    "e2e_tests": {
+      "required": false,
+      "commands": [],
+      "flows": []
+    },
+    "browser_verification": {
+      "required": false,
+      "pages": []
+    },
+    "manual_verification": {
+      "required": true,
+      "checks": [
+        "Backend starts without errors",
+        "Backend binds to 127.0.0.1:8001 (verify with lsof or netstat)",
+        "Health check script passes",
+        "Localhost access works (curl http://localhost:8001/docs)",
+        "LAN access blocked (if testing from another device on LAN)",
+        "BACKEND_HOST=0.0.0.0 override works for debugging",
+        "Tailscale reverse proxy still reaches backend"
+      ]
+    }
+  },
+  "qa_signoff": null,
+  "status": "human_review",
+  "created_at": "2026-04-17T14:21:46.336Z",
+  "updated_at": "2026-04-17T15:35:22.171Z",
+  "planStatus": "review",
+  "xstateState": "human_review",
+  "executionPhase": "complete",
+  "recoveryNote": "Task recovered from stuck state at 2026-04-17T15:32:14.049Z",
+  "last_updated": "2026-04-17T15:19:00.940733+00:00",
+  "reviewReason": "completed"
+}
