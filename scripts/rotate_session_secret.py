@@ -123,11 +123,12 @@ def rotate_secrets(overlap_minutes: int, dry_run: bool) -> tuple[bytes, bytes | 
     if not current_secret:
         print_step("No current secret found", warn("will generate initial secret"))
     else:
-        print_step(f"Current secret: {current_secret[:16].decode()+'...'}", success("loaded"))
+        print_step(f"Current secret: (redacted, {len(current_secret)} bytes)", success("loaded"))
 
     # Generate new secret
     new_secret = generate_secret()
-    print_step(f"New secret: {new_secret[:16].decode()+'...'}", success("generated"))
+    # Never echo any portion of the secret — see SECURITY_BASELINE.md
+    print_step(f"New secret: (redacted, {len(new_secret)} bytes)", success("generated"))
 
     # Move current to previous
     if current_secret:
