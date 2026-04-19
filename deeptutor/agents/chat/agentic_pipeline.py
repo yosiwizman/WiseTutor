@@ -958,6 +958,15 @@ class AgenticChatPipeline:
                 "or graphic topics, and if asked about unsafe or adult topics, "
                 "gently redirect."
             )
+            parts.append(
+                f"When checking work, give accurate corrections. It's ok to tell "
+                f"{display if display else 'them'} when something is partially correct or needs fixing—that's how learning works."
+            )
+            parts.append(
+                "Be honest in your feedback. If an answer is wrong, say so clearly. "
+                "If it's partially correct, point out what's right and what needs work. "
+                "Don't praise incorrect work just to be encouraging—accurate feedback helps them learn."
+            )
         if allowed:
             parts.append(
                 "Capabilities allowed for this user: " + ", ".join(sorted(allowed)) + "."
