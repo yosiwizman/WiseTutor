@@ -107,7 +107,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONIOENCODING=utf-8 \
     NODE_ENV=production \
-    # Default ports (can be overridden)
+    # Default host + ports (can be overridden at runtime via .env / -e).
+    # Host default is 0.0.0.0 inside the container because Docker's bridge
+    # DNAT route reaches the container's primary interface, not loopback.
+    # Bare-metal hardening lives in deeptutor/services/setup/init.py
+    # (get_backend_host() defaults to 127.0.0.1) and scripts_local/wt_start.sh
+    # (--host ${BACKEND_HOST:-127.0.0.1}). For host-side Docker restriction,
+    # change the compose port map to "127.0.0.1:${BACKEND_PORT}:${BACKEND_PORT}".
+    BACKEND_HOST=0.0.0.0 \
     BACKEND_PORT=8001 \
     FRONTEND_PORT=3782
 
@@ -213,14 +220,15 @@ RUN cat > /app/start-backend.sh <<'EOF'
 #!/bin/bash
 set -e
 
+BACKEND_HOST=${BACKEND_HOST:-0.0.0.0}
 BACKEND_PORT=${BACKEND_PORT:-8001}
 
-echo "[Backend]  🚀 Starting FastAPI backend on port ${BACKEND_PORT}..."
+echo "[Backend]  🚀 Starting FastAPI backend on ${BACKEND_HOST}:${BACKEND_PORT}..."
 
 # Run uvicorn directly - the application's logging system already handles:
 # 1. Console output (visible in docker logs)
 # 2. File logging to data/user/logs/ai_tutor_*.log
-exec python -m uvicorn deeptutor.api.main:app --host 0.0.0.0 --port ${BACKEND_PORT}
+exec python -m uvicorn deeptutor.api.main:app --host ${BACKEND_HOST} --port ${BACKEND_PORT}
 EOF
 
 RUN sed -i 's/\r$//' /app/start-backend.sh && chmod +x /app/start-backend.sh
@@ -279,10 +287,12 @@ echo "============================================"
 echo "🚀 Starting DeepTutor"
 echo "============================================"
 
-# Set default ports if not provided
+# Set default host and ports if not provided
+export BACKEND_HOST=${BACKEND_HOST:-0.0.0.0}
 export BACKEND_PORT=${BACKEND_PORT:-8001}
 export FRONTEND_PORT=${FRONTEND_PORT:-3782}
 
+echo "📌 Backend Host: ${BACKEND_HOST}"
 echo "📌 Backend Port: ${BACKEND_PORT}"
 echo "📌 Frontend Port: ${FRONTEND_PORT}"
 
@@ -362,7 +372,7 @@ logfile_maxbytes=0
 pidfile=/var/run/supervisord.pid
 
 [program:backend]
-command=python -m uvicorn deeptutor.api.main:app --host 0.0.0.0 --port %(ENV_BACKEND_PORT)s --reload
+command=python -m uvicorn deeptutor.api.main:app --host %(ENV_BACKEND_HOST)s --port %(ENV_BACKEND_PORT)s --reload
 directory=/app
 autostart=true
 autorestart=true

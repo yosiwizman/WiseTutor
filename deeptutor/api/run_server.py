@@ -35,9 +35,10 @@ def main() -> None:
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
 
-    # Get port from configuration
-    from deeptutor.services.setup import get_backend_port
+    # Get host and port from configuration
+    from deeptutor.services.setup import get_backend_host, get_backend_port
 
+    backend_host = get_backend_host(project_root)
     backend_port = get_backend_port(project_root)
 
     # Configure reload_excludes to skip directories that shouldn't trigger reloads
@@ -59,7 +60,7 @@ def main() -> None:
     # Start uvicorn server with reload enabled
     uvicorn.run(
         "deeptutor.api.main:app",
-        host="0.0.0.0",
+        host=backend_host,
         port=backend_port,
         reload=True,
         reload_excludes=reload_excludes,

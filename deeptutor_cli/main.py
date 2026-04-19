@@ -4,7 +4,7 @@ from __future__ import annotations
 import typer
 
 from deeptutor.runtime.mode import RunMode, set_mode
-from deeptutor.services.setup import get_backend_port
+from deeptutor.services.setup import get_backend_host, get_backend_port
 
 from .bot import register as register_bot
 from .chat import register as register_chat
@@ -92,7 +92,7 @@ def run_capability(
 
 @app.command()
 def serve(
-    host: str = typer.Option("0.0.0.0", help="Bind address."),
+    host: str = typer.Option(get_backend_host(), help="Bind address."),
     port: int = typer.Option(get_backend_port(), help="Port number."),
     reload: bool = typer.Option(False, help="Enable auto-reload for development."),
 ) -> None:
