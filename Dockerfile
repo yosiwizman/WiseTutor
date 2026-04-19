@@ -107,8 +107,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONIOENCODING=utf-8 \
     NODE_ENV=production \
-    # Default ports and host (can be overridden)
-    BACKEND_HOST=127.0.0.1 \
+    # Default host + ports (can be overridden at runtime via .env / -e).
+    # Host default is 0.0.0.0 inside the container because Docker's bridge
+    # DNAT route reaches the container's primary interface, not loopback.
+    # Bare-metal hardening lives in deeptutor/services/setup/init.py
+    # (get_backend_host() defaults to 127.0.0.1) and scripts_local/wt_start.sh
+    # (--host ${BACKEND_HOST:-127.0.0.1}). For host-side Docker restriction,
+    # change the compose port map to "127.0.0.1:${BACKEND_PORT}:${BACKEND_PORT}".
+    BACKEND_HOST=0.0.0.0 \
     BACKEND_PORT=8001 \
     FRONTEND_PORT=3782
 
@@ -214,7 +220,7 @@ RUN cat > /app/start-backend.sh <<'EOF'
 #!/bin/bash
 set -e
 
-BACKEND_HOST=${BACKEND_HOST:-127.0.0.1}
+BACKEND_HOST=${BACKEND_HOST:-0.0.0.0}
 BACKEND_PORT=${BACKEND_PORT:-8001}
 
 echo "[Backend]  🚀 Starting FastAPI backend on ${BACKEND_HOST}:${BACKEND_PORT}..."
@@ -282,7 +288,7 @@ echo "🚀 Starting DeepTutor"
 echo "============================================"
 
 # Set default host and ports if not provided
-export BACKEND_HOST=${BACKEND_HOST:-127.0.0.1}
+export BACKEND_HOST=${BACKEND_HOST:-0.0.0.0}
 export BACKEND_PORT=${BACKEND_PORT:-8001}
 export FRONTEND_PORT=${FRONTEND_PORT:-3782}
 
