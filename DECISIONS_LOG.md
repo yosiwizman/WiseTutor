@@ -1587,3 +1587,8 @@ binding/model/base_url. No LLM call for these turns.
 Server truth is the only honest source.
 **Consequence.** The identity regex must be maintained; new question
 phrasings go through the unit test fixture.
+
+## 2026-04-18 — OpenAI key rotation closeout
+- Previously exposed OpenAI API key was revoked.
+- Local secret files were updated with the replacement key.
+- WiseTutor backend was restarted after the replacement.
