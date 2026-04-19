@@ -54,6 +54,11 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
     {
+      name: "pedagogy-divergence",
+      testMatch: "**/pedagogy-divergence.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+    },
+    {
       name: "capability-enforcement",
       testMatch: "**/capability-enforcement.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },

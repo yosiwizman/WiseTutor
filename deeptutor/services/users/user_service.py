@@ -51,6 +51,7 @@ _DEFAULT_PREFERENCES_BY_ROLE: dict[str, dict[str, Any]] = {
         "allowed_capabilities": ["chat", "deep_question", "deep_research",
                                  "deep_solve", "math_animator", "visualize"],
         "safety_profile": "standard",
+        "pedagogy_mode": "direct",
     },
     "user": {
         "tone": "friendly",
@@ -58,12 +59,14 @@ _DEFAULT_PREFERENCES_BY_ROLE: dict[str, dict[str, Any]] = {
         "allowed_capabilities": ["chat", "deep_question", "deep_solve",
                                  "math_animator", "visualize"],
         "safety_profile": "standard",
+        "pedagogy_mode": "guided",
     },
     "child": {
         "tone": "warm",
         "response_length": "short",
         "allowed_capabilities": ["chat", "deep_question", "math_animator"],
         "safety_profile": "child",
+        "pedagogy_mode": "adaptive",
     },
 }
 
@@ -77,6 +80,7 @@ _PREF_SCHEMA = {
     "response_length": {"short", "medium", "long"},
     "safety_profile": {"standard", "child"},
     "theme": {"light", "dark", "bella"},
+    "pedagogy_mode": {"direct", "guided", "adaptive"},
 }
 
 
@@ -113,6 +117,11 @@ def _validate_preferences(prefs: dict[str, Any]) -> dict[str, Any]:
         if val not in _PREF_SCHEMA["theme"]:
             raise ValueError(f"theme must be one of {_PREF_SCHEMA['theme']}")
         out["theme"] = val
+    if "pedagogy_mode" in prefs:
+        val = str(prefs["pedagogy_mode"])
+        if val not in _PREF_SCHEMA["pedagogy_mode"]:
+            raise ValueError(f"pedagogy_mode must be one of {_PREF_SCHEMA['pedagogy_mode']}")
+        out["pedagogy_mode"] = val
     return out
 
 
