@@ -1,0 +1,359 @@
+name: Provider-Dependent Tests
+
+# Secrets-gated CI lane for provider-dependent tests excluded from main CI.
+#
+# Runs the 8 pytest cases marked with @requires_provider() and the 4
+# Playwright projects that require real LLM calls: identity-truth,
+# popup-layout, preferences-divergence, per-user-catalog.
+#
+# This lane uses GitHub repository secrets (OPENAI_API_KEY, ANTHROPIC_API_KEY)
+# and is triggered manually or on a weekly schedule. It creates a separate
+# status check from the main CI workflow.
+#
+# Security:
+#   - API keys are injected via GitHub secrets, never hardcoded
+#   - Keys are masked in GitHub Actions logs automatically
+#   - Artifacts are uploaded for debugging but keys are not written to files
+
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: 'Provider to test (openai, anthropic, or both)'
+        required: false
+        default: 'both'
+        type: choice
+        options:
+          - both
+          - openai
+          - anthropic
+  schedule:
+    # Run weekly on Sundays at 06:00 UTC
+    - cron: '0 6 * * 0'
+
+concurrency:
+  group: provider-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: pytest + Playwright (provider-dependent)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      WISETUTOR_REPO: ${{ github.workspace }}
+      WT_CI_SKIP_PROVIDER_TESTS: "0"
+      WISETUTOR_TEST_MODE: "1"
+      WT_MRW_PIN: "2468"
+      WT_BELLA_PIN: "1357"
+      DEEPTUTOR_APP: "http://localhost:3782"
+      NEXT_PUBLIC_API_BASE: "http://localhost:8001"
+      PW_SERIAL: "1"
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements/server.txt
+            pyproject.toml
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # ─── Python deps ────────────────────────────────────────────────────
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip wheel setuptools
+          pip install -r requirements/server.txt
+          pip install -e .
+          pip install pytest pytest-asyncio websockets
+
+      # ─── Node deps + Playwright browser ─────────────────────────────────
+      - name: Install web deps
+        working-directory: web
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      # ─── Seed user + catalog with REAL API keys from secrets ───────────
+      - name: Seed owner + child + catalog (with secrets)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -eu
+          mkdir -p data/users/mrw/settings data/users/bella/settings
+
+          # Validate at least one provider key is available
+          if [ -z "$OPENAI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "ERROR: At least one of OPENAI_API_KEY or ANTHROPIC_API_KEY must be set in repository secrets"
+            echo "See .github/SECRETS_SETUP.md for configuration instructions"
+            exit 1
+          fi
+
+          # Default to first available provider
+          if [ -n "$OPENAI_API_KEY" ]; then
+            ACTIVE_PROFILE="llm-profile-openai"
+            ACTIVE_MODEL="llm-model-openai-4o-mini"
+          else
+            ACTIVE_PROFILE="llm-profile-anthropic"
+            ACTIVE_MODEL="llm-model-anthropic-opus46"
+          fi
+
+          # Generate Mr W's catalog with real keys
+          cat > data/users/mrw/settings/model_catalog.json <<EOF
+          {
+            "version": 1,
+            "services": {
+              "llm": {
+                "active_profile_id": "$ACTIVE_PROFILE",
+                "active_model_id": "$ACTIVE_MODEL",
+                "profiles": [
+                  {
+                    "id": "llm-profile-openai",
+                    "name": "OpenAI",
+                    "binding": "openai",
+                    "base_url": "https://api.openai.com/v1",
+                    "api_key": "${OPENAI_API_KEY:-ci-placeholder}",
+                    "api_version": "",
+                    "extra_headers": {},
+                    "models": [
+                      {
+                        "id": "llm-model-openai-4o-mini",
+                        "name": "gpt-4o-mini",
+                        "model": "gpt-4o-mini"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "llm-profile-anthropic",
+                    "name": "Anthropic",
+                    "binding": "anthropic",
+                    "base_url": "https://api.anthropic.com/v1",
+                    "api_key": "${ANTHROPIC_API_KEY:-ci-placeholder}",
+                    "api_version": "",
+                    "extra_headers": {},
+                    "models": [
+                      {
+                        "id": "llm-model-anthropic-opus46",
+                        "name": "claude-opus-4-6",
+                        "model": "claude-opus-4-6"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "embedding": {
+                "active_profile_id": null,
+                "active_model_id": null,
+                "profiles": []
+              },
+              "search": {
+                "active_profile_id": null,
+                "profiles": []
+              }
+            }
+          }
+          EOF
+
+          # Bella's catalog (child account, uses placeholder)
+          cat > data/users/bella/settings/model_catalog.json <<'EOF'
+          {
+            "version": 1,
+            "services": {
+              "llm": {
+                "active_profile_id": "llm-profile-default",
+                "active_model_id": "llm-model-bella",
+                "profiles": [
+                  {
+                    "id": "llm-profile-default",
+                    "name": "Bella",
+                    "binding": "ollama",
+                    "base_url": "http://localhost:11434/v1",
+                    "api_key": "local",
+                    "api_version": "",
+                    "extra_headers": {},
+                    "models": [
+                      {
+                        "id": "llm-model-bella",
+                        "name": "qwen2.5:7b",
+                        "model": "qwen2.5:7b"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "embedding": {
+                "active_profile_id": null,
+                "active_model_id": null,
+                "profiles": []
+              },
+              "search": {
+                "active_profile_id": null,
+                "profiles": []
+              }
+            }
+          }
+          EOF
+
+          echo "✓ Catalog seeded with real provider credentials"
+
+      # ─── Start backend ──────────────────────────────────────────────────
+      - name: Start backend (uvicorn, test mode)
+        run: |
+          mkdir -p logs
+          nohup python -m uvicorn deeptutor.api.main:app \
+              --host 0.0.0.0 --port 8001 \
+              > logs/backend.log 2>&1 &
+          echo $! > logs/backend.pid
+
+      - name: Wait for backend
+        run: |
+          for i in {1..60}; do
+            if curl -sf -o /dev/null http://localhost:8001/docs; then
+              echo "backend up"; exit 0
+            fi
+            sleep 1
+          done
+          echo "backend did not start"; tail -n 120 logs/backend.log; exit 1
+
+      # ─── Rotate seeded PINs to the CI-known values ──────────────────────
+      - name: Rotate Mr W + Bella PINs to CI values
+        run: |
+          set -e
+          # Mr W 1234 -> 2468
+          curl -s --fail-with-body -c /tmp/mrw.jar -X POST \
+              http://localhost:8001/api/v1/users/switch \
+              -H "Content-Type: application/json" \
+              -d '{"user_id":"mrw","pin":"1234"}'
+          curl -s --fail-with-body -b /tmp/mrw.jar -X POST \
+              http://localhost:8001/api/v1/users/mrw/pin \
+              -H "Content-Type: application/json" \
+              -d '{"current_pin":"1234","new_pin":"2468"}'
+          # Bella 5678 -> 1357
+          curl -s --fail-with-body -c /tmp/bella.jar -X POST \
+              http://localhost:8001/api/v1/users/switch \
+              -H "Content-Type: application/json" \
+              -d '{"user_id":"bella","pin":"5678"}'
+          curl -s --fail-with-body -b /tmp/bella.jar -X POST \
+              http://localhost:8001/api/v1/users/bella/pin \
+              -H "Content-Type: application/json" \
+              -d '{"current_pin":"5678","new_pin":"1357"}'
+
+      # ─── Start frontend ─────────────────────────────────────────────────
+      - name: Start frontend (next dev)
+        working-directory: web
+        run: |
+          nohup npm run dev -- --port 3782 > ../logs/frontend.log 2>&1 &
+          echo $! > ../logs/frontend.pid
+
+      - name: Wait for frontend
+        run: |
+          for i in {1..90}; do
+            if curl -sf -o /dev/null http://localhost:3782/; then
+              echo "frontend up"; exit 0
+            fi
+            sleep 1
+          done
+          echo "frontend did not start"; tail -n 120 logs/frontend.log; exit 1
+
+      # ─── pytest (provider-dependent tests only) ────────────────────────
+      - name: Run pytest integration (provider-dependent tests)
+        shell: bash
+        run: |
+          set -eo pipefail
+          mkdir -p artifacts
+          # With WT_CI_SKIP_PROVIDER_TESTS=0, @requires_provider() tests run
+          python -m pytest tests/integration -v \
+            --junitxml=artifacts/pytest-junit.xml \
+            2>&1 | tee artifacts/pytest.log
+
+      # ─── Playwright (provider-dependent projects only) ─────────────────
+      - name: Run Playwright (provider-dependent projects)
+        working-directory: web
+        shell: bash
+        env:
+          EVIDENCE_DIR: ${{ github.workspace }}/artifacts/playwright-evidence
+        run: |
+          set -eo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          npx playwright test \
+            --project=identity-truth \
+            --project=popup-layout \
+            --project=preferences-divergence \
+            --project=per-user-catalog \
+            --reporter=list \
+            2>&1 | tee ../artifacts/playwright.log
+
+      # ─── Collect artifacts on success or failure ────────────────────────
+      - name: Collect logs
+        if: always()
+        run: |
+          mkdir -p artifacts
+          cp logs/*.log artifacts/ 2>/dev/null || true
+          cp -r web/playwright-report artifacts/playwright-report 2>/dev/null || true
+          cp -r web/test-results        artifacts/test-results 2>/dev/null || true
+
+      # ─── Redact secrets from artifacts before upload ────────────────────
+      - name: Redact secrets from collected logs
+        if: always()
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # Replace any leaked API keys with [REDACTED] in log files
+          # GitHub Actions already masks secrets in console output, but we
+          # double-check artifacts to be safe
+          if [ -d artifacts ]; then
+            find artifacts -type f -name "*.log" -o -name "*.txt" | while read -r logfile; do
+              if [ -n "$OPENAI_API_KEY" ]; then
+                sed -i "s|$OPENAI_API_KEY|[REDACTED-OPENAI-KEY]|g" "$logfile" 2>/dev/null || true
+              fi
+              if [ -n "$ANTHROPIC_API_KEY" ]; then
+                sed -i "s|$ANTHROPIC_API_KEY|[REDACTED-ANTHROPIC-KEY]|g" "$logfile" 2>/dev/null || true
+              fi
+            done
+          fi
+
+      - name: Upload provider-tests artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wisetutor-provider-tests-artifacts
+          path: artifacts/
+          retention-days: 14
+
+      # ─── Summary ────────────────────────────────────────────────────────
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "## Provider-Dependent Tests Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This workflow ran the provider-dependent test suite:" >> $GITHUB_STEP_SUMMARY
+          echo "- 8 pytest cases marked with @requires_provider()" >> $GITHUB_STEP_SUMMARY
+          echo "- 4 Playwright projects: identity-truth, popup-layout, preferences-divergence, per-user-catalog" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f artifacts/pytest.log ]; then
+            echo "### pytest Results" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -n 20 artifacts/pytest.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f artifacts/playwright.log ]; then
+            echo "### Playwright Results" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -n 30 artifacts/playwright.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
