@@ -47,46 +47,78 @@ Before you begin:
 
 ### Step 1: Run the Migration Endpoint
 
-The migration endpoint analyzes your current catalog and generates the necessary changes:
+The migration endpoint analyzes your current catalog and generates a secure temporary file:
 
 ```bash
-curl -X POST http://localhost:8001/api/v1/settings/catalog/migrate-keys
+curl -X POST http://localhost:8001/api/v1/settings/catalog/migrate-keys | jq .
 ```
 
 **Response example**:
 
 ```json
 {
-  "status": "success",
-  "updated_catalog": {
-    "profiles": {
-      "openai-gpt4": {
-        "api_key": "env:LLM_API_KEY_PROFILE_OPENAI_GPT4",
-        ...
-      },
-      "anthropic-claude": {
-        "api_key": "env:LLM_API_KEY_PROFILE_ANTHROPIC_CLAUDE",
-        ...
+  "migrated_catalog": {
+    "services": {
+      "llm": {
+        "profiles": [
+          {
+            "id": "openai-gpt4",
+            "api_key": "env:LLM_API_KEY_PROFILE_OPENAI_GPT4",
+            ...
+          }
+        ]
       }
-    },
-    ...
+    }
   },
-  "env_vars_required": {
-    "LLM_API_KEY_PROFILE_OPENAI_GPT4": "sk-abc123...",
-    "LLM_API_KEY_PROFILE_ANTHROPIC_CLAUDE": "sk-ant-xyz789...",
-    "EMBEDDING_API_KEY_PROFILE_OPENAI_EMBEDDINGS": "sk-abc123..."
-  },
-  "instructions": "Add the env_vars_required to your .env file, then restart the backend."
+  "env_file_path": "/tmp/wisetutor_xyz.env.migration",
+  "count": 1,
+  "message": "Migration file written to: /tmp/wisetutor_xyz.env.migration\nNEXT STEPS:\n1. Review the file contents: cat /tmp/wisetutor_xyz.env.migration\n2. Copy env vars to your .env file\n3. DELETE the temp file: rm /tmp/wisetutor_xyz.env.migration\n4. Save the migrated catalog to model_catalog.json\n5. Restart the backend to load new env vars",
+  "user_id": "default"
 }
 ```
 
+**SECURITY NOTE**: The API does NOT return plaintext keys in the response. Instead, keys are written to a secure temporary file with 0600 permissions (owner read/write only).
+
 ::: warning Important
-The migration endpoint does **not** automatically update your catalog. It only generates a preview. You must manually apply the changes for safety.
+The migration endpoint does **not** automatically update your catalog. It only generates a preview and writes keys to a secure temp file. You must manually apply the changes for safety.
 :::
 
-### Step 2: Update Your `.env` File
+### Step 2: Review the Migration File
 
-Add the environment variables from the response to your `.env` file:
+Review the generated env vars in the temp file:
+
+```bash
+# Replace with your actual temp file path from step 1
+cat /tmp/wisetutor_xyz.env.migration
+```
+
+You should see:
+
+```
+# WiseTutor API Key Migration
+# Generated: 2026-04-17T15:30:00
+# SECURITY: This file contains sensitive API keys.
+# ACTION REQUIRED:
+#   1. Review the keys below
+#   2. Copy them to your .env file
+#   3. DELETE THIS FILE immediately after
+
+LLM_API_KEY_PROFILE_OPENAI_GPT4=sk-abc123...
+LLM_API_KEY_PROFILE_ANTHROPIC_CLAUDE=sk-ant-xyz789...
+EMBEDDING_API_KEY_PROFILE_OPENAI_EMBEDDINGS=sk-abc123...
+```
+
+**Security Check**:
+
+```bash
+# Verify temp file has 0600 permissions (owner read/write only)
+ls -la /tmp/wisetutor_*.env.migration
+# Should show: -rw------- (600 permissions)
+```
+
+### Step 3: Update Your `.env` File
+
+Copy the environment variables from the temp file to your `.env` file:
 
 ```bash
 # Navigate to project root
@@ -96,13 +128,20 @@ cd /path/to/WiseTutor
 nano .env
 ```
 
-Add the variables from `env_vars_required`:
+Add the variables from the temp file:
 
 ```bash
 # API Key Storage (migrated from model_catalog.json)
 LLM_API_KEY_PROFILE_OPENAI_GPT4=sk-abc123...
 LLM_API_KEY_PROFILE_ANTHROPIC_CLAUDE=sk-ant-xyz789...
 EMBEDDING_API_KEY_PROFILE_OPENAI_EMBEDDINGS=sk-abc123...
+```
+
+**Or copy them automatically** (review first!):
+
+```bash
+# IMPORTANT: Review the temp file first!
+cat /tmp/wisetutor_xyz.env.migration >> .env
 ```
 
 **Security Check**:
@@ -116,9 +155,23 @@ ls -la .env
 chmod 600 .env
 ```
 
-### Step 3: Update `model_catalog.json`
+### Step 4: Delete the Temporary File
 
-Replace your current catalog with the `updated_catalog` from the migration response:
+**CRITICAL**: Delete the temp file immediately after copying:
+
+```bash
+rm /tmp/wisetutor_xyz.env.migration
+
+# Verify it's gone
+ls /tmp/wisetutor_*.env.migration
+# Should return: No such file or directory
+```
+
+Leaving the temp file on disk defeats the security improvement!
+
+### Step 5: Update `model_catalog.json`
+
+Replace your current catalog with the `migrated_catalog` from the migration response:
 
 ```bash
 # Backup first (if you haven't already)
@@ -128,7 +181,7 @@ cp data/user/settings/model_catalog.json data/user/settings/model_catalog.json.b
 nano data/user/settings/model_catalog.json
 ```
 
-Replace the entire contents with the `updated_catalog` JSON from the migration response.
+Replace the entire contents with the `migrated_catalog` JSON from the migration response.
 
 **Verify the changes**:
 
@@ -138,7 +191,7 @@ grep "api_key" data/user/settings/model_catalog.json
 # Should show: "api_key": "env:LLM_API_KEY_PROFILE_..."
 ```
 
-### Step 4: Restart Backend
+### Step 6: Restart Backend
 
 Restart the backend to pick up the new environment variables:
 

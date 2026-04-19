@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import datetime
 import json
+import os
 from pathlib import Path
+import tempfile
 from typing import Any
 from uuid import uuid4
 
@@ -477,21 +480,23 @@ class ModelCatalogService:
         models = profile.get("models", [])
         return models[0] if models else None
 
-    def migrate_keys_to_env(self) -> tuple[dict[str, Any], dict[str, str]]:
+    def migrate_keys_to_env(self) -> tuple[dict[str, Any], str, int]:
         """Migrate plaintext API keys from catalog to environment variable references.
 
         Scans all profiles for plaintext api_key values, generates unique environment
-        variable names, replaces keys with 'env:VAR_NAME' references, and returns
-        the updated catalog along with a dict of environment variables to set.
-
-        Does NOT automatically write to .env - operator must manually apply changes.
+        variable names, replaces keys with 'env:VAR_NAME' references, and writes
+        the keys to a secure temporary file.
 
         Returns:
-            tuple[dict, dict]: (updated_catalog, env_vars_to_set)
+            tuple[dict, str, int]: (updated_catalog, temp_file_path, migrated_count)
+                Temp file contains env vars in .env format with 0600 permissions.
+                Operator must read file, apply to .env, and delete temp file.
+                migrated_count is the number of plaintext keys converted.
+                When no keys need migrating, temp_file_path is "" and count is 0.
         """
         # Read raw catalog file to avoid processing that might modify keys
         if not self.path.exists():
-            return _default_catalog(), {}
+            return _default_catalog(), "", 0
 
         with open(self.path, "r", encoding="utf-8") as handle:
             catalog = json.load(handle) or {}
@@ -529,7 +534,36 @@ class ModelCatalogService:
                 # Replace with env reference
                 profile["api_key"] = f"env:{env_var_name}"
 
-        return catalog, env_vars
+        # Write env vars to secure temp file
+        if env_vars:
+            fd, temp_path = tempfile.mkstemp(suffix='.env.migration', prefix='wisetutor_', text=True)
+            try:
+                # Set file permissions to 0600 (owner read/write only)
+                os.chmod(temp_path, 0o600)
+
+                # Write env vars in .env format
+                with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                    f.write("# WiseTutor API Key Migration\n")
+                    f.write(f"# Generated: {datetime.now().isoformat()}\n")
+                    f.write("# SECURITY: This file contains sensitive API keys.\n")
+                    f.write("# ACTION REQUIRED:\n")
+                    f.write("#   1. Review the keys below\n")
+                    f.write("#   2. Copy them to your .env file\n")
+                    f.write("#   3. DELETE THIS FILE immediately after\n")
+                    f.write("\n")
+                    for key, value in env_vars.items():
+                        f.write(f"{key}={value}\n")
+            except Exception:
+                # If file write fails, clean up and return empty
+                try:
+                    os.unlink(temp_path)
+                except Exception:
+                    pass
+                return catalog, "", 0
+
+            return catalog, temp_path, len(env_vars)
+
+        return catalog, "", 0
 
 
 # Per-user catalog service cache. No process-global singleton on live paths.

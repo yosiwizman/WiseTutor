@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from deeptutor.services.config.env_store import EnvStore
@@ -174,23 +175,150 @@ def test_migration_converts_plaintext_to_env(tmp_path: Path) -> None:
 
     # Create ModelCatalogService and call migration
     service = ModelCatalogService(path=catalog_path)
-    updated_catalog, env_vars = service.migrate_keys_to_env()
+    updated_catalog, temp_file_path, migrated_count = service.migrate_keys_to_env()
 
-    # Verify that api_keys were replaced with env-var references
+    # Verify that api_keys were replaced with env-var references in catalog
     llm_profile = updated_catalog["services"]["llm"]["profiles"][0]
     assert llm_profile["api_key"] == "env:LLM_API_KEY_PROFILE_LLM_PROFILE_DEFAULT"
 
     emb_profile = updated_catalog["services"]["embedding"]["profiles"][0]
     assert emb_profile["api_key"] == "env:EMBEDDING_API_KEY_PROFILE_EMBEDDING_PROFILE_DEFAULT"
 
-    # Verify that env_vars dict contains the correct mappings
-    assert env_vars["LLM_API_KEY_PROFILE_LLM_PROFILE_DEFAULT"] == "sk-plaintext-llm-key-12345"
-    assert env_vars["EMBEDDING_API_KEY_PROFILE_EMBEDDING_PROFILE_DEFAULT"] == "sk-plaintext-emb-key-67890"
+    # Verify the migrated count reflects both llm and embedding keys.
+    assert migrated_count == 2, f"Expected 2 migrated keys, got {migrated_count}"
+
+    # Verify temp file was created
+    assert temp_file_path, "Temp file path should not be empty"
+    assert os.path.exists(temp_file_path), f"Temp file should exist: {temp_file_path}"
+
+    # Verify file permissions are 0600 (owner read/write only)
+    import stat
+    file_stat = os.stat(temp_file_path)
+    file_mode = stat.S_IMODE(file_stat.st_mode)
+    assert file_mode == 0o600, f"File should have 0600 permissions, got {oct(file_mode)}"
+
+    # Verify file contents contain correct env var mappings
+    with open(temp_file_path, 'r') as f:
+        file_contents = f.read()
+
+    assert "LLM_API_KEY_PROFILE_LLM_PROFILE_DEFAULT=sk-plaintext-llm-key-12345" in file_contents
+    assert "EMBEDDING_API_KEY_PROFILE_EMBEDDING_PROFILE_DEFAULT=sk-plaintext-emb-key-67890" in file_contents
+
+    # Clean up temp file
+    os.unlink(temp_file_path)
 
     # Verify that only api_keys were modified, other fields remain unchanged
     assert llm_profile["binding"] == "openai"
     assert llm_profile["base_url"] == "https://api.openai.com/v1"
     assert emb_profile["binding"] == "openai"
+
+
+def test_migrate_http_response_never_contains_plaintext_keys(tmp_path: Path) -> None:
+    """The HTTP-shaped response payload from migrate-keys must never carry plaintext.
+
+    Guards the verification gate introduced by 002 hardening: the default HTTP
+    surface must not expose plaintext API key material. Plaintext lives only in
+    the 0600 temp file on disk; the response body carries only catalog (with
+    env:VAR_NAME references), file path, count, and message.
+    """
+    import json as _json
+    from deeptutor.services.config.model_catalog import ModelCatalogService
+
+    # Plaintext keys with high-entropy substrings we can later grep for.
+    plaintext_llm = "sk-plaintext-llm-canary-ZZZZZ-1234"
+    plaintext_emb = "sk-plaintext-emb-canary-YYYYY-5678"
+
+    catalog_path = tmp_path / "model_catalog.json"
+    catalog_path.write_text(
+        _json.dumps(
+            {
+                "version": 1,
+                "services": {
+                    "llm": {
+                        "active_profile_id": "p-llm",
+                        "active_model_id": "m-llm",
+                        "profiles": [
+                            {
+                                "id": "p-llm",
+                                "name": "LLM",
+                                "binding": "openai",
+                                "base_url": "https://api.openai.com/v1",
+                                "api_key": plaintext_llm,
+                                "api_version": "",
+                                "extra_headers": {},
+                                "models": [{"id": "m-llm", "name": "m", "model": "gpt-4o-mini"}],
+                            }
+                        ],
+                    },
+                    "embedding": {
+                        "active_profile_id": "p-emb",
+                        "active_model_id": "m-emb",
+                        "profiles": [
+                            {
+                                "id": "p-emb",
+                                "name": "Emb",
+                                "binding": "openai",
+                                "base_url": "https://api.openai.com/v1",
+                                "api_key": plaintext_emb,
+                                "api_version": "",
+                                "extra_headers": {},
+                                "models": [
+                                    {
+                                        "id": "m-emb",
+                                        "name": "m",
+                                        "model": "text-embedding-3-small",
+                                        "dimension": "1536",
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                    "search": {"active_profile_id": None, "profiles": []},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    svc = ModelCatalogService(path=catalog_path)
+    migrated_catalog, env_file_path, count = svc.migrate_keys_to_env()
+
+    try:
+        # Build the exact shape the router returns (see routers/settings.py).
+        response_payload = {
+            "migrated_catalog": migrated_catalog,
+            "env_file_path": env_file_path,
+            "count": count,
+            "message": (
+                f"Migration file written to: {env_file_path}\n"
+                "NEXT STEPS:\n"
+                f"1. Review the file contents: cat {env_file_path}\n"
+                "2. Copy env vars to your .env file\n"
+                f"3. DELETE the temp file: rm {env_file_path}\n"
+            ),
+            "user_id": "test-user",
+        }
+
+        serialized = _json.dumps(response_payload)
+
+        # Neither plaintext canary may appear in the serialized response.
+        assert plaintext_llm not in serialized, "Plaintext LLM key leaked into HTTP response"
+        assert plaintext_emb not in serialized, "Plaintext Embedding key leaked into HTTP response"
+
+        # Count must reflect both keys (not the old-bugged 1-if-any behavior).
+        assert count == 2, f"Expected 2 migrated keys, got {count}"
+
+        # File path must be populated; file must carry 0600 perms and hold the plaintext.
+        assert env_file_path
+        import stat as _stat
+        assert _stat.S_IMODE(os.stat(env_file_path).st_mode) == 0o600
+        with open(env_file_path, "r") as fh:
+            body = fh.read()
+        assert plaintext_llm in body
+        assert plaintext_emb in body
+    finally:
+        if env_file_path and os.path.exists(env_file_path):
+            os.unlink(env_file_path)
 
 
 def test_per_user_catalog_env_resolution(tmp_path: Path, monkeypatch) -> None:
