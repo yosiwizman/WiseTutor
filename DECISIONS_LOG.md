@@ -5,6 +5,103 @@ lands here with a date, the decision, the reason, and the consequence.
 
 ---
 
+## 2026-04-19 — Local baseline refresh: Aperant recovery merges, 002/004 hotfixes, and PIN closeouts
+
+**Decision.** Land the closed portions of the Aperant recovery backlog
+onto `bootstrap/wisetutor-baseline` locally, plus close the two
+factory-default PIN exposures on the seeded family users.
+
+**What landed, in commit order:**
+
+1. **005 Session Secret Rotation** merged at `c813e67`. Multi-secret
+   support in `deeptutor/services/users/identity.py`, new
+   `scripts/rotate_session_secret.py`, unit + integration tests.
+   Pre-merge hot-fix `8c919b4` redacts the `--dry-run` output so no
+   portion of the HMAC secret is ever printed. Proof:
+   16/16 + 27/27 PASS on the 005 worktree; `--dry-run` regex-swept
+   for hex leakage → 0 matches.
+2. **003 Backend Network Bind Restriction** merged at `6712477` with
+   Docker-safe container defaults. Dockerfile `ENV BACKEND_HOST=0.0.0.0`
+   is deliberately preserved so Docker's bridge-DNAT route continues
+   to reach the container on the published port; bare-metal hardening
+   lives only where it's reachable
+   (`deeptutor/services/setup/init.py::get_backend_host() ↪ "127.0.0.1"`,
+   `scripts_local/wt_start.sh:22`,
+   `deeptutor/tutorbot/config/schema.py:105`). Harness residue
+   stripped from the merge unit.
+3. **002 API Key Security Hardening** merged at `2e9a605` with a
+   pre-merge HTTP-response hardening commit `09268fc`.
+   `POST /api/v1/settings/catalog/migrate-keys` no longer returns
+   plaintext key material in the response body; plaintext is written
+   only to a 0600-permission file via `tempfile.mkstemp`, and a
+   server-side audit log records every invocation
+   (`user`, `count`, `file` — never the key). 6/6 unit tests PASS on
+   the post-fix tip including a new gate test that serializes the
+   exact response shape and asserts no plaintext canary appears.
+4. **004 Configurable Pedagogy Mode** merged at `e840b22`, hotfixed
+   at `d028cd7`. `pedagogy_mode` (`guided`/`direct`/`adaptive`) is
+   now a per-user preference that flows through the AdminPanel
+   dropdown → `PUT /preferences` → role-default merge →
+   `_build_identity_preferences_line` → LLM system prompt. Post-merge
+   live exercise revealed a one-line bug — `PreferencesPatch` Pydantic
+   model lacked the `pedagogy_mode` field, so FastAPI silently
+   stripped it — fixed by adding `pedagogy_mode: Optional[str] = None`
+   to `deeptutor/api/routers/users.py:131-138`. Authenticated HTTP
+   round-trip now proven live on `d028cd7` against
+   `http://localhost:8001`: GET role default, PUT override, GET
+   persists, PUT invalid value → 400, cleanup PUT → default restored.
+
+**PIN closeouts (same day):**
+
+- Mr W rotated off factory default `1234`. Defense-in-depth sweep
+  over five weak candidates all → 403. `mrw.pin_is_default=False`.
+  Operator acted; agent never handled the new PIN.
+- Bella rotated off factory default `5678`. Defense-in-depth sweep
+  over six candidates all → 403. `bella.pin_is_default=False`.
+  Container audit log carries
+  `admin_action ok action=pin_reset actor=mrw target=bella`.
+
+**Why.** 005/003/002/004 were real, bounded, low-risk product work
+that had been audited by the Aperant recovery lane as MERGEABLE_NOW
+or SALVAGEABLE_WITH_BOUNDED_FIX. Landing them locally advances the
+product without push risk. The PIN rotations close factory-default
+credential exposure that was surfaced by the 004 live-proof, which
+had to authenticate as Mr W with PIN `1234` — the same weak default
+would have been a credential-theft vector on any LAN-adjacent
+access. Closing it was the minimum-honest response to that
+finding.
+
+**Consequence.**
+- Baseline tip advances `895e5f7 → d028cd7` locally.
+- `origin` has NOT been pushed; only the founder pushes.
+- Aperant tasks 001/008 remain out of scope (001: no mergeable unit;
+  008: blocked by 2026-04-15 librarian founder gates).
+  006/010/011/012/014/017/021/026/027 are untouched; each is its own
+  future bounded lane.
+- Explicitly still unproven at this tip (see CURRENT_STATE "Still
+  explicitly UNPROVEN / OPEN"): live Playwright
+  `pedagogy-divergence` (needs LLM budget); the four HTTP-shape
+  pedagogy integration tests against a dedicated test-mode backend;
+  `adaptive` mode runtime behavior beyond persistence; Docker UX of
+  the 002 migrate-keys temp file; `DECISIONS_LOG.md` newest-at-top
+  ordering (not strictly held after this entry, though this entry
+  itself sits at the top); the AdminPanel `Reset PIN` client-side
+  validator failure observed during the Bella rotation attempts.
+
+**Evidence chain** (all under `.cto/03_state/`):
+`WISE_TUTOR_APERANT_RECOVERY_AUDIT_v1.md`,
+`WISE_TUTOR_005_SESSION_SECRET_ROTATION_MERGE_READINESS_v1.md` +
+`…_MERGED_v1.md`,
+`WISE_TUTOR_003_BACKEND_BIND_MERGE_READINESS_v1.md` +
+`…_MERGED_v1.md`,
+`WISE_TUTOR_002_API_KEY_HARDENING_AUDIT_v1.md` +
+`…_FIX_v1.md` + `…_MERGED_v1.md`,
+`WISE_TUTOR_004_PEDAGOGY_MODE_AUDIT_v1.md` +
+`…_MERGED_v1.md` + `…_LIVE_PROOF_v1.md` + `…_HOTFIX_v1.md`,
+`WISE_TUTOR_OWNER_PIN_ROTATION_CLOSEOUT_v1.md`,
+`WISE_TUTOR_BELLA_PIN_ROTATION_CLOSEOUT_v1.md`,
+`WISE_TUTOR_DOC_STATE_REFRESH_v1.md` (this refresh).
+
 ## 2026-04-17 — API key security hardening: env-var indirection
 
 **Decision.** API keys are no longer stored as readable strings in

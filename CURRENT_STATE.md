@@ -2,6 +2,125 @@
 
 Snapshot of reality at baseline bootstrap. Updated after every meaningful change.
 
+## Local Baseline Refresh (2026-04-19) — CLOSED lanes + open limits
+
+**Baseline is local-only.** `bootstrap/wisetutor-baseline` is at local
+tip `d028cd7` and has NOT been pushed to `origin`. Only the founder
+pushes (per `CLAUDE.md — Git rules`). Everything below describes the
+local tree + live `deeptutor` container only.
+
+**Aperant recovery lanes merged locally.** The four
+`.cto/03_state/WISE_TUTOR_APERANT_RECOVERY_AUDIT_v1.md`-classified
+candidates that were MERGEABLE or SALVAGEABLE are now on
+`bootstrap/wisetutor-baseline`:
+
+- **005 Session Secret Rotation** — merged at `c813e67` (multi-secret
+  support in `deeptutor/services/users/identity.py` +
+  `scripts/rotate_session_secret.py` + unit+integration tests).
+  Pre-merge Tier 2: `pytest tests/unit/test_session_secret_rotation.py`
+  16/16 PASS; full unit tier 27/27 PASS; `--dry-run` output regex-
+  swept for hex-prefix leakage → 0. Evidence at
+  `.cto/03_state/WISE_TUTOR_005_SESSION_SECRET_ROTATION_MERGED_v1.md`.
+- **003 Backend Network Bind Restriction** — merged at `6712477` with
+  Docker-safe defaults (Dockerfile `ENV BACKEND_HOST=0.0.0.0`
+  preserved so bridge-DNAT routing keeps working; bare-metal
+  hardening retained in `deeptutor/services/setup/init.py:239`,
+  `scripts_local/wt_start.sh:22`,
+  `deeptutor/tutorbot/config/schema.py:105`). Evidence at
+  `.cto/03_state/WISE_TUTOR_003_BACKEND_BIND_MERGED_v1.md`.
+- **002 API Key Security Hardening** — merged at `2e9a605` with a
+  pre-merge HTTP-response hardening fix (`09268fc`): the
+  `POST /api/v1/settings/catalog/migrate-keys` endpoint no longer
+  returns plaintext keys in its JSON response. Plaintext is now
+  written only to a 0600-permission temp file via
+  `tempfile.mkstemp`; the response carries
+  `{migrated_catalog, env_file_path, count, message}` with no key
+  material. Server-side
+  `logger.info("migrate-keys endpoint invoked: user=%s count=%d file=%s", …)`
+  audit line added. 6/6 unit tests PASS on the post-fix tip, including
+  a new `test_migrate_http_response_never_contains_plaintext_keys`
+  gate test that `json.dumps` the exact router response shape and
+  asserts no plaintext canary appears. **The earlier "API Key Security
+  Hardening (2026-04-17)" section below describes the pre-hotfix
+  return shape (`env_vars_dict`) and is superseded by this entry** —
+  kept below as historical record. Evidence at
+  `.cto/03_state/WISE_TUTOR_002_API_KEY_HARDENING_MERGED_v1.md`.
+- **004 Configurable Pedagogy Mode** — merged at `e840b22`
+  (`pedagogy_mode` per-user preference: `guided` / `direct` /
+  `adaptive`; threaded from AdminPanel dropdown → `PUT /preferences`
+  → role-default merge → `_build_identity_preferences_line` → LLM
+  system prompt). Post-merge live exercise on the rebuilt container
+  surfaced a one-line bug (`PreferencesPatch` Pydantic model was
+  missing `pedagogy_mode`, so FastAPI silently stripped the field).
+  Hotfix landed at `d028cd7`: `pedagogy_mode: Optional[str] = None`
+  added to `PreferencesPatch` at
+  `deeptutor/api/routers/users.py:131-138`. Full authenticated HTTP
+  round-trip proved live on `d028cd7` against
+  `http://localhost:8001`: GET shows owner default `direct`, PUT
+  `guided` accepted + persisted, PUT invalid value → HTTP 400,
+  cleanup PUT → restored default. Evidence chain:
+  `.cto/03_state/WISE_TUTOR_004_PEDAGOGY_MODE_MERGED_v1.md`,
+  `.cto/03_state/WISE_TUTOR_004_PEDAGOGY_MODE_LIVE_PROOF_v1.md`,
+  `.cto/03_state/WISE_TUTOR_004_PEDAGOGY_MODE_HOTFIX_v1.md`.
+- **001 Read-Only Smoke Test** — NOT merged. No mergeable unit:
+  diff was entirely inside the now-gitignored `.auto-claude/` path.
+- **008 Free-First Content Search & Acquisition** — NOT merged.
+  Blocked by the SSOT + founder-approval gates recorded in
+  `DECISIONS_LOG 2026-04-15` (librarian/avatar planning pass).
+
+**Factory-default PIN exposure closed on both seeded users.**
+
+- **Mr W (owner)** — rotated off factory default `1234`.
+  `POST /api/v1/users/switch {mrw,1234}` now returns 403;
+  defense-in-depth sweep across `1234/0000/1111/2468/4321` all → 403;
+  `mrw.pin_is_default=False`. Operator performed the rotation via
+  the `UserGate` forced change-PIN flow; agent never learned or
+  logged the new PIN. Evidence at
+  `.cto/03_state/WISE_TUTOR_OWNER_PIN_ROTATION_CLOSEOUT_v1.md`.
+- **Bella (child)** — rotated off factory default `5678`.
+  `POST /api/v1/users/switch {bella,5678}` now returns 403;
+  defense-in-depth sweep across `5678/1234/0000/1111/4321/1357`
+  all → 403; `bella.pin_is_default=False`. Operator used the
+  owner-override curl path (`read -s` for both PINs, `history -c`
+  after); audit log carries
+  `admin_action ok action=pin_reset actor=mrw target=bella`.
+  Evidence at
+  `.cto/03_state/WISE_TUTOR_BELLA_PIN_ROTATION_CLOSEOUT_v1.md`.
+
+**Still explicitly UNPROVEN / OPEN at this baseline tip:**
+
+- Live Playwright `pedagogy-divergence` project (two-context reply-
+  divergence with real LLM calls). Not run — needs a live LLM budget.
+- The four HTTP-shape integration tests in
+  `tests/integration/test_pedagogy_mode.py` against a test-mode
+  backend with
+  `WISETUTOR_TEST_MODE=1 WT_MRW_PIN=2468 WT_BELLA_PIN=1357`. Not run
+  — the agent-exercised in-process + curl-based round-trip on the
+  hotfix tip is the current proof.
+- `adaptive` pedagogy mode runtime behavior beyond persistence. The
+  prompt-builder deliberately emits no hint for `adaptive`; a future
+  lane is needed to decide whether `adaptive` should do something or
+  be removed from the allowed set.
+- Docker-operator UX of the 002 migrate-keys temp file. On Docker the
+  `tempfile.mkstemp` target lands in the container's `/tmp`,
+  requiring `docker cp` / `docker exec` for the operator to retrieve.
+  Not a security regression (still 0600) but an awkwardness a future
+  lane could address by writing under `data/user/settings/`.
+- `DECISIONS_LOG.md` "newest at top" ordering is not strictly held —
+  the 004 branch prepended a `2026-04-17` entry while the operator's
+  `2026-04-18` rotation closeout landed at the bottom. Cosmetic; a
+  future one-line reorder would fix it.
+- AdminPanel `Reset PIN` path client-side validator failure observed
+  during Bella rotation — the first two `rotated` replies produced
+  zero `POST /users/bella/pin` requests in the container log before
+  the curl path succeeded. Root cause not diagnosed; most likely
+  `AdminPanel.tsx:108` aborting silently on an incomplete owner-PIN
+  field. Not reproduced in a DevTools session.
+- Aperant tasks 006/010/011/012/014/017/021/026/027 are untouched and
+  remain as-received. 027 is refactor-only; 006 is a cosmetic rename.
+  Each is its own future bounded lane if opened.
+- `origin` has not been pushed since any of the above lanes landed.
+
 ## API Key Security Hardening (2026-04-17) — CLOSED (Tier 2 local + hosted CI)
 
 **Landed.** API keys are no longer stored as readable strings in
