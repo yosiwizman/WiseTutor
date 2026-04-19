@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import datetime
 import json
+import os
 from pathlib import Path
+import tempfile
 from typing import Any
 from uuid import uuid4
 
+from deeptutor.logging import get_logger
 from deeptutor.services.path_service import get_path_service
 
 from .env_store import get_env_store
+
+logger = get_logger("ModelCatalogService")
 
 CATALOG_PATH = get_path_service().get_settings_file("model_catalog")
 
@@ -405,6 +411,19 @@ class ModelCatalogService:
                 profile.setdefault("api_version", "")
                 profile.setdefault("base_url", "")
                 profile.setdefault("api_key", "")
+
+                # Warn about plaintext API keys
+                api_key = profile.get("api_key", "")
+                if api_key and not api_key.startswith("env:"):
+                    profile_name = profile.get("name", "Untitled Profile")
+                    profile_id = profile.get("id", "unknown")
+                    logger.warning(
+                        "Plaintext API key detected in %s service profile '%s' (id: %s). "
+                        "Plaintext keys in model_catalog.json are deprecated and will be removed in a future version. "
+                        "Use 'env:VAR_NAME' references or run the migration tool to move keys to .env"
+                        % (service_name, profile_name, profile_id)
+                    )
+
                 if service_name == "search":
                     profile.setdefault("provider", "brave")
                     profile.setdefault("proxy", "")
@@ -460,6 +479,91 @@ class ModelCatalogService:
                 return model
         models = profile.get("models", [])
         return models[0] if models else None
+
+    def migrate_keys_to_env(self) -> tuple[dict[str, Any], str, int]:
+        """Migrate plaintext API keys from catalog to environment variable references.
+
+        Scans all profiles for plaintext api_key values, generates unique environment
+        variable names, replaces keys with 'env:VAR_NAME' references, and writes
+        the keys to a secure temporary file.
+
+        Returns:
+            tuple[dict, str, int]: (updated_catalog, temp_file_path, migrated_count)
+                Temp file contains env vars in .env format with 0600 permissions.
+                Operator must read file, apply to .env, and delete temp file.
+                migrated_count is the number of plaintext keys converted.
+                When no keys need migrating, temp_file_path is "" and count is 0.
+        """
+        # Read raw catalog file to avoid processing that might modify keys
+        if not self.path.exists():
+            return _default_catalog(), "", 0
+
+        with open(self.path, "r", encoding="utf-8") as handle:
+            catalog = json.load(handle) or {}
+
+        # Ensure we have the services structure
+        services = catalog.setdefault("services", {})
+        env_vars: dict[str, str] = {}
+
+        for service_name in ("llm", "embedding", "search"):
+            service = services.get(service_name, {})
+            if not service:
+                continue
+
+            profiles = service.get("profiles", [])
+
+            for profile in profiles:
+                api_key = profile.get("api_key", "")
+
+                # Skip empty keys or keys that are already env references
+                if not api_key or api_key.startswith("env:"):
+                    continue
+
+                # Generate unique env var name based on service and profile ID
+                profile_id = profile.get("id", "")
+                if not profile_id:
+                    continue
+
+                # Normalize profile ID for env var name (uppercase, replace hyphens)
+                normalized_id = profile_id.upper().replace("-", "_")
+                env_var_name = f"{service_name.upper()}_API_KEY_PROFILE_{normalized_id}"
+
+                # Store the plaintext key in env vars dict
+                env_vars[env_var_name] = api_key
+
+                # Replace with env reference
+                profile["api_key"] = f"env:{env_var_name}"
+
+        # Write env vars to secure temp file
+        if env_vars:
+            fd, temp_path = tempfile.mkstemp(suffix='.env.migration', prefix='wisetutor_', text=True)
+            try:
+                # Set file permissions to 0600 (owner read/write only)
+                os.chmod(temp_path, 0o600)
+
+                # Write env vars in .env format
+                with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                    f.write("# WiseTutor API Key Migration\n")
+                    f.write(f"# Generated: {datetime.now().isoformat()}\n")
+                    f.write("# SECURITY: This file contains sensitive API keys.\n")
+                    f.write("# ACTION REQUIRED:\n")
+                    f.write("#   1. Review the keys below\n")
+                    f.write("#   2. Copy them to your .env file\n")
+                    f.write("#   3. DELETE THIS FILE immediately after\n")
+                    f.write("\n")
+                    for key, value in env_vars.items():
+                        f.write(f"{key}={value}\n")
+            except Exception:
+                # If file write fails, clean up and return empty
+                try:
+                    os.unlink(temp_path)
+                except Exception:
+                    pass
+                return catalog, "", 0
+
+            return catalog, temp_path, len(env_vars)
+
+        return catalog, "", 0
 
 
 # Per-user catalog service cache. No process-global singleton on live paths.

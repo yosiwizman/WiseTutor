@@ -2,6 +2,67 @@
 
 Snapshot of reality at baseline bootstrap. Updated after every meaningful change.
 
+## API Key Security Hardening (2026-04-17) — CLOSED (Tier 2 local + hosted CI)
+
+**Landed.** API keys are no longer stored as readable strings in
+`model_catalog.json`. The runtime now supports environment variable
+indirection via `env:VAR_NAME` syntax in any `api_key` field.
+Plaintext keys remain functional for backward compatibility but are
+deprecated with a logged warning on catalog load.
+
+**How.** Three-layer implementation:
+1. **Resolution layer:** `_resolve_api_key()` helper added to
+   `deeptutor/services/config/provider_runtime.py`. When an `api_key`
+   field contains `env:VAR_NAME`, the value is resolved from
+   `os.environ['VAR_NAME']` at config-load time. Plaintext keys (no
+   `env:` prefix) pass through unchanged. Applied to all three config
+   resolvers: `resolve_llm_runtime_config()`,
+   `resolve_embedding_runtime_config()`,
+   `resolve_search_runtime_config()`.
+2. **Migration tooling:** `ModelCatalogService.migrate_keys_to_env()`
+   method scans a catalog for plaintext keys and converts them to
+   `env:VAR_NAME` references with deterministic naming
+   (`LLM_API_KEY_PROFILE_<id>`, `EMBEDDING_API_KEY_PROFILE_<id>`,
+   etc.). Returns tuple of (updated_catalog, env_vars_dict). Exposed
+   via `POST /api/v1/settings/catalog/migrate-keys` endpoint. Returns
+   catalog preview + env vars to set. Operator must manually apply —
+   no auto-write for safety.
+3. **Deprecation warning:** `ModelCatalogService._normalize()` detects
+   plaintext keys on catalog load and logs: "Plaintext API keys are
+   deprecated. Use env:VAR_NAME syntax or run migration tool."
+
+**Acceptance bar — all five test clauses proven**
+(`tests/services/config/test_api_key_resolution.py`, 5/5 green, ~0.8 s):
+- `env:VAR_NAME` references resolve correctly from environment at
+  runtime (tested with `TEST_API_KEY` → `'secret123'`)
+- plaintext keys still work unchanged (backward compatibility: no
+  `env:` prefix → pass through as-is)
+- migration converts plaintext to env references and returns correct
+  env var mappings (tested with 3-service catalog)
+- logs never expose full API keys (`_redact()` verified: long keys →
+  `first4...last4`, short ≤8 → `****`, empty → `(empty)`)
+- per-user catalog env resolution is isolated (Mr W's `env:MRW_API_KEY`
+  and Bella's `env:BELLA_API_KEY` resolve independently without
+  cross-contamination)
+
+**Regression.** Existing model catalog tests remain green:
+`pytest tests/services/test_model_catalog.py -v` (2/2 passed). No
+breakage to existing catalog load, hydration, or profile seeding
+behavior. Search tests confirm API key resolution works for all
+provider types: `pytest tests/services/search/ -v` (4/4 passed).
+
+**Security posture change.** After migration, `model_catalog.json`
+contains only `env:VAR_NAME` references, not readable key material.
+Keys live in `.env` or deployment environment, can be rotated without
+editing JSON, and are scoped per environment. Closes technical debt
+item: "API key storage is plaintext in model_catalog.json." See
+DECISIONS_LOG 2026-04-17 for full rationale.
+
+**Out of scope (unchanged).** OS keyring integration (deferred),
+automatic migration on server startup (too aggressive), UI for
+migration endpoint (API-only), secret rotation automation, enforcement
+of env-var-only mode (plaintext still valid for backward compat).
+
 ## Qdrant Adoption v1 (2026-04-14) — CLOSED (Tier 2 local + hosted CI, incl. product-layer proof)
 
 **Product-layer proof added** (`tests/api/test_qdrant_adoption_v1_product_layer.py`,

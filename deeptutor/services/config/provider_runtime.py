@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import json
+import os
 from typing import Any
 from urllib.parse import urlparse
 
@@ -172,6 +173,14 @@ class ResolvedSearchConfig:
 
 def _as_str(value: Any) -> str:
     return str(value).strip() if value is not None else ""
+
+
+def _resolve_api_key(value: str) -> str:
+    """Resolve API key - if value starts with 'env:', look up the environment variable."""
+    if value.startswith("env:"):
+        var_name = value[4:]
+        return os.environ.get(var_name, "")
+    return value
 
 
 def _to_headers(value: Any) -> dict[str, str]:
@@ -345,7 +354,7 @@ def resolve_llm_runtime_config(
         provider_mode=spec.mode,
         binding_hint=binding_hint,
         binding=spec.name,
-        api_key=api_key,
+        api_key=_resolve_api_key(api_key),
         base_url=api_base or None,
         effective_url=api_base or None,
         api_version=api_version or None,
@@ -502,7 +511,7 @@ def resolve_embedding_runtime_config(
         provider_mode=str(spec.get("mode") or "standard"),
         binding_hint=binding_hint,
         binding=provider_name,
-        api_key=api_key,
+        api_key=_resolve_api_key(api_key),
         base_url=api_base or None,
         effective_url=api_base or None,
         api_version=api_version or None,
@@ -600,7 +609,7 @@ def resolve_search_runtime_config(
         return ResolvedSearchConfig(
             provider=provider,
             requested_provider=requested_provider,
-            api_key=api_key,
+            api_key=_resolve_api_key(api_key),
             base_url=base_url,
             max_results=max_results,
             proxy=proxy,
@@ -619,7 +628,7 @@ def resolve_search_runtime_config(
     return ResolvedSearchConfig(
         provider=provider,
         requested_provider=requested_provider,
-        api_key=api_key,
+        api_key=_resolve_api_key(api_key),
         base_url=base_url,
         max_results=max_results,
         proxy=proxy,

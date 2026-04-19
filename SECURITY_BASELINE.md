@@ -37,12 +37,21 @@ Local-only product today. This file captures the baseline rules.
 
 - No secret ever gets committed. The following are gitignored:
   - `.env`, `.env.*`
-  - `data/user/` (session DB, catalog with api_key plaintext)
+  - `data/user/` (session DB, catalog with api_key references)
   - `data/memory/_quarantined/` (may contain historical PII from chats)
   - any `*.key`, `*credentials*.json`
-- Catalog storage for API keys is **plaintext in
-  `data/user/settings/model_catalog.json`** on this baseline. Keep that file
-  at `chmod 600`. Move to env-indirection / OS keyring in a later phase.
+- **API key storage**: Catalog fields (`data/user/settings/model_catalog.json`)
+  use **environment variable indirection** via `env:VAR_NAME` syntax. The
+  catalog stores `"api_key": "env:OPENAI_API_KEY"`, and the runtime resolves
+  from `os.environ` on each request. Keep the catalog at `chmod 600`.
+  - **Backward compatibility**: Plaintext API keys (e.g., `"api_key":
+    "sk-abc123..."`) are **deprecated** but still supported for existing
+    deployments. A deprecation warning is logged on catalog load.
+  - **Migration path**: Run `POST /api/v1/settings/catalog/migrate-keys` to
+    convert plaintext keys to env-var references. The endpoint returns the
+    updated catalog preview and a mapping of env var names to set in `.env`.
+    Manually apply changes for safety. See `docs/api-key-migration-guide.md`
+    for step-by-step instructions.
 - The `.env` is `chmod 600` and lives in the repo root. Do not share.
 - An earlier session exposed an OpenAI key on screen; that key must be
   rotated at platform.openai.com before it is reused in shared contexts.
