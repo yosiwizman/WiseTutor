@@ -42,12 +42,19 @@ def test_valid_pedagogy_mode_values_accepted():
     mrw = _client()
     _switch(mrw, "mrw", MRW_PIN)
 
-    # Test each valid value
-    for mode in ["guided", "direct", "adaptive"]:
-        code, body = _req(mrw, "PUT", "/api/v1/users/mrw/preferences",
-                         {"pedagogy_mode": mode})
-        assert code == 200, f"Failed to set pedagogy_mode to {mode}: {body}"
-        assert body["preferences"]["pedagogy_mode"] == mode
+    try:
+        # Test each valid value
+        for mode in ["guided", "direct", "adaptive"]:
+            code, body = _req(mrw, "PUT", "/api/v1/users/mrw/preferences",
+                             {"pedagogy_mode": mode})
+            assert code == 200, f"Failed to set pedagogy_mode to {mode}: {body}"
+            assert body["preferences"]["pedagogy_mode"] == mode
+    finally:
+        # Restore owner role default so later tests (defaults_differ_by_role) see
+        # the role-default 'direct', not the 'adaptive' value this loop ended on.
+        # Mirrors the try/finally pattern in test_pedagogy_mode_persists_and_can_be_read.
+        _req(mrw, "PUT", "/api/v1/users/mrw/preferences",
+             {"pedagogy_mode": "direct"})
 
 
 def test_invalid_pedagogy_mode_rejected():
