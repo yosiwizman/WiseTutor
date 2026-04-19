@@ -23,6 +23,14 @@
     --border: #E8E4DE;
     --input: #E8E4DE;
     --ring: #C35A2C;
+    /* Default font sizes (medium) */
+    --font-size-prose: 15px;
+    --font-size-xs: 12px;
+    --font-size-sm: 14px;
+    --font-size-base: 16px;
+    --font-size-lg: 18px;
+    --font-size-xl: 20px;
+    --font-size-2xl: 24px;
   }
 
   .dark,
@@ -62,14 +70,36 @@
     --secondary: #FFE1D3;
     --secondary-foreground: #2A1F1A;
     --muted: #FFEADC;
-    --muted-foreground: #7A6A5E;
+    --muted-foreground: #77675C; /* darkened for WCAG AA: 4.65:1 on muted bg */
     --accent: #FFD6C0;
     --accent-foreground: #2A1F1A;
-    --destructive: #D44A3C;
+    --destructive: #CF483A;      /* darkened for WCAG AA: 4.52:1 with white text */
     --destructive-foreground: #FFFFFF;
     --border: #F5D9C8;
     --input: #F5D9C8;
     --ring: #7B4FBF;
+  }
+
+  /* WiseTutor Phase 4 slice 2: font-size scaling for accessibility.
+     Allows users to adjust text size via data-font-size attribute. */
+  [data-font-size="small"] {
+    --font-size-prose: 13.5px;
+    --font-size-xs: 10.8px;
+    --font-size-sm: 12.6px;
+    --font-size-base: 13.5px;
+    --font-size-lg: 16.2px;
+    --font-size-xl: 18px;
+    --font-size-2xl: 21.6px;
+  }
+
+  [data-font-size="large"] {
+    --font-size-prose: 17px;
+    --font-size-xs: 12.75px;
+    --font-size-sm: 14.875px;
+    --font-size-base: 17px;
+    --font-size-lg: 19.125px;
+    --font-size-xl: 21.25px;
+    --font-size-2xl: 25.5px;
   }
 
   * {
@@ -149,7 +179,8 @@
 
 /* ─── Prose: base ─── */
 .prose {
-  @apply font-serif text-[15px];
+  @apply font-serif;
+  font-size: var(--font-size-prose);
 }
 
 .prose pre {
@@ -484,4 +515,31 @@
 
 .session-pulse {
   animation: session-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ─── Reduced Motion ─── */
+/* Respects user preference for reduced motion (WCAG 2.1 Success Criterion 2.3.3) */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .animate-fade-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .session-pulse {
+    animation: none;
+    opacity: 1;
+  }
 }
